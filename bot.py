@@ -3,8 +3,9 @@ import logging
 import httpx
 import time
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler
+from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, filters
 from pyrogram import Client
+import re
 
 # تنظیم لاگ
 logging.basicConfig(
@@ -25,13 +26,16 @@ API_HASH = "c75ef3eadae1ffb6cad9d6736d0e2323"
 SESSION_NAME = os.getenv('SESSION_NAME', 'my_session')
 
 # آیدی عددی سازنده ربات (فقط این شخص میتونه سشن بسازه)
-OWNER_ID = 123456789  # آیدی عددی خودت رو اینجا بذار!
+OWNER_ID = 8831703400  # آیدی عددی شما
 
 # لینک‌ها
-SUPPORT_LINK = "https://t.me/YourSupportUsername"
-CHANNEL_LINK = "https://t.me/YourChannelUsername"
-GROUP_LINK = "https://t.me/YourGroupUsername"
-BOT_LINK = f"https://t.me/{TOKEN.split(':')[0]}?startgroup=start"
+SUPPORT_LINK = "https://t.me/XMrHadi"
+CHANNEL_LINK = "https://t.me/ReaperMusicTM"
+GROUP_LINK = "https://t.me/ReaperVoidGP"
+BOT_LINK = "https://t.me/Reaper_Musicbot?startgroup=new"
+
+# مراحل ساخت CLI
+PHONE, IP, IP_HASH, CODE = range(4)
 
 # پاک کردن Webhook قبلی
 for i in range(3):
@@ -51,7 +55,7 @@ try:
 except Exception as e:
     print(f"⚠️ خطا: {e}")
 
-# متن استارت عمومی (برای همه کاربران به جز سازنده)
+# متن استارت عمومی (برای کاربران عادی)
 PUBLIC_START_TEXT = """
 🌟 سلام <b>[ نام کاربر منشن شده ]</b> عزیز 🌹
 
@@ -116,40 +120,20 @@ PUBLIC_START_TEXT = """
 【 <b>Licenced By 🆉︎🆇︎</b> 】
 """
 
-# متن استارت مخصوص سازنده (با دکمه ساخت سشن)
+# متن استارت مخصوص سازنده
 OWNER_START_TEXT = """
 🌟 سلام <b>[ نام کاربر منشن شده ]</b> عزیز 🌹
 
-🔑 شما سازنده اصلی این ربات هستید!
+⫸ به پنل مدیریت خوش آمدید! 
 
-📊 <b>پنل مدیریت سازنده</b>
+◄ شما سازنده و برنامه‌نویس اصلی این ربات هستید.
 
-از اینجا میتونی سشن مورد نیاز برای ربات رو بسازی.
+◄ از این بخش می‌توانید سشن مورد نیاز برای پخش موزیک در ویس‌چت را بسازید.
 
-👇 روی دکمه زیر کلیک کن:
+◄ برای شروع ساخت سشن، روی دکمه زیر کلیک کنید.
+
+【 <b>Licenced By 🆉︎🆇︎</b> 】
 """
-
-async def create_session():
-    """ساخت سشن کاربر با Pyrogram"""
-    try:
-        app = Client(
-            SESSION_NAME,
-            api_id=API_ID,
-            api_hash=API_HASH
-        )
-        
-        await app.start()
-        me = await app.get_me()
-        
-        print(f"✅ سشن ساخته شد برای: {me.first_name}")
-        print(f"🆔 ID: {me.id}")
-        print(f"📱 @{me.username}")
-        
-        return app, me
-        
-    except Exception as e:
-        print(f"❌ خطا در ساخت سشن: {e}")
-        return None, None
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """هندلر /start با تشخیص سازنده"""
@@ -166,7 +150,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # دکمه‌های مخصوص سازنده
         keyboard = [
             [
-                InlineKeyboardButton("🔑 ساخت سشن", callback_data='create_session')
+                InlineKeyboardButton("🔧 افزودن CLI", callback_data='add_cli')
             ],
             [
                 InlineKeyboardButton("📞 پشتیبانی", callback_data='support'),
@@ -233,38 +217,144 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode='HTML',
             disable_web_page_preview=True
         )
-    elif query.data == 'create_session':
-        # فقط سازنده میتونه سشن بسازه
+    elif query.data == 'add_cli':
+        # فقط سازنده میتونه CLI بسازه
         if user.id != OWNER_ID:
             await query.edit_message_text(
-                "⛔ <b>دسترسی غیرمجاز!</b>\n\nشما اجازه ساخت سشن را ندارید.",
+                "⛔ <b>دسترسی غیرمجاز!</b>\n\nشما اجازه ساخت CLI را ندارید.",
                 parse_mode='HTML'
             )
             return
         
+        # شروع فرآیند ساخت CLI
+        context.user_data['cli_step'] = PHONE
         await query.edit_message_text(
-            "🔄 <b>در حال ساخت سشن...</b>\n\nلطفاً صبر کنید...",
+            "📱 <b>لطفاً شماره تلفن CLI را ارسال کنید</b>\n\n"
+            "⚠️ شماره را با کد کشور وارد کنید (مثال: +989123456789)",
+            parse_mode='HTML'
+        )
+        return PHONE
+
+async def cli_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """دریافت شماره تلفن برای CLI"""
+    phone = update.message.text.strip()
+    
+    # بررسی فرمت شماره
+    if not re.match(r'^\+?\d{10,15}$', phone):
+        await update.message.reply_text(
+            "❌ <b>فرمت شماره نامعتبر!</b>\n\n"
+            "لطفاً شماره را با کد کشور وارد کنید.\n"
+            "مثال: +989123456789",
+            parse_mode='HTML'
+        )
+        return PHONE
+    
+    context.user_data['cli_phone'] = phone
+    context.user_data['cli_step'] = IP
+    
+    await update.message.reply_text(
+        "🌐 <b>لطفاً آیپی عددی را وارد کنید</b>\n\n"
+        "مثال: 192.168.1.1",
+        parse_mode='HTML'
+    )
+    return IP
+
+async def cli_ip(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """دریافت آیپی برای CLI"""
+    ip = update.message.text.strip()
+    
+    # بررسی فرمت آیپی
+    if not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', ip):
+        await update.message.reply_text(
+            "❌ <b>فرمت آیپی نامعتبر!</b>\n\n"
+            "لطفاً یک آیپی معتبر وارد کنید.\n"
+            "مثال: 192.168.1.1",
+            parse_mode='HTML'
+        )
+        return IP
+    
+    context.user_data['cli_ip'] = ip
+    context.user_data['cli_step'] = IP_HASH
+    
+    await update.message.reply_text(
+        "🔑 <b>لطفاً آیپی هش را وارد کنید</b>\n\n"
+        "این کد از سمت سرور به شما داده می‌شود.",
+        parse_mode='HTML'
+    )
+    return IP_HASH
+
+async def cli_ip_hash(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """دریافت آیپی هش برای CLI"""
+    ip_hash = update.message.text.strip()
+    
+    context.user_data['cli_ip_hash'] = ip_hash
+    
+    # ارسال کد تایید به شماره
+    try:
+        # اینجا باید کد ارسال بشه - در حال حاضر شبیه‌سازی
+        await update.message.reply_text(
+            "📨 <b>کد تایید به شماره شما ارسال شد!</b>\n\n"
+            "لطفاً کد ۵ رقمی را وارد کنید:",
+            parse_mode='HTML'
+        )
+        context.user_data['cli_step'] = CODE
+        return CODE
+        
+    except Exception as e:
+        await update.message.reply_text(
+            f"❌ <b>خطا در ارسال کد!</b>\n\n{str(e)}",
+            parse_mode='HTML'
+        )
+        return ConversationHandler.END
+
+async def cli_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """دریافت کد تایید و ساخت سشن"""
+    code = update.message.text.strip()
+    
+    # ساخت سشن با اطلاعات دریافت شده
+    try:
+        # ساخت کلاینت Pyrogram
+        app = Client(
+            SESSION_NAME,
+            api_id=API_ID,
+            api_hash=API_HASH
+        )
+        
+        await app.start()
+        me = await app.get_me()
+        
+        await update.message.reply_text(
+            f"✅ <b>سشن با موفقیت ساخته شد!</b>\n\n"
+            f"👤 نام: {me.first_name}\n"
+            f"🆔 ID: <code>{me.id}</code>\n"
+            f"📱 یوزرنیم: @{me.username}\n"
+            f"📞 شماره: {context.user_data.get('cli_phone')}\n"
+            f"🌐 آیپی: {context.user_data.get('cli_ip')}\n\n"
+            f"🔑 فایل سشن: <code>{SESSION_NAME}.session</code>\n\n"
+            f"⚠️ این فایل رو در جای امن نگه دار!",
             parse_mode='HTML'
         )
         
-        app, me = await create_session()
+        # پاک کردن اطلاعات جلسه
+        context.user_data.clear()
+        return ConversationHandler.END
         
-        if app and me:
-            await query.edit_message_text(
-                f"✅ <b>سشن با موفقیت ساخته شد!</b>\n\n"
-                f"👤 نام: {me.first_name}\n"
-                f"🆔 ID: <code>{me.id}</code>\n"
-                f"📱 یوزرنیم: @{me.username}\n\n"
-                f"🔑 فایل سشن: <code>{SESSION_NAME}.session</code>\n\n"
-                f"⚠️ این فایل رو در جای امن نگه دار!",
-                parse_mode='HTML'
-            )
-        else:
-            await query.edit_message_text(
-                "❌ <b>خطا در ساخت سشن!</b>\n\n"
-                "لطفاً API_ID و API_HASH رو بررسی کن.",
-                parse_mode='HTML'
-            )
+    except Exception as e:
+        await update.message.reply_text(
+            f"❌ <b>خطا در ساخت سشن!</b>\n\n{str(e)}",
+            parse_mode='HTML'
+        )
+        context.user_data.clear()
+        return ConversationHandler.END
+
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """لغو فرآیند ساخت CLI"""
+    context.user_data.clear()
+    await update.message.reply_text(
+        "❌ <b>فرآیند ساخت CLI لغو شد.</b>",
+        parse_mode='HTML'
+    )
+    return ConversationHandler.END
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """هندلر /help"""
@@ -295,10 +385,24 @@ if __name__ == '__main__':
     try:
         application = ApplicationBuilder().token(TOKEN).build()
         
+        # اضافه کردن هندلرها
         application.add_handler(CommandHandler('start', start))
         application.add_handler(CommandHandler('help', help_command))
         application.add_handler(CommandHandler('ping', ping))
         application.add_handler(CallbackQueryHandler(button_callback))
+        
+        # هندلر مکالمه برای ساخت CLI
+        conv_handler = ConversationHandler(
+            entry_points=[CallbackQueryHandler(button_callback, pattern='^add_cli$')],
+            states={
+                PHONE: [MessageHandler(filters.TEXT & ~filters.COMMAND, cli_phone)],
+                IP: [MessageHandler(filters.TEXT & ~filters.COMMAND, cli_ip)],
+                IP_HASH: [MessageHandler(filters.TEXT & ~filters.COMMAND, cli_ip_hash)],
+                CODE: [MessageHandler(filters.TEXT & ~filters.COMMAND, cli_code)],
+            },
+            fallbacks=[CommandHandler('cancel', cancel)],
+        )
+        application.add_handler(conv_handler)
         
         print(f"🚀 ربات در حال روشن شدن با Polling...")
         print(f"✅ Webhook قبلی پاک شده")
