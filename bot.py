@@ -260,14 +260,24 @@ if __name__ == '__main__':
         application.add_handler(CommandHandler('session', session_command))
         application.add_handler(CallbackQueryHandler(button_callback))
         
-        print(f"🚀 ربات در حال روشن شدن با Polling...")
-        print(f"✅ Webhook قبلی پاک شده")
-        print(f"📱 آماده ساخت سشن با نام: {SESSION_NAME}")
-        print(f"🆔 API_ID: {API_ID}")
+        # گرفتن پورت از محیط
+        port = int(os.environ.get('PORT', 8080))
         
-        application.run_polling(
-            drop_pending_updates=True,
-            allowed_updates=['message', 'callback_query']
+        # استفاده از Webhook به جای Polling
+        webhook_url = f"https://charismatic-rejoicing.onrender.com/{TOKEN}"
+        
+        print(f"🚀 ربات در حال روشن شدن با Webhook...")
+        print(f"📡 Webhook URL: {webhook_url}")
+        print(f"🔌 پورت: {port}")
+        print(f"📱 آماده ساخت سشن با نام: {SESSION_NAME}")
+        
+        # راه‌اندازی با Webhook
+        application.run_webhook(
+            listen='0.0.0.0',
+            port=port,
+            url_path=TOKEN,
+            webhook_url=webhook_url,
+            drop_pending_updates=True
         )
         
     except Exception as e:
