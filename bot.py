@@ -20,9 +20,9 @@ if not TOKEN:
 # شناسه عددی سازنده ربات
 OWNER_ID = 8831703400
 
-# 🔑 اطلاعات API خود را اینجا وارد کنید (از my.telegram.org بگیرید)
-API_ID = 12345678  # عدد api_id خود را اینجا بگذارید
-API_HASH = "your_api_hash_here"  # api_hash خود را اینجا بگذارید
+# 🔑 اطلاعات API خود را از my.telegram.org بگیرید
+API_ID = 37160656  # API ID خود را اینجا بگذارید
+API_HASH = "c75ef3eadae1ffb6cad9d6736d0e2323"  # API HASH خود را اینجا بگذارید
 
 # متغیرهای ذخیره موقت برای فرآیند ساخت سشن
 user_sessions = {}
@@ -277,14 +277,26 @@ async def send_verification_code(update: Update, user_id: int, phone: str):
             del user_sessions[user_id]
             
     except Exception as e:
-        await update.message.reply_text(
-            f"❌ <b>خطا در ارسال کد!</b>\n\n"
-            f"◄ خطا: <code>{str(e)}</code>\n\n"
-            "◂ لطفاً API_ID و API_HASH را بررسی کنید.\n"
-            "◄ این مقادیر را از سایت my.telegram.org بگیرید.\n"
-            "⫸ برای شروع مجدد، روی دکمه افزودن CLI کلیک کنید.",
-            parse_mode='HTML'
-        )
+        error_msg = str(e)
+        if "API_ID_INVALID" in error_msg:
+            await update.message.reply_text(
+                f"❌ <b>خطا در ارسال کد!</b>\n\n"
+                f"◄ خطا: <code>{error_msg}</code>\n\n"
+                "◂ <b>API_ID و API_HASH</b> نامعتبر هستند!\n"
+                "◄ لطفاً از سایت <a href='https://my.telegram.org'>my.telegram.org</a> مقادیر جدید بگیرید.\n"
+                "◂ مطمئن شوید با شماره‌ای که میخواهید سشن بسازید وارد شده‌اید.\n"
+                "⫸ برای شروع مجدد، روی دکمه افزودن CLI کلیک کنید.",
+                parse_mode='HTML',
+                disable_web_page_preview=True
+            )
+        else:
+            await update.message.reply_text(
+                f"❌ <b>خطا در ارسال کد!</b>\n\n"
+                f"◄ خطا: <code>{error_msg}</code>\n\n"
+                "◂ لطفاً شماره و API را بررسی کنید.\n"
+                "⫸ برای شروع مجدد، روی دکمه افزودن CLI کلیک کنید.",
+                parse_mode='HTML'
+            )
         # پاک کردن جلسه در صورت خطا
         if user_id in user_sessions:
             del user_sessions[user_id]
@@ -331,9 +343,10 @@ async def verify_code_and_create_session(update: Update, user_id: int, code: str
             del user_sessions[user_id]
         
     except Exception as e:
+        error_msg = str(e)
         await update.message.reply_text(
             f"❌ <b>خطا در ساخت سشن!</b>\n\n"
-            f"◄ خطا: <code>{str(e)}</code>\n\n"
+            f"◄ خطا: <code>{error_msg}</code>\n\n"
             "◂ لطفاً کد وارد شده را بررسی کنید و دوباره تلاش کنید.\n"
             "⫸ برای شروع مجدد، روی دکمه افزودن CLI کلیک کنید.",
             parse_mode='HTML'
@@ -417,6 +430,7 @@ if __name__ == '__main__':
         print(f"🚀 ربات در حال روشن شدن با Polling...")
         print(f"✅ Webhook قبلی پاک شده")
         print(f"👤 سازنده ربات: {OWNER_ID}")
+        print(f"🔑 API_ID: {API_ID}")
         
         # راه‌اندازی با Polling
         application.run_polling(
