@@ -1,6 +1,6 @@
 import os
 import logging
-import requests
+import httpx  # به جای requests
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
 
@@ -11,15 +11,15 @@ logging.basicConfig(
 )
 
 # گرفتن توکن از محیط
-TOKEN = os.getenv('8860863617:AAFizT8wFBJFt4uq7U9NpGfK_jwahrA35_o')
+TOKEN = os.getenv('TOKEN')
 
 # اگر توکن در محیط نیست (برای تست محلی)
 if not TOKEN:
-    TOKEN = "توکن_جدید_اینجا"  # توکن جدید رو بذار
+    TOKEN = "8860863617:AAFizT8wFBJFt4uq7U9NpGfK_jwahrA35_o"  # با توکن جدید عوض کن
 
-# پاک کردن Webhook قبلی
+# پاک کردن Webhook قبلی با httpx
 try:
-    response = requests.get(f"https://api.telegram.org/bot{TOKEN}/deleteWebhook")
+    response = httpx.get(f"https://api.telegram.org/bot{TOKEN}/deleteWebhook")
     if response.json().get('ok'):
         print("✅ Webhook قبلی پاک شد")
 except Exception as e:
@@ -141,7 +141,6 @@ if __name__ == '__main__':
         port = int(os.environ.get('PORT', 8080))
         
         # URL سرویس در رندر
-        # اسم سرویس رو عوض کن اگه فرق داره
         webhook_url = f"https://charismatic-rejoicing.onrender.com/{TOKEN}"
         
         print(f"🚀 ربات در حال روشن شدن...")
@@ -154,7 +153,7 @@ if __name__ == '__main__':
             port=port,
             url_path=TOKEN,
             webhook_url=webhook_url,
-            drop_pending_updates=True  # این گزینه مهمه!
+            drop_pending_updates=True
         )
         
     except Exception as e:
