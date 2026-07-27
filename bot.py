@@ -1,8 +1,8 @@
 import os
 import logging
 import httpx
-from telegram import Update
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler
 
 # تنظیم لاگ
 logging.basicConfig(
@@ -25,7 +25,7 @@ try:
 except Exception as e:
     print(f"⚠️ خطا در پاک کردن Webhook: {e}")
 
-# متن استارت
+# متن استارت (بدون ◄)
 START_TEXT = """
 🌟 سلام <b>[ نام کاربر منشن شده ]</b> عزیز 🌹
 
@@ -33,57 +33,57 @@ START_TEXT = """
 
 ⫸ برتری‌های انحصاری من :
 
-◄ مجهز به <b>سیستم هوش مصنوعی (A.I)</b> برای پردازش هوشمند
-◄ <b>سیستم ANN</b> برای پردازش و ذخیره‌سازی پیشرفته
-◄ <b>سیستم CUH</b> برای مدیریت حرفه‌ای ویس چت
-◄ <b>دانلود و جستجوی حرفه‌ای</b> رسانه‌های صوتی و تصویری
-◄ <b>جلو و عقب زدن دقیقه‌ای</b> رسانه‌ها
-◄ <b>پردازش و محافظت</b> از ویس‌چت گروه
+<b>⚡ مجهز به سیستم هوش مصنوعی (A.I)</b> برای پردازش هوشمند
+<b>🧠 سیستم ANN</b> برای پردازش و ذخیره‌سازی پیشرفته
+<b>🎚️ سیستم CUH</b> برای مدیریت حرفه‌ای ویس چت
+<b>📥 دانلود و جستجوی حرفه‌ای</b> رسانه‌های صوتی و تصویری
+<b>⏪⏩ جلو و عقب زدن دقیقه‌ای</b> رسانه‌ها
+<b>🛡️ پردازش و محافظت</b> از ویس‌چت گروه
 
 ⫸ ویژگی‌های منحصربفرد :
 
-◂ <b>⚡ سرعت فوق‌العاده</b> حتی در گروه‌های ۲۰۰ هزار نفره
-◂ <b>🌟 برترین پخش‌کننده</b> موزیک و ویدیو با امکانات بی‌نظیر
+<b>⚡ سرعت فوق‌العاده</b> حتی در گروه‌های ۲۰۰ هزار نفره
+<b>🌟 برترین پخش‌کننده</b> موزیک و ویدیو با امکانات بی‌نظیر
 
-◂ <b>📺 پخش زنده</b> شبکه‌های ماهواره‌ای
-◂ <b>📡 پخش زنده</b> شبکه‌های صدا و سیما
-◂ <b>🎙️ پخش زنده</b> رادیو جهانی و استانی
-◂ <b>🎬 تلویزیون، رادیو و موسیقی</b> زنده
-◂ <b>🎥 فیلم سینمایی، سریال و انیمیشن</b>
-◂ <b>💰 قیمت خرید اشتراک</b> بسیار مناسب
+<b>📺 پخش زنده</b> شبکه‌های ماهواره‌ای
+<b>📡 پخش زنده</b> شبکه‌های صدا و سیما
+<b>🎙️ پخش زنده</b> رادیو جهانی و استانی
+<b>🎬 تلویزیون، رادیو و موسیقی</b> زنده
+<b>🎥 فیلم سینمایی، سریال و انیمیشن</b>
+<b>💰 قیمت خرید اشتراک</b> بسیار مناسب
 
 ⫸ ما شبیه هیچکس نیستیم!
 
-◄ <b>🔥 پرقدرت</b> حتی در کانال‌های میلیونی
-◄ <b>✅ بی‌همتا در سرعت</b>
-◄ <b>✅ بی‌همتا در امکانات</b>
-◄ <b>✅ دارای مهلت بالای تست</b>
-◄ <b>✅ دارای سرور اختصاصی</b>
-◄ <b>✅ دارای پشتیبانی حرفه‌ای</b>
-◄ <b>✅ دارای دستورات دو زبانه</b>
-◄ <b>✅ جستجوی موزیک و ویدیو</b>
-◄ <b>✅ قابلیت‌های فان و سرگرمی</b>
-◄ <b>✅ دارای سامانه خرید آنلاین</b>
-◄ <b>✅ بدون آفلاینی ۹۹.۹ درصد</b>
-◄ <b>✅ ارائه آمارهای روزانه کاربران</b>
-◄ <b>✅ دارای خوش‌آمدگویی هوشمند</b>
-◄ <b>✅ دارای انواع قفل‌های ویس چت</b>
-◄ <b>✅ پخش موزیک و ویدئو در گروه</b>
-◄ <b>✅ پخش موزیک و ویدئو در کانال</b>
-◄ <b>✅ دارای مای لیست و علاقه‌مندی‌ها</b>
-◄ <b>✅ قابلیت ساخت ۳ پلی‌لیست موزیک</b>
-◄ <b>✅ قابلیت ساخت ۲ پلی‌لیست ویدیو</b>
+<b>🔥 پرقدرت</b> حتی در کانال‌های میلیونی
+<b>✅ بی‌همتا در سرعت</b>
+<b>✅ بی‌همتا در امکانات</b>
+<b>✅ دارای مهلت بالای تست</b>
+<b>✅ دارای سرور اختصاصی</b>
+<b>✅ دارای پشتیبانی حرفه‌ای</b>
+<b>✅ دارای دستورات دو زبانه</b>
+<b>✅ جستجوی موزیک و ویدیو</b>
+<b>✅ قابلیت‌های فان و سرگرمی</b>
+<b>✅ دارای سامانه خرید آنلاین</b>
+<b>✅ بدون آفلاینی ۹۹.۹ درصد</b>
+<b>✅ ارائه آمارهای روزانه کاربران</b>
+<b>✅ دارای خوش‌آمدگویی هوشمند</b>
+<b>✅ دارای انواع قفل‌های ویس چت</b>
+<b>✅ پخش موزیک و ویدئو در گروه</b>
+<b>✅ پخش موزیک و ویدئو در کانال</b>
+<b>✅ دارای مای لیست و علاقه‌مندی‌ها</b>
+<b>✅ قابلیت ساخت ۳ پلی‌لیست موزیک</b>
+<b>✅ قابلیت ساخت ۲ پلی‌لیست ویدیو</b>
 
 ⫸ چرا به ما اعتماد کنیم؟
 
-◂ <b>🥇ارائه بهترین کیفیت، تخصص ماست</b>
-◂ <b>♥️ تجربه مدیریت ویسکال به سبک نوین</b>
-◂ <b>🖥️ برنامه‌نویسی شده توسط تیم ZX</b>
-◂ <b>🏆 بهترینی، وقتی بهترین‌ها انتخابت کنند!</b>
+<b>🥇ارائه بهترین کیفیت، تخصص ماست</b>
+<b>♥️ تجربه مدیریت ویسکال به سبک نوین</b>
+<b>🖥️ برنامه‌نویسی شده توسط تیم ZX</b>
+<b>🏆 بهترینی، وقتی بهترین‌ها انتخابت کنند!</b>
 
 ⫸ تذکر حقوقی :
 
-◄ تمامی ایده‌ها و کدهای این ربات متعلق به <b>تیم ZX</b> بوده و هر گونه کپی‌برداری یا تقلید، <b>پیگرد قانونی</b> دارد. حقوق مادی و معنوی محفوظ است.
+تمام ایده‌ها و کدهای این ربات متعلق به <b>تیم ZX</b> بوده و هر گونه کپی‌برداری یا تقلید، <b>پیگرد قانونی</b> دارد. حقوق مادی و معنوی محفوظ است.
 
 🆑 کانال موزیک پلیر ZX : <b>@ReaperMusicTM</b>
 
@@ -91,16 +91,65 @@ START_TEXT = """
 """
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """هندلر /start"""
+    """هندلر /start با دکمه‌های inline"""
     user = update.effective_user
     user_mention = f"<a href='tg://user?id={user.id}'>{user.first_name}</a>"
     final_text = START_TEXT.replace("[ نام کاربر منشن شده ]", user_mention)
     
+    # ساخت دکمه‌های inline
+    keyboard = [
+        [
+            InlineKeyboardButton("📞 پشتیبانی", callback_data='support'),
+            InlineKeyboardButton("📢 کانال ربات", callback_data='channel')
+        ],
+        [
+            InlineKeyboardButton("👥 گروه پشتیبانی", callback_data='group'),
+            InlineKeyboardButton("➕ اضافه کردن به گروه", callback_data='add_to_group')
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    # ارسال پیام با دکمه‌ها
     await update.message.reply_text(
         final_text,
         parse_mode='HTML',
-        disable_web_page_preview=True
+        disable_web_page_preview=True,
+        reply_markup=reply_markup
     )
+
+async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """مدیریت کلیک روی دکمه‌ها"""
+    query = update.callback_query
+    await query.answer()
+    
+    if query.data == 'support':
+        # لینک پشتیبانی - بعداً اضافه میشه
+        await query.edit_message_text(
+            "📞 <b>پشتیبانی</b>\n\nبرای ارتباط با پشتیبانی روی لینک زیر کلیک کن:\n\n🔗 [ارتباط با پشتیبانی](https://t.me/YourSupportUsername)",
+            parse_mode='HTML',
+            disable_web_page_preview=True
+        )
+    elif query.data == 'channel':
+        # لینک کانال ربات - بعداً اضافه میشه
+        await query.edit_message_text(
+            "📢 <b>کانال ربات</b>\n\nبرای عضویت در کانال ربات روی لینک زیر کلیک کن:\n\n🔗 [عضویت در کانال](https://t.me/YourChannelUsername)",
+            parse_mode='HTML',
+            disable_web_page_preview=True
+        )
+    elif query.data == 'group':
+        # لینک گروه پشتیبانی - بعداً اضافه میشه
+        await query.edit_message_text(
+            "👥 <b>گروه پشتیبانی</b>\n\nبرای عضویت در گروه پشتیبانی روی لینک زیر کلیک کن:\n\n🔗 [عضویت در گروه](https://t.me/YourGroupUsername)",
+            parse_mode='HTML',
+            disable_web_page_preview=True
+        )
+    elif query.data == 'add_to_group':
+        # لینک اضافه کردن ربات به گروه
+        await query.edit_message_text(
+            "➕ <b>اضافه کردن ربات به گروه</b>\n\nبرای اضافه کردن ربات به گروهت، روی لینک زیر کلیک کن:\n\n🔗 [اضافه کردن ربات](https://t.me/YourBotUsername?startgroup=start)",
+            parse_mode='HTML',
+            disable_web_page_preview=True
+        )
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """هندلر /help"""
@@ -136,14 +185,15 @@ if __name__ == '__main__':
         application.add_handler(CommandHandler('start', start))
         application.add_handler(CommandHandler('help', help_command))
         application.add_handler(CommandHandler('ping', ping))
+        application.add_handler(CallbackQueryHandler(button_callback))
         
         print(f"🚀 ربات در حال روشن شدن با Polling...")
         print(f"✅ Webhook قبلی پاک شده")
         
-        # راه‌اندازی با Polling (ساده‌تر و بدون نیاز به webhook)
+        # راه‌اندازی با Polling
         application.run_polling(
-            drop_pending_updates=True,  # درخواست‌های قدیمی رو حذف کن
-            allowed_updates=['message', 'callback_query']  # فقط پیام‌ها رو دریافت کن
+            drop_pending_updates=True,
+            allowed_updates=['message', 'callback_query']
         )
         
     except Exception as e:
