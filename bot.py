@@ -20,15 +20,15 @@ TOKEN = os.getenv('TOKEN')
 if not TOKEN:
     TOKEN = "8860863617:AAFizT8wFBJFt4uq7U9NpGfK_jwahrA35_o"
 
-# اطلاعات سشن
+# اطلاعات سشن (از my.telegram.org)
 API_ID = 37160656
 API_HASH = "c75ef3eadae1ffb6cad9d6736d0e2323"
 SESSION_NAME = os.getenv('SESSION_NAME', 'my_session')
 
-# آیدی عددی سازنده ربات (فقط این شخص میتونه سشن بسازه)
-OWNER_ID = 8831703400  # آیدی عددی شما
+# آیدی عددی سازنده ربات
+OWNER_ID = 7803165903  # آیدی جدید شما
 
-# لینک‌ها
+# لینک‌ها (با لینک‌های جدید)
 SUPPORT_LINK = "https://t.me/XMrHadi"
 CHANNEL_LINK = "https://t.me/ReaperMusicTM"
 GROUP_LINK = "https://t.me/ReaperVoidGP"
@@ -153,12 +153,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 InlineKeyboardButton("🔧 افزودن CLI", callback_data='add_cli')
             ],
             [
-                InlineKeyboardButton("📞 پشتیبانی", callback_data='support'),
-                InlineKeyboardButton("📢 کانال ربات", callback_data='channel')
+                InlineKeyboardButton("📞 پشتیبانی", url=SUPPORT_LINK),
+                InlineKeyboardButton("📢 کانال ربات", url=CHANNEL_LINK)
             ],
             [
-                InlineKeyboardButton("👥 گروه پشتیبانی", callback_data='group'),
-                InlineKeyboardButton("➕ اضافه کردن به گروه", callback_data='add_to_group')
+                InlineKeyboardButton("👥 گروه پشتیبانی", url=GROUP_LINK),
+                InlineKeyboardButton("➕ اضافه کردن به گروه", url=BOT_LINK)
             ]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -167,15 +167,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # متن عمومی برای دیگر کاربران
         final_text = PUBLIC_START_TEXT.replace("[ نام کاربر منشن شده ]", user_mention)
         
-        # دکمه‌های عمومی
+        # دکمه‌های عمومی (با url مستقیم)
         keyboard = [
             [
-                InlineKeyboardButton("📞 پشتیبانی", callback_data='support'),
-                InlineKeyboardButton("📢 کانال ربات", callback_data='channel')
+                InlineKeyboardButton("📞 پشتیبانی", url=SUPPORT_LINK),
+                InlineKeyboardButton("📢 کانال ربات", url=CHANNEL_LINK)
             ],
             [
-                InlineKeyboardButton("👥 گروه پشتیبانی", callback_data='group'),
-                InlineKeyboardButton("➕ اضافه کردن به گروه", callback_data='add_to_group')
+                InlineKeyboardButton("👥 گروه پشتیبانی", url=GROUP_LINK),
+                InlineKeyboardButton("➕ اضافه کردن به گروه", url=BOT_LINK)
             ]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -188,36 +188,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """مدیریت کلیک روی دکمه‌ها"""
+    """مدیریت کلیک روی دکمه‌های callback"""
     query = update.callback_query
     user = query.from_user
     await query.answer()
     
-    if query.data == 'support':
-        await query.edit_message_text(
-            f"📞 <b>پشتیبانی</b>\n\nبرای ارتباط با پشتیبانی روی لینک زیر کلیک کن:\n\n🔗 <a href='{SUPPORT_LINK}'>ارتباط با پشتیبانی</a>",
-            parse_mode='HTML',
-            disable_web_page_preview=True
-        )
-    elif query.data == 'channel':
-        await query.edit_message_text(
-            f"📢 <b>کانال ربات</b>\n\nبرای عضویت در کانال ربات روی لینک زیر کلیک کن:\n\n🔗 <a href='{CHANNEL_LINK}'>عضویت در کانال</a>",
-            parse_mode='HTML',
-            disable_web_page_preview=True
-        )
-    elif query.data == 'group':
-        await query.edit_message_text(
-            f"👥 <b>گروه پشتیبانی</b>\n\nبرای عضویت در گروه پشتیبانی روی لینک زیر کلیک کن:\n\n🔗 <a href='{GROUP_LINK}'>عضویت در گروه</a>",
-            parse_mode='HTML',
-            disable_web_page_preview=True
-        )
-    elif query.data == 'add_to_group':
-        await query.edit_message_text(
-            f"➕ <b>اضافه کردن ربات به گروه</b>\n\nبرای اضافه کردن ربات به گروهت، روی لینک زیر کلیک کن:\n\n🔗 <a href='{BOT_LINK}'>اضافه کردن ربات</a>",
-            parse_mode='HTML',
-            disable_web_page_preview=True
-        )
-    elif query.data == 'add_cli':
+    if query.data == 'add_cli':
         # فقط سازنده میتونه CLI بسازه
         if user.id != OWNER_ID:
             await query.edit_message_text(
@@ -289,28 +265,6 @@ async def cli_ip_hash(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     context.user_data['cli_ip_hash'] = ip_hash
     
-    # ارسال کد تایید به شماره
-    try:
-        # اینجا باید کد ارسال بشه - در حال حاضر شبیه‌سازی
-        await update.message.reply_text(
-            "📨 <b>کد تایید به شماره شما ارسال شد!</b>\n\n"
-            "لطفاً کد ۵ رقمی را وارد کنید:",
-            parse_mode='HTML'
-        )
-        context.user_data['cli_step'] = CODE
-        return CODE
-        
-    except Exception as e:
-        await update.message.reply_text(
-            f"❌ <b>خطا در ارسال کد!</b>\n\n{str(e)}",
-            parse_mode='HTML'
-        )
-        return ConversationHandler.END
-
-async def cli_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """دریافت کد تایید و ساخت سشن"""
-    code = update.message.text.strip()
-    
     # ساخت سشن با اطلاعات دریافت شده
     try:
         # ساخت کلاینت Pyrogram
@@ -341,7 +295,9 @@ async def cli_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     except Exception as e:
         await update.message.reply_text(
-            f"❌ <b>خطا در ساخت سشن!</b>\n\n{str(e)}",
+            f"❌ <b>خطا در ساخت سشن!</b>\n\n"
+            f"لطفاً API_ID و API_HASH رو بررسی کن.\n\n"
+            f"خطا: {str(e)}",
             parse_mode='HTML'
         )
         context.user_data.clear()
@@ -398,7 +354,6 @@ if __name__ == '__main__':
                 PHONE: [MessageHandler(filters.TEXT & ~filters.COMMAND, cli_phone)],
                 IP: [MessageHandler(filters.TEXT & ~filters.COMMAND, cli_ip)],
                 IP_HASH: [MessageHandler(filters.TEXT & ~filters.COMMAND, cli_ip_hash)],
-                CODE: [MessageHandler(filters.TEXT & ~filters.COMMAND, cli_code)],
             },
             fallbacks=[CommandHandler('cancel', cancel)],
         )
