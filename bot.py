@@ -1,11 +1,9 @@
 import os
 import logging
 import httpx
-import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler, MessageHandler, filters
+from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler
 from pyrogram import Client
-from pyrogram.errors import ApiIdInvalid, PhoneNumberInvalid, PasswordHashInvalid
 
 # تنظیم لاگ
 logging.basicConfig(
@@ -20,11 +18,10 @@ TOKEN = os.getenv('TOKEN')
 if not TOKEN:
     TOKEN = "8860863617:AAFizT8wFBJFt4uq7U9NpGfK_jwahrA35_o"
 
-# شناسه عددی سازنده ربات
-OWNER_ID = 8831703400
-
-# متغیرهای ذخیره موقت برای فرآیند ساخت سشن
-user_sessions = {}
+# اطلاعات سشن (از محیط بگیر یا مستقیم)
+API_ID = 37160656
+API_HASH = "c75ef3eadae1ffb6cad9d6736d0e2323"
+SESSION_NAME = os.getenv('SESSION_NAME', 'my_session')
 
 # پاک کردن Webhook قبلی
 try:
@@ -34,7 +31,7 @@ try:
 except Exception as e:
     print(f"⚠️ خطا در پاک کردن Webhook: {e}")
 
-# متن استارت اصلی (همان متن قبلی)
+# متن استارت (بدون ◄)
 START_TEXT = """
 🌟 سلام <b>[ نام کاربر منشن شده ]</b> عزیز 🌹
 
@@ -99,324 +96,117 @@ START_TEXT = """
 【 <b>Licenced By 🆉︎🆇︎</b> 】
 """
 
-# متن اختصاصی برای سازنده ربات
-OWNER_START_TEXT = """
-🌟 <b>سلام برنامه‌نویس عزیز!</b> 🌹
-
-⫸ به پنل مدیریتی ربات ZX Music Player خوش آمدید! 🚀
-
-◂ شما به عنوان <b>سازنده اصلی</b> این ربات، دسترسی ویژه به امکانات مدیریتی دارید.
-
-◄ <b>از طریق این پنل می‌توانید:</b>
-  ◂ سشن تلگرام برای پخش موزیک در ویس چت بسازید
-  ◂ ربات را مدیریت کنید
-  ◂ تنظیمات پیشرفته را اعمال کنید
-
-⚡ <b>وضعیت ربات:</b> فعال ✅
-📊 <b>تعداد کاربران:</b> در حال دریافت...
-🔄 <b>نسخه:</b> 2.0.0
-
-【 <b>Licenced By 🆉︎🆇︎</b> 】
-"""
+# تابع ساخت سشن
+async def create_session():
+    """ساخت سشن کاربر با Pyrogram"""
+    try:
+        # ایجاد کلاینت Pyrogram
+        app = Client(
+            SESSION_NAME,
+            api_id=API_ID,
+            api_hash=API_HASH
+        )
+        
+        # شروع کلاینت
+        await app.start()
+        
+        # گرفتن اطلاعات کاربر
+        me = await app.get_me()
+        
+        print(f"✅ سشن ساخته شد برای: {me.first_name}")
+        print(f"🆔 ID: {me.id}")
+        print(f"📱 @{me.username}")
+        
+        return app, me
+        
+    except Exception as e:
+        print(f"❌ خطا در ساخت سشن: {e}")
+        return None, None
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """هندلر /start با تشخیص سازنده"""
+    """هندلر /start با دکمه‌های inline"""
     user = update.effective_user
-    user_id = user.id
+    user_mention = f"<a href='tg://user?id={user.id}'>{user.first_name}</a>"
+    final_text = START_TEXT.replace("[ نام کاربر منشن شده ]", user_mention)
     
-    # بررسی اینکه آیا کاربر سازنده ربات است
-    if user_id == OWNER_ID:
-        # نمایش متن اختصاصی برای سازنده
-        owner_text = f"{OWNER_START_TEXT}"
-        
-        # دکمه افزودن CLI برای سازنده
-        keyboard = [
-            [InlineKeyboardButton("⚙️ افزودن CLI", callback_data='add_cli')]
+    # ساخت دکمه‌های inline
+    keyboard = [
+        [
+            InlineKeyboardButton("📞 پشتیبانی", callback_data='support'),
+            InlineKeyboardButton("📢 کانال ربات", callback_data='channel')
+        ],
+        [
+            InlineKeyboardButton("👥 گروه پشتیبانی", callback_data='group'),
+            InlineKeyboardButton("➕ اضافه کردن به گروه", callback_data='add_to_group')
+        ],
+        [
+            InlineKeyboardButton("🔑 ساخت سشن", callback_data='create_session')
         ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await update.message.reply_text(
-            owner_text,
-            parse_mode='HTML',
-            reply_markup=reply_markup
-        )
-    else:
-        # نمایش متن معمولی برای کاربران عادی
-        user_mention = f"<a href='tg://user?id={user.id}'>{user.first_name}</a>"
-        final_text = START_TEXT.replace("[ نام کاربر منشن شده ]", user_mention)
-        
-        keyboard = [
-            [
-                InlineKeyboardButton("📞 پشتیبانی", url="https://t.me/XMrHadi"),
-                InlineKeyboardButton("📢 کانال ربات", url="https://t.me/ReaperMusicTM")
-            ],
-            [
-                InlineKeyboardButton("👥 گروه پشتیبانی", url="https://t.me/ReaperVoidGP"),
-                InlineKeyboardButton("➕ اضافه کردن به گروه", url="https://t.me/Reaper_Musicbot?startgroup=new")
-            ]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await update.message.reply_text(
-            final_text,
-            parse_mode='HTML',
-            disable_web_page_preview=True,
-            reply_markup=reply_markup
-        )
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    # ارسال پیام با دکمه‌ها
+    await update.message.reply_text(
+        final_text,
+        parse_mode='HTML',
+        disable_web_page_preview=True,
+        reply_markup=reply_markup
+    )
 
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """مدیریت کلیک روی دکمه‌ها"""
     query = update.callback_query
-    user_id = query.from_user.id
-    
-    # فقط سازنده می‌تواند از دکمه افزودن CLI استفاده کند
-    if user_id != OWNER_ID:
-        await query.answer("⛔ شما دسترسی به این بخش را ندارید!", show_alert=True)
-        return
-    
     await query.answer()
     
-    if query.data == 'add_cli':
-        # شروع فرآیند ساخت سشن
-        user_sessions[user_id] = {'step': 'phone'}
-        
+    if query.data == 'support':
         await query.edit_message_text(
-            "📱 <b>افزودن CLI جدید</b>\n\n"
-            "◄ لطفاً <b>شماره تلفن</b> اکانت تلگرام خود را به همراه کد کشور ارسال کنید.\n\n"
-            "◂ مثال: <code>+989123456789</code>\n\n"
-            "⫸ برای لغو عملیات، دستور /cancel را ارسال کنید.",
+            "📞 <b>پشتیبانی</b>\n\nبرای ارتباط با پشتیبانی روی لینک زیر کلیک کن:\n\n🔗 [ارتباط با پشتیبانی](https://t.me/YourSupportUsername)",
+            parse_mode='HTML',
+            disable_web_page_preview=True
+        )
+    elif query.data == 'channel':
+        await query.edit_message_text(
+            "📢 <b>کانال ربات</b>\n\nبرای عضویت در کانال ربات روی لینک زیر کلیک کن:\n\n🔗 [عضویت در کانال](https://t.me/YourChannelUsername)",
+            parse_mode='HTML',
+            disable_web_page_preview=True
+        )
+    elif query.data == 'group':
+        await query.edit_message_text(
+            "👥 <b>گروه پشتیبانی</b>\n\nبرای عضویت در گروه پشتیبانی روی لینک زیر کلیک کن:\n\n🔗 [عضویت در گروه](https://t.me/YourGroupUsername)",
+            parse_mode='HTML',
+            disable_web_page_preview=True
+        )
+    elif query.data == 'add_to_group':
+        await query.edit_message_text(
+            "➕ <b>اضافه کردن ربات به گروه</b>\n\nبرای اضافه کردن ربات به گروهت، روی لینک زیر کلیک کن:\n\n🔗 [اضافه کردن ربات](https://t.me/YourBotUsername?startgroup=start)",
+            parse_mode='HTML',
+            disable_web_page_preview=True
+        )
+    elif query.data == 'create_session':
+        # ساخت سشن
+        await query.edit_message_text(
+            "🔄 <b>در حال ساخت سشن...</b>\n\nلطفاً صبر کنید...",
             parse_mode='HTML'
         )
-
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """مدیریت پیام‌های دریافتی برای فرآیند ساخت سشن"""
-    user_id = update.effective_user.id
-    
-    # فقط سازنده می‌تواند از این فرآیند استفاده کند
-    if user_id != OWNER_ID:
-        return
-    
-    # بررسی اینکه کاربر در فرآیند ساخت سشن است
-    if user_id not in user_sessions:
-        return
-    
-    text = update.message.text
-    step = user_sessions[user_id]['step']
-    
-    if step == 'phone':
-        # دریافت شماره تلفن
-        phone = text.strip()
-        
-        # اعتبارسنجی ساده شماره
-        if not phone.startswith('+') or not phone[1:].isdigit():
-            await update.message.reply_text(
-                "❌ <b>فرمت شماره تلفن نامعتبر!</b>\n\n"
-                "◄ لطفاً شماره را به همراه کد کشور و با فرمت صحیح ارسال کنید.\n"
-                "◂ مثال: <code>+989123456789</code>",
-                parse_mode='HTML'
-            )
-            return
-        
-        user_sessions[user_id]['phone'] = phone
-        user_sessions[user_id]['step'] = 'ip'
-        
-        await update.message.reply_text(
-            "🌐 <b>مرحله بعد: وارد کردن آیپی عددی</b>\n\n"
-            "◄ لطفاً <b>آیپی عددی</b> سرور یا دستگاه خود را وارد کنید.\n"
-            "◂ مثال: <code>192.168.1.100</code>\n\n"
-            "⫸ می‌توانید از آیپی محلی یا عمومی استفاده کنید.",
-            parse_mode='HTML'
-        )
-    
-    elif step == 'ip':
-        # دریافت آیپی
-        ip = text.strip()
-        
-        # اعتبارسنجی ساده آیپی
-        import re
-        ip_pattern = r'^(\d{1,3}\.){3}\d{1,3}$'
-        if not re.match(ip_pattern, ip):
-            await update.message.reply_text(
-                "❌ <b>فرمت آیپی نامعتبر!</b>\n\n"
-                "◄ لطفاً یک آیپی معتبر وارد کنید.\n"
-                "◂ مثال: <code>192.168.1.100</code>",
-                parse_mode='HTML'
-            )
-            return
-        
-        user_sessions[user_id]['ip'] = ip
-        user_sessions[user_id]['step'] = 'hash'
-        
-        await update.message.reply_text(
-            "🔑 <b>مرحله آخر: وارد کردن آیپی هش</b>\n\n"
-            "◄ لطفاً <b>آیپی هش</b> (HASH) مربوط به دستگاه خود را وارد کنید.\n"
-            "◂ این کد را می‌توانید از تنظیمات دستگاه خود دریافت کنید.\n\n"
-            "⫸ مثال: <code>a1b2c3d4e5f6g7h8i9j0</code>",
-            parse_mode='HTML'
-        )
-    
-    elif step == 'hash':
-        # دریافت هش
-        hash_value = text.strip()
-        
-        if len(hash_value) < 10:
-            await update.message.reply_text(
-                "❌ <b>هش وارد شده کوتاه است!</b>\n\n"
-                "◄ لطفاً یک هش معتبر با حداقل ۱۰ کاراکتر وارد کنید.",
-                parse_mode='HTML'
-            )
-            return
-        
-        user_sessions[user_id]['hash'] = hash_value
-        user_sessions[user_id]['step'] = 'code'
-        
-        # ارسال کد تایید به شماره کاربر
-        await send_verification_code(user_id)
-    
-    elif step == 'code':
-        # دریافت کد تایید
-        code = text.strip()
-        
-        if not code.isdigit():
-            await update.message.reply_text(
-                "❌ <b>کد وارد شده نامعتبر!</b>\n\n"
-                "◄ لطفاً کد عددی ۵ رقمی ارسال شده را وارد کنید.",
-                parse_mode='HTML'
-            )
-            return
         
         # ساخت سشن
-        await create_session(user_id, code)
-
-async def send_verification_code(user_id):
-    """ارسال کد تایید به شماره کاربر"""
-    phone = user_sessions[user_id]['phone']
-    ip = user_sessions[user_id]['ip']
-    hash_value = user_sessions[user_id]['hash']
-    
-    try:
-        # ایجاد کلاینت موقت برای ارسال کد
-        app = Client(
-            f"session_{user_id}",
-            api_id=hash_value,  # توجه: اینجا باید API ID واقعی باشه
-            api_hash=ip,        # توجه: اینجا باید API HASH واقعی باشه
-            phone_number=phone
-        )
+        app, me = await create_session()
         
-        await app.connect()
-        sent_code = await app.send_code(phone)
-        
-        # ذخیره اطلاعات برای مرحله بعد
-        user_sessions[user_id]['client'] = app
-        user_sessions[user_id]['phone_code_hash'] = sent_code.phone_code_hash
-        
-        await app.disconnect()
-        
-        await update.message.reply_text(
-            "📨 <b>کد تایید ارسال شد!</b>\n\n"
-            "◄ لطفاً کد ۵ رقمی دریافت شده را وارد کنید.\n"
-            "◂ کد به شماره <code>{}</code> ارسال شده است.\n\n"
-            "⫸ برای لغو عملیات، دستور /cancel را ارسال کنید.".format(phone),
-            parse_mode='HTML'
-        )
-        
-        user_sessions[user_id]['step'] = 'code'
-        
-    except Exception as e:
-        await update.message.reply_text(
-            f"❌ <b>خطا در ارسال کد!</b>\n\n"
-            f"◄ خطا: <code>{str(e)}</code>\n\n"
-            "◂ لطفاً اطلاعات وارد شده را بررسی کنید و دوباره تلاش کنید.\n"
-            "⫸ برای شروع مجدد، روی دکمه افزودن CLI کلیک کنید.",
-            parse_mode='HTML'
-        )
-        # پاک کردن جلسه در صورت خطا
-        if user_id in user_sessions:
-            del user_sessions[user_id]
-
-async def create_session(user_id, code):
-    """ساخت سشن نهایی با کد تایید"""
-    try:
-        phone = user_sessions[user_id]['phone']
-        ip = user_sessions[user_id]['ip']
-        hash_value = user_sessions[user_id]['hash']
-        phone_code_hash = user_sessions[user_id].get('phone_code_hash')
-        
-        # ایجاد کلاینت برای ساخت سشن
-        app = Client(
-            f"session_{user_id}",
-            api_id=hash_value,
-            api_hash=ip,
-            phone_number=phone
-        )
-        
-        await app.connect()
-        
-        # تایید کد
-        await app.sign_in(
-            phone_number=phone,
-            phone_code_hash=phone_code_hash,
-            phone_code=code
-        )
-        
-        # ذخیره سشن
-        session_string = await app.export_session_string()
-        
-        # ذخیره در دیتابیس یا فایل (در اینجا فقط نمایش داده میشه)
-        await update.message.reply_text(
-            "✅ <b>سشن با موفقیت ساخته شد!</b>\n\n"
-            "🔑 <b>سشن استرینگ:</b>\n"
-            f"<code>{session_string}</code>\n\n"
-            "◄ این سشن برای پخش موزیک در ویس چت استفاده خواهد شد.\n"
-            "◂ لطفاً این اطلاعات را در جای امن نگهداری کنید.\n\n"
-            "⫸ ربات آماده پخش موزیک در ویس چت است! 🎵",
-            parse_mode='HTML'
-        )
-        
-        await app.disconnect()
-        
-        # پاک کردن جلسه کاربر
-        if user_id in user_sessions:
-            del user_sessions[user_id]
-        
-    except Exception as e:
-        await update.message.reply_text(
-            f"❌ <b>خطا در ساخت سشن!</b>\n\n"
-            f"◄ خطا: <code>{str(e)}</code>\n\n"
-            "◂ لطفاً کد وارد شده را بررسی کنید و دوباره تلاش کنید.\n"
-            "⫸ برای شروع مجدد، روی دکمه افزودن CLI کلیک کنید.",
-            parse_mode='HTML'
-        )
-        
-        # پاک کردن جلسه در صورت خطا
-        if user_id in user_sessions:
-            del user_sessions[user_id]
-
-async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """هندلر /cancel برای لغو عملیات"""
-    user_id = update.effective_user.id
-    
-    if user_id in user_sessions:
-        # پاک کردن کلاینت در صورت وجود
-        if 'client' in user_sessions[user_id]:
-            try:
-                await user_sessions[user_id]['client'].disconnect()
-            except:
-                pass
-        
-        del user_sessions[user_id]
-        
-        await update.message.reply_text(
-            "❌ <b>عملیات لغو شد!</b>\n\n"
-            "◄ فرآیند ساخت سشن با موفقیت لغو شد.\n"
-            "◂ برای شروع مجدد، دستور /start را ارسال کنید.",
-            parse_mode='HTML'
-        )
-    else:
-        await update.message.reply_text(
-            "ℹ️ <b>هیچ عملیات فعالی برای لغو وجود ندارد!</b>",
-            parse_mode='HTML'
-        )
+        if app and me:
+            await query.edit_message_text(
+                f"✅ <b>سشن ساخته شد!</b>\n\n"
+                f"👤 نام: {me.first_name}\n"
+                f"🆔 ID: <code>{me.id}</code>\n"
+                f"📱 یوزرنیم: @{me.username}\n\n"
+                f"🔑 فایل سشن: <code>{SESSION_NAME}.session</code>",
+                parse_mode='HTML'
+            )
+        else:
+            await query.edit_message_text(
+                "❌ <b>خطا در ساخت سشن!</b>\n\n"
+                "لطفاً API_ID و API_HASH رو بررسی کن.",
+                parse_mode='HTML'
+            )
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """هندلر /help"""
@@ -427,7 +217,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 • /start - شروع و مشاهده پیام خوش‌آمدگویی
 • /help - نمایش این راهنما
 • /ping - بررسی وضعیت ربات
-• /cancel - لغو عملیات جاری
+• /session - ساخت سشن Pyrogram
 
 🎵 <b>دستورات موزیک:</b>
 (به زودی اضافه می‌شوند)
@@ -444,6 +234,33 @@ async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode='HTML'
     )
 
+async def session_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """هندلر /session برای ساخت سشن"""
+    # ساخت سشن
+    await update.message.reply_text(
+        "🔄 <b>در حال ساخت سشن...</b>\n\n"
+        "لطفاً صبر کنید...",
+        parse_mode='HTML'
+    )
+    
+    app, me = await create_session()
+    
+    if app and me:
+        await update.message.reply_text(
+            f"✅ <b>سشن ساخته شد!</b>\n\n"
+            f"👤 نام: {me.first_name}\n"
+            f"🆔 ID: <code>{me.id}</code>\n"
+            f"📱 یوزرنیم: @{me.username}\n\n"
+            f"🔑 فایل سشن: <code>{SESSION_NAME}.session</code>",
+            parse_mode='HTML'
+        )
+    else:
+        await update.message.reply_text(
+            "❌ <b>خطا در ساخت سشن!</b>\n\n"
+            "لطفاً API_ID و API_HASH رو بررسی کن.",
+            parse_mode='HTML'
+        )
+
 if __name__ == '__main__':
     try:
         # ساخت اپلیکیشن
@@ -453,13 +270,13 @@ if __name__ == '__main__':
         application.add_handler(CommandHandler('start', start))
         application.add_handler(CommandHandler('help', help_command))
         application.add_handler(CommandHandler('ping', ping))
-        application.add_handler(CommandHandler('cancel', cancel_command))
+        application.add_handler(CommandHandler('session', session_command))
         application.add_handler(CallbackQueryHandler(button_callback))
-        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
         
         print(f"🚀 ربات در حال روشن شدن با Polling...")
         print(f"✅ Webhook قبلی پاک شده")
-        print(f"👤 سازنده ربات: {OWNER_ID}")
+        print(f"📱 آماده ساخت سشن با نام: {SESSION_NAME}")
+        print(f"🆔 API_ID: {API_ID}")
         
         # راه‌اندازی با Polling
         application.run_polling(
