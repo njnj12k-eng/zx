@@ -1,6 +1,7 @@
 import os
 import logging
 import httpx
+import time
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler
 from pyrogram import Client
@@ -23,13 +24,24 @@ API_ID = 37160656
 API_HASH = "c75ef3eadae1ffb6cad9d6736d0e2323"
 SESSION_NAME = os.getenv('SESSION_NAME', 'my_session')
 
-# پاک کردن Webhook قبلی
+# پاک کردن Webhook قبلی با چند بار تلاش
+for i in range(3):
+    try:
+        response = httpx.get(f"https://api.telegram.org/bot{TOKEN}/deleteWebhook")
+        if response.json().get('ok'):
+            print("✅ Webhook قبلی پاک شد")
+            break
+    except Exception as e:
+        print(f"⚠️ تلاش {i+1} برای پاک کردن Webhook ناموفق بود: {e}")
+        time.sleep(1)
+
+# پاک کردن Webhook از طریق روش جایگزین
 try:
-    response = httpx.get(f"https://api.telegram.org/bot{TOKEN}/deleteWebhook")
+    response = httpx.get(f"https://api.telegram.org/bot{TOKEN}/deleteWebhook?drop_pending_updates=True")
     if response.json().get('ok'):
-        print("✅ Webhook قبلی پاک شد")
+        print("✅ Webhook با drop_pending_updates پاک شد")
 except Exception as e:
-    print(f"⚠️ خطا در پاک کردن Webhook: {e}")
+    print(f"⚠️ خطا: {e}")
 
 # متن استارت
 START_TEXT = """
@@ -260,24 +272,17 @@ if __name__ == '__main__':
         application.add_handler(CommandHandler('session', session_command))
         application.add_handler(CallbackQueryHandler(button_callback))
         
-        # گرفتن پورت از محیط
-        port = int(os.environ.get('PORT', 8080))
-        
-        # استفاده از Webhook به جای Polling
-        webhook_url = f"https://charismatic-rejoicing.onrender.com/{TOKEN}"
-        
-        print(f"🚀 ربات در حال روشن شدن با Webhook...")
-        print(f"📡 Webhook URL: {webhook_url}")
-        print(f"🔌 پورت: {port}")
+        print(f"🚀 ربات در حال روشن شدن با Polling...")
+        print(f"✅ Webhook قبلی پاک شده")
         print(f"📱 آماده ساخت سشن با نام: {SESSION_NAME}")
+        print(f"🆔 API_ID: {API_ID}")
         
-        # راه‌اندازی با Webhook
-        application.run_webhook(
-            listen='0.0.0.0',
-            port=port,
-            url_path=TOKEN,
-            webhook_url=webhook_url,
-            drop_pending_updates=True
+        # راه‌اندازی با Polling و تنظیمات ویژه برای جلوگیری از Conflict
+        application.run_polling(
+            drop_pending_updates=True,
+            allowed_updates=['message', 'callback_query'],
+            poll_interval=1.0,
+            timeout=10
         )
         
     except Exception as e:
