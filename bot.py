@@ -4,6 +4,8 @@ import httpx
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler
 from pyrogram import Client
+from pyrogram.types import Message
+from pyrogram.enums import ChatType
 
 # تنظیم لاگ
 logging.basicConfig(
@@ -18,7 +20,7 @@ TOKEN = os.getenv('TOKEN')
 if not TOKEN:
     TOKEN = "8860863617:AAFizT8wFBJFt4uq7U9NpGfK_jwahrA35_o"
 
-# اطلاعات سشن (از محیط بگیر یا مستقیم)
+# اطلاعات سشن
 API_ID = 37160656
 API_HASH = "c75ef3eadae1ffb6cad9d6736d0e2323"
 SESSION_NAME = os.getenv('SESSION_NAME', 'my_session')
@@ -31,7 +33,7 @@ try:
 except Exception as e:
     print(f"⚠️ خطا در پاک کردن Webhook: {e}")
 
-# متن استارت (بدون ◄)
+# متن استارت
 START_TEXT = """
 🌟 سلام <b>[ نام کاربر منشن شده ]</b> عزیز 🌹
 
@@ -96,21 +98,16 @@ START_TEXT = """
 【 <b>Licenced By 🆉︎🆇︎</b> 】
 """
 
-# تابع ساخت سشن
 async def create_session():
     """ساخت سشن کاربر با Pyrogram"""
     try:
-        # ایجاد کلاینت Pyrogram
         app = Client(
             SESSION_NAME,
             api_id=API_ID,
             api_hash=API_HASH
         )
         
-        # شروع کلاینت
         await app.start()
-        
-        # گرفتن اطلاعات کاربر
         me = await app.get_me()
         
         print(f"✅ سشن ساخته شد برای: {me.first_name}")
@@ -129,7 +126,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_mention = f"<a href='tg://user?id={user.id}'>{user.first_name}</a>"
     final_text = START_TEXT.replace("[ نام کاربر منشن شده ]", user_mention)
     
-    # ساخت دکمه‌های inline
     keyboard = [
         [
             InlineKeyboardButton("📞 پشتیبانی", callback_data='support'),
@@ -145,7 +141,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    # ارسال پیام با دکمه‌ها
     await update.message.reply_text(
         final_text,
         parse_mode='HTML',
@@ -183,13 +178,11 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             disable_web_page_preview=True
         )
     elif query.data == 'create_session':
-        # ساخت سشن
         await query.edit_message_text(
             "🔄 <b>در حال ساخت سشن...</b>\n\nلطفاً صبر کنید...",
             parse_mode='HTML'
         )
         
-        # ساخت سشن
         app, me = await create_session()
         
         if app and me:
@@ -236,10 +229,8 @@ async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def session_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """هندلر /session برای ساخت سشن"""
-    # ساخت سشن
     await update.message.reply_text(
-        "🔄 <b>در حال ساخت سشن...</b>\n\n"
-        "لطفاً صبر کنید...",
+        "🔄 <b>در حال ساخت سشن...</b>\n\nلطفاً صبر کنید...",
         parse_mode='HTML'
     )
     
@@ -263,10 +254,8 @@ async def session_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 if __name__ == '__main__':
     try:
-        # ساخت اپلیکیشن
         application = ApplicationBuilder().token(TOKEN).build()
         
-        # اضافه کردن هندلرها
         application.add_handler(CommandHandler('start', start))
         application.add_handler(CommandHandler('help', help_command))
         application.add_handler(CommandHandler('ping', ping))
@@ -278,7 +267,6 @@ if __name__ == '__main__':
         print(f"📱 آماده ساخت سشن با نام: {SESSION_NAME}")
         print(f"🆔 API_ID: {API_ID}")
         
-        # راه‌اندازی با Polling
         application.run_polling(
             drop_pending_updates=True,
             allowed_updates=['message', 'callback_query']
