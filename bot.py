@@ -96,15 +96,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_mention = f"<a href='tg://user?id={user.id}'>{user.first_name}</a>"
     final_text = START_TEXT.replace("[ نام کاربر منشن شده ]", user_mention)
     
-    # ساخت دکمه‌های inline
+    # ساخت دکمه‌های inline با لینک مستقیم
     keyboard = [
         [
-            InlineKeyboardButton("📞 پشتیبانی", callback_data='support'),
-            InlineKeyboardButton("📢 کانال ربات", callback_data='channel')
+            InlineKeyboardButton("📞 پشتیبانی", url="https://t.me/XMrHadi"),
+            InlineKeyboardButton("📢 کانال ربات", url="https://t.me/ReaperMusicTM")
         ],
         [
-            InlineKeyboardButton("👥 گروه پشتیبانی", callback_data='group'),
-            InlineKeyboardButton("➕ اضافه کردن به گروه", callback_data='add_to_group')
+            InlineKeyboardButton("👥 گروه پشتیبانی", url="https://t.me/ReaperVoidGP"),
+            InlineKeyboardButton("➕ اضافه کردن به گروه", url="https://t.me/Reaper_Musicbot?startgroup=new")
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -116,40 +116,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         disable_web_page_preview=True,
         reply_markup=reply_markup
     )
-
-async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """مدیریت کلیک روی دکمه‌ها"""
-    query = update.callback_query
-    await query.answer()
-    
-    if query.data == 'support':
-        # لینک پشتیبانی - بعداً اضافه میشه
-        await query.edit_message_text(
-            "📞 <b>پشتیبانی</b>\n\nبرای ارتباط با پشتیبانی روی لینک زیر کلیک کن:\n\n🔗 [ارتباط با پشتیبانی](https://t.me/YourSupportUsername)",
-            parse_mode='HTML',
-            disable_web_page_preview=True
-        )
-    elif query.data == 'channel':
-        # لینک کانال ربات - بعداً اضافه میشه
-        await query.edit_message_text(
-            "📢 <b>کانال ربات</b>\n\nبرای عضویت در کانال ربات روی لینک زیر کلیک کن:\n\n🔗 [عضویت در کانال](https://t.me/YourChannelUsername)",
-            parse_mode='HTML',
-            disable_web_page_preview=True
-        )
-    elif query.data == 'group':
-        # لینک گروه پشتیبانی - بعداً اضافه میشه
-        await query.edit_message_text(
-            "👥 <b>گروه پشتیبانی</b>\n\nبرای عضویت در گروه پشتیبانی روی لینک زیر کلیک کن:\n\n🔗 [عضویت در گروه](https://t.me/YourGroupUsername)",
-            parse_mode='HTML',
-            disable_web_page_preview=True
-        )
-    elif query.data == 'add_to_group':
-        # لینک اضافه کردن ربات به گروه
-        await query.edit_message_text(
-            "➕ <b>اضافه کردن ربات به گروه</b>\n\nبرای اضافه کردن ربات به گروهت، روی لینک زیر کلیک کن:\n\n🔗 [اضافه کردن ربات](https://t.me/YourBotUsername?startgroup=start)",
-            parse_mode='HTML',
-            disable_web_page_preview=True
-        )
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """هندلر /help"""
@@ -185,7 +151,6 @@ if __name__ == '__main__':
         application.add_handler(CommandHandler('start', start))
         application.add_handler(CommandHandler('help', help_command))
         application.add_handler(CommandHandler('ping', ping))
-        application.add_handler(CallbackQueryHandler(button_callback))
         
         print(f"🚀 ربات در حال روشن شدن با Polling...")
         print(f"✅ Webhook قبلی پاک شده")
