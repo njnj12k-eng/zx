@@ -1,17 +1,31 @@
+import os
 import logging
-from telegram import Update, ForceReply
+import requests
+from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
 
-# توکن ربات (توکن جدیدی که ارائه دادی)
-TOKEN = "8860863617:AAFizT8wFBJFt4uq7U9NpGfK_jwahrA35_o"
-
-# فعال کردن لاگ
+# تنظیم لاگ
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 
-# متن استارت با فرمت HTML
+# گرفتن توکن از محیط
+TOKEN = os.getenv('8860863617:AAFizT8wFBJFt4uq7U9NpGfK_jwahrA35_o')
+
+# اگر توکن در محیط نیست (برای تست محلی)
+if not TOKEN:
+    TOKEN = "توکن_جدید_اینجا"  # توکن جدید رو بذار
+
+# پاک کردن Webhook قبلی
+try:
+    response = requests.get(f"https://api.telegram.org/bot{TOKEN}/deleteWebhook")
+    if response.json().get('ok'):
+        print("✅ Webhook قبلی پاک شد")
+except Exception as e:
+    print(f"⚠️ خطا در پاک کردن Webhook: {e}")
+
+# متن استارت
 START_TEXT = """
 🌟 سلام <b>[ نام کاربر منشن شده ]</b> عزیز 🌹
 
@@ -77,29 +91,71 @@ START_TEXT = """
 """
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """هندلر دستور /start"""
+    """هندلر /start"""
     user = update.effective_user
-    # نام کاربر رو منشن می‌کنیم (اگر نام نداره از یوزرنیم استفاده می‌کنیم)
     user_mention = f"<a href='tg://user?id={user.id}'>{user.first_name}</a>"
-    
-    # جایگزین کردن [ نام کاربر منشن شده ] با منشن واقعی
     final_text = START_TEXT.replace("[ نام کاربر منشن شده ]", user_mention)
     
-    # ارسال پیام با فرمت HTML
     await update.message.reply_text(
         final_text,
         parse_mode='HTML',
         disable_web_page_preview=True
     )
 
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """هندلر /help"""
+    help_text = """
+🤖 <b>راهنمای ربات ZX Music Player</b>
+
+📌 <b>دستورات اصلی:</b>
+• /start - شروع و مشاهده پیام خوش‌آمدگویی
+• /help - نمایش این راهنما
+• /ping - بررسی وضعیت ربات
+
+🎵 <b>دستورات موزیک:</b>
+(به زودی اضافه می‌شوند)
+
+📞 <b>پشتیبانی:</b>
+در صورت نیاز به کمک، با ما تماس بگیرید.
+    """
+    await update.message.reply_text(help_text, parse_mode='HTML')
+
+async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """هندلر /ping"""
+    await update.message.reply_text(
+        "🏓 <b>پنگ!</b>\nربات فعال و سالم است ✅", 
+        parse_mode='HTML'
+    )
+
 if __name__ == '__main__':
-    # ساخت اپلیکیشن
-    application = ApplicationBuilder().token(TOKEN).build()
-    
-    # اضافه کردن هندلر برای دستور start
-    start_handler = CommandHandler('start', start)
-    application.add_handler(start_handler)
-    
-    # شروع ربات (polling)
-    print("ربات روشن شد...")
-    application.run_polling()
+    try:
+        # ساخت اپلیکیشن
+        application = ApplicationBuilder().token(TOKEN).build()
+        
+        # اضافه کردن هندلرها
+        application.add_handler(CommandHandler('start', start))
+        application.add_handler(CommandHandler('help', help_command))
+        application.add_handler(CommandHandler('ping', ping))
+        
+        # گرفتن پورت از محیط
+        port = int(os.environ.get('PORT', 8080))
+        
+        # URL سرویس در رندر
+        # اسم سرویس رو عوض کن اگه فرق داره
+        webhook_url = f"https://charismatic-rejoicing.onrender.com/{TOKEN}"
+        
+        print(f"🚀 ربات در حال روشن شدن...")
+        print(f"📡 Webhook URL: {webhook_url}")
+        print(f"🔌 پورت: {port}")
+        
+        # راه‌اندازی با Webhook
+        application.run_webhook(
+            listen='0.0.0.0',
+            port=port,
+            url_path=TOKEN,
+            webhook_url=webhook_url,
+            drop_pending_updates=True  # این گزینه مهمه!
+        )
+        
+    except Exception as e:
+        print(f"❌ خطا: {e}")
