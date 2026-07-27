@@ -20,6 +20,10 @@ if not TOKEN:
 # شناسه عددی سازنده ربات
 OWNER_ID = 8831703400
 
+# 🔑 اطلاعات API خود را اینجا وارد کنید (از my.telegram.org بگیرید)
+API_ID = 12345678  # عدد api_id خود را اینجا بگذارید
+API_HASH = "your_api_hash_here"  # api_hash خود را اینجا بگذارید
+
 # متغیرهای ذخیره موقت برای فرآیند ساخت سشن
 user_sessions = {}
 
@@ -235,14 +239,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def send_verification_code(update: Update, user_id: int, phone: str):
     """ارسال کد تایید به شماره کاربر با استفاده از pyrogram"""
     try:
-        # وارد کردن pyrogram در اینجا برای جلوگیری از خطا در صورت نصب نبودن
         from pyrogram import Client
         
-        # ایجاد کلاینت موقت برای ارسال کد
-        # توجه: اینجا باید API ID و API HASH واقعی خود را وارد کنید
-        API_ID = 123456  # این را از my.telegram.org بگیرید
-        API_HASH = "your_api_hash_here"  # این را از my.telegram.org بگیرید
-        
+        # استفاده از API_ID و API_HASH تعریف شده در بالا
         app = Client(
             f"session_{user_id}",
             api_id=API_ID,
@@ -281,7 +280,8 @@ async def send_verification_code(update: Update, user_id: int, phone: str):
         await update.message.reply_text(
             f"❌ <b>خطا در ارسال کد!</b>\n\n"
             f"◄ خطا: <code>{str(e)}</code>\n\n"
-            "◂ لطفاً شماره را بررسی کنید و دوباره تلاش کنید.\n"
+            "◂ لطفاً API_ID و API_HASH را بررسی کنید.\n"
+            "◄ این مقادیر را از سایت my.telegram.org بگیرید.\n"
             "⫸ برای شروع مجدد، روی دکمه افزودن CLI کلیک کنید.",
             parse_mode='HTML'
         )
