@@ -4,8 +4,6 @@ import httpx
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler
 from pyrogram import Client
-from pyrogram.types import Message
-from pyrogram.enums import ChatType
 
 # تنظیم لاگ
 logging.basicConfig(
