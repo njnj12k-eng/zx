@@ -3,7 +3,7 @@ from telegram import Update, ForceReply
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
 
 # توکن ربات (توکن جدیدی که ارائه دادی)
-TOKEN = "8978420830:AAFcnq7pBpiGofyXNp5s7Yj-2bkuog1zxDs"
+TOKEN = "8860863617:AAFizT8wFBJFt4uq7U9NpGfK_jwahrA35_o"
 
 # فعال کردن لاگ
 logging.basicConfig(
