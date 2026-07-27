@@ -1,6 +1,6 @@
 import os
 import logging
-import httpx  # به جای requests
+import httpx
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
 
@@ -13,11 +13,11 @@ logging.basicConfig(
 # گرفتن توکن از محیط
 TOKEN = os.getenv('TOKEN')
 
-# اگر توکن در محیط نیست (برای تست محلی)
+# اگر توکن در محیط نیست
 if not TOKEN:
-    TOKEN = "8860863617:AAFizT8wFBJFt4uq7U9NpGfK_jwahrA35_o"  # با توکن جدید عوض کن
+    TOKEN = "8860863617:AAFizT8wFBJFt4uq7U9NpGfK_jwahrA35_o"
 
-# پاک کردن Webhook قبلی با httpx
+# پاک کردن Webhook قبلی
 try:
     response = httpx.get(f"https://api.telegram.org/bot{TOKEN}/deleteWebhook")
     if response.json().get('ok'):
@@ -137,23 +137,13 @@ if __name__ == '__main__':
         application.add_handler(CommandHandler('help', help_command))
         application.add_handler(CommandHandler('ping', ping))
         
-        # گرفتن پورت از محیط
-        port = int(os.environ.get('PORT', 8080))
+        print(f"🚀 ربات در حال روشن شدن با Polling...")
+        print(f"✅ Webhook قبلی پاک شده")
         
-        # URL سرویس در رندر
-        webhook_url = f"https://charismatic-rejoicing.onrender.com/{TOKEN}"
-        
-        print(f"🚀 ربات در حال روشن شدن...")
-        print(f"📡 Webhook URL: {webhook_url}")
-        print(f"🔌 پورت: {port}")
-        
-        # راه‌اندازی با Webhook
-        application.run_webhook(
-            listen='0.0.0.0',
-            port=port,
-            url_path=TOKEN,
-            webhook_url=webhook_url,
-            drop_pending_updates=True
+        # راه‌اندازی با Polling (ساده‌تر و بدون نیاز به webhook)
+        application.run_polling(
+            drop_pending_updates=True,  # درخواست‌های قدیمی رو حذف کن
+            allowed_updates=['message', 'callback_query']  # فقط پیام‌ها رو دریافت کن
         )
         
     except Exception as e:
