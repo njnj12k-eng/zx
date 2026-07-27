@@ -26,16 +26,19 @@ API_HASH = "c75ef3eadae1ffb6cad9d6736d0e2323"
 SESSION_NAME = os.getenv('SESSION_NAME', 'my_session')
 
 # آیدی عددی سازنده ربات
-OWNER_ID = 7803165903  # آیدی جدید شما
+OWNER_ID = 7803165903
 
-# لینک‌ها (با لینک‌های جدید)
+# لینک‌ها
 SUPPORT_LINK = "https://t.me/XMrHadi"
 CHANNEL_LINK = "https://t.me/ReaperMusicTM"
 GROUP_LINK = "https://t.me/ReaperVoidGP"
 BOT_LINK = "https://t.me/Reaper_Musicbot?startgroup=new"
 
 # مراحل ساخت CLI
-PHONE, IP, IP_HASH, CODE = range(4)
+PHONE, CODE = range(2)
+
+# متغیر برای نگهداری کلاینت در حین ساخت سشن
+client_instance = None
 
 # پاک کردن Webhook قبلی
 for i in range(3):
@@ -55,7 +58,7 @@ try:
 except Exception as e:
     print(f"⚠️ خطا: {e}")
 
-# متن استارت عمومی (برای کاربران عادی)
+# متن استارت عمومی
 PUBLIC_START_TEXT = """
 🌟 سلام <b>[ نام کاربر منشن شده ]</b> عزیز 🌹
 
@@ -140,14 +143,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_mention = f"<a href='tg://user?id={user.id}'>{user.first_name}</a>"
     
-    # بررسی اینکه آیا کاربر سازنده است یا خیر
     is_owner = (user.id == OWNER_ID)
     
     if is_owner:
-        # متن مخصوص سازنده
         final_text = OWNER_START_TEXT.replace("[ نام کاربر منشن شده ]", user_mention)
-        
-        # دکمه‌های مخصوص سازنده
         keyboard = [
             [
                 InlineKeyboardButton("🔧 افزودن CLI", callback_data='add_cli')
@@ -162,12 +161,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        
     else:
-        # متن عمومی برای دیگر کاربران
         final_text = PUBLIC_START_TEXT.replace("[ نام کاربر منشن شده ]", user_mention)
-        
-        # دکمه‌های عمومی (با url مستقیم)
         keyboard = [
             [
                 InlineKeyboardButton("📞 پشتیبانی", url=SUPPORT_LINK),
@@ -188,13 +183,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """مدیریت کلیک روی دکمه‌های callback"""
+    """مدیریت کلیک روی دکمه‌ها"""
     query = update.callback_query
     user = query.from_user
     await query.answer()
     
     if query.data == 'add_cli':
-        # فقط سازنده میتونه CLI بسازه
         if user.id != OWNER_ID:
             await query.edit_message_text(
                 "⛔ <b>دسترسی غیرمجاز!</b>\n\nشما اجازه ساخت CLI را ندارید.",
@@ -202,20 +196,18 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
         
-        # شروع فرآیند ساخت CLI
-        context.user_data['cli_step'] = PHONE
+        context.user_data['step'] = PHONE
         await query.edit_message_text(
-            "📱 <b>لطفاً شماره تلفن CLI را ارسال کنید</b>\n\n"
+            "📱 <b>لطفاً شماره تلفن خود را وارد کنید</b>\n\n"
             "⚠️ شماره را با کد کشور وارد کنید (مثال: +989123456789)",
             parse_mode='HTML'
         )
         return PHONE
 
-async def cli_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """دریافت شماره تلفن برای CLI"""
+async def get_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """دریافت شماره تلفن و ارسال کد"""
     phone = update.message.text.strip()
     
-    # بررسی فرمت شماره
     if not re.match(r'^\+?\d{10,15}$', phone):
         await update.message.reply_text(
             "❌ <b>فرمت شماره نامعتبر!</b>\n\n"
@@ -225,65 +217,73 @@ async def cli_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return PHONE
     
-    context.user_data['cli_phone'] = phone
-    context.user_data['cli_step'] = IP
-    
-    await update.message.reply_text(
-        "🌐 <b>لطفاً آیپی عددی را وارد کنید</b>\n\n"
-        "مثال: 192.168.1.1",
-        parse_mode='HTML'
-    )
-    return IP
-
-async def cli_ip(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """دریافت آیپی برای CLI"""
-    ip = update.message.text.strip()
-    
-    # بررسی فرمت آیپی
-    if not re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', ip):
-        await update.message.reply_text(
-            "❌ <b>فرمت آیپی نامعتبر!</b>\n\n"
-            "لطفاً یک آیپی معتبر وارد کنید.\n"
-            "مثال: 192.168.1.1",
-            parse_mode='HTML'
-        )
-        return IP
-    
-    context.user_data['cli_ip'] = ip
-    context.user_data['cli_step'] = IP_HASH
-    
-    await update.message.reply_text(
-        "🔑 <b>لطفاً آیپی هش را وارد کنید</b>\n\n"
-        "این کد از سمت سرور به شما داده می‌شود.",
-        parse_mode='HTML'
-    )
-    return IP_HASH
-
-async def cli_ip_hash(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """دریافت آیپی هش برای CLI"""
-    ip_hash = update.message.text.strip()
-    
-    context.user_data['cli_ip_hash'] = ip_hash
-    
-    # ساخت سشن با اطلاعات دریافت شده
     try:
-        # ساخت کلاینت Pyrogram
-        app = Client(
+        # ساخت کلاینت برای ارسال کد
+        client = Client(
             SESSION_NAME,
             api_id=API_ID,
             api_hash=API_HASH
         )
         
-        await app.start()
-        me = await app.get_me()
+        await client.connect()
+        
+        # ارسال درخواست کد
+        sent_code = await client.send_code(phone)
+        
+        # ذخیره اطلاعات برای مرحله بعد
+        context.user_data['phone'] = phone
+        context.user_data['client'] = client
+        context.user_data['phone_code_hash'] = sent_code.phone_code_hash
+        context.user_data['step'] = CODE
+        
+        await update.message.reply_text(
+            "✅ <b>کد تایید ارسال شد!</b>\n\n"
+            "📨 لطفاً کد ۵ رقمی دریافت شده را وارد کنید:",
+            parse_mode='HTML'
+        )
+        return CODE
+        
+    except Exception as e:
+        await update.message.reply_text(
+            f"❌ <b>خطا در ارسال کد!</b>\n\n{str(e)}",
+            parse_mode='HTML'
+        )
+        return ConversationHandler.END
+
+async def get_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """دریافت کد و تکمیل ساخت سشن"""
+    code = update.message.text.strip()
+    client = context.user_data.get('client')
+    phone = context.user_data.get('phone')
+    phone_code_hash = context.user_data.get('phone_code_hash')
+    
+    if not client:
+        await update.message.reply_text(
+            "❌ <b>خطا!</b>\n\nلطفاً دوباره تلاش کنید.",
+            parse_mode='HTML'
+        )
+        return ConversationHandler.END
+    
+    try:
+        # تایید کد و ورود
+        await client.sign_in(
+            phone_number=phone,
+            phone_code_hash=phone_code_hash,
+            phone_code=code
+        )
+        
+        # گرفتن اطلاعات کاربر
+        me = await client.get_me()
+        
+        # ذخیره سشن
+        await client.disconnect()
         
         await update.message.reply_text(
             f"✅ <b>سشن با موفقیت ساخته شد!</b>\n\n"
             f"👤 نام: {me.first_name}\n"
             f"🆔 ID: <code>{me.id}</code>\n"
             f"📱 یوزرنیم: @{me.username}\n"
-            f"📞 شماره: {context.user_data.get('cli_phone')}\n"
-            f"🌐 آیپی: {context.user_data.get('cli_ip')}\n\n"
+            f"📞 شماره: {phone}\n\n"
             f"🔑 فایل سشن: <code>{SESSION_NAME}.session</code>\n\n"
             f"⚠️ این فایل رو در جای امن نگه دار!",
             parse_mode='HTML'
@@ -295,16 +295,21 @@ async def cli_ip_hash(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     except Exception as e:
         await update.message.reply_text(
-            f"❌ <b>خطا در ساخت سشن!</b>\n\n"
-            f"لطفاً API_ID و API_HASH رو بررسی کن.\n\n"
-            f"خطا: {str(e)}",
+            f"❌ <b>خطا در تایید کد!</b>\n\n{str(e)}\n\n"
+            "لطفاً کد را مجدداً وارد کنید:",
             parse_mode='HTML'
         )
-        context.user_data.clear()
-        return ConversationHandler.END
+        return CODE
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """لغو فرآیند ساخت CLI"""
+    client = context.user_data.get('client')
+    if client:
+        try:
+            await client.disconnect()
+        except:
+            pass
+    
     context.user_data.clear()
     await update.message.reply_text(
         "❌ <b>فرآیند ساخت CLI لغو شد.</b>",
@@ -341,7 +346,6 @@ if __name__ == '__main__':
     try:
         application = ApplicationBuilder().token(TOKEN).build()
         
-        # اضافه کردن هندلرها
         application.add_handler(CommandHandler('start', start))
         application.add_handler(CommandHandler('help', help_command))
         application.add_handler(CommandHandler('ping', ping))
@@ -351,9 +355,8 @@ if __name__ == '__main__':
         conv_handler = ConversationHandler(
             entry_points=[CallbackQueryHandler(button_callback, pattern='^add_cli$')],
             states={
-                PHONE: [MessageHandler(filters.TEXT & ~filters.COMMAND, cli_phone)],
-                IP: [MessageHandler(filters.TEXT & ~filters.COMMAND, cli_ip)],
-                IP_HASH: [MessageHandler(filters.TEXT & ~filters.COMMAND, cli_ip_hash)],
+                PHONE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_phone)],
+                CODE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_code)],
             },
             fallbacks=[CommandHandler('cancel', cancel)],
         )
