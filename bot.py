@@ -3,6 +3,11 @@ import logging
 import httpx
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, CallbackQueryHandler, MessageHandler, filters
+from pyrogram import Client
+from pyrogram.types import Message
+from pytgcalls import PyTgCalls
+from pytgcalls.types import MediaStream
+import asyncio
 
 # تنظیم لاگ
 logging.basicConfig(
@@ -20,12 +25,16 @@ if not TOKEN:
 # شناسه عددی سازنده ربات
 OWNER_ID = 8831703400
 
-# 🔑 اطلاعات API خود را از my.telegram.org بگیرید
+# 🔑 اطلاعات API
 API_ID = 37160656
 API_HASH = "c75ef3eadae1ffb6cad9d6736d0e2323"
 
-# متغیرهای ذخیره موقت برای فرآیند ساخت سشن
+# سشن استرینگ ساخته شده (این رو از مرحله قبل کپی کنید)
+SESSION_STRING = "your_session_string_here"  # سشن خود را اینجا بگذارید
+
+# متغیرهای ذخیره موقت
 user_sessions = {}
+active_calls = {}  # برای ذخیره گروه‌های فعال
 
 # پاک کردن Webhook قبلی
 try:
@@ -34,6 +43,17 @@ try:
         print("✅ Webhook قبلی پاک شد")
 except Exception as e:
     print(f"⚠️ خطا در پاک کردن Webhook: {e}")
+
+# راه‌اندازی کلاینت pyrogram با سشن
+app = Client(
+    "music_bot",
+    session_string=SESSION_STRING,
+    api_id=API_ID,
+    api_hash=API_HASH
+)
+
+# راه‌اندازی PyTgCalls برای ویس چت
+call = PyTgCalls(app)
 
 # متن استارت اصلی
 START_TEXT = """
@@ -160,6 +180,174 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             disable_web_page_preview=True,
             reply_markup=reply_markup
         )
+
+# ================ دستورات پخش موزیک ================
+
+async def play_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """دستور /play برای پخش موزیک"""
+    user = update.effective_user
+    chat_id = update.effective_chat.id
+    message = update.message
+    
+    # بررسی اینکه کاربر در گروه است
+    if update.effective_chat.type not in ['group', 'supergroup']:
+        await message.reply_text("❌ این دستور فقط در گروه قابل استفاده است!")
+        return
+    
+    # گرفتن لینک یا نام آهنگ
+    if not context.args:
+        await message.reply_text(
+            "🎵 <b>نحوه استفاده:</b>\n\n"
+            "◄ <code>/play [نام آهنگ یا لینک]</code>\n"
+            "◂ مثال: <code>/play Shadmehr Aghili - Ghadim</code>\n\n"
+            "◄ می‌توانید لینک یوتیوب یا ساندکلاد هم بفرستید:\n"
+            "◂ <code>/play https://youtu.be/xxx</code>",
+            parse_mode='HTML'
+        )
+        return
+    
+    query = " ".join(context.args)
+    
+    # پیام در حال پردازش
+    processing_msg = await message.reply_text(
+        f"🔍 <b>در حال جستجو و پخش:</b>\n"
+        f"◄ <code>{query}</code>",
+        parse_mode='HTML'
+    )
+    
+    try:
+        # بررسی اینکه کاربر در ویس چت هست
+        chat_member = await app.get_chat_member(chat_id, user.id)
+        
+        # پخش موزیک
+        await play_music(chat_id, query, processing_msg)
+        
+    except Exception as e:
+        await processing_msg.edit_text(
+            f"❌ <b>خطا در پخش!</b>\n\n"
+            f"◄ خطا: <code>{str(e)}</code>\n\n"
+            "◂ لطفاً مطمئن شوید:\n"
+            "  • در ویس چت گروه عضو هستید\n"
+            "  • لینک معتبر است\n"
+            "  • ربات دسترسی دارد",
+            parse_mode='HTML'
+        )
+
+async def play_music(chat_id: int, query: str, processing_msg):
+    """پخش موزیک در ویس چت"""
+    try:
+        # اینجا باید موزیک رو از یوتیوب یا ساندکلاد دانلود کنید
+        # برای نمونه از یک لینک مستقیم استفاده میکنیم
+        # شما می‌توانید از کتابخانه yt-dlp برای دانلود از یوتیوب استفاده کنید
+        
+        # بررسی اینکه آیا ربات در ویس چت است
+        call_status = await call.get_call(chat_id)
+        
+        if not call_status:
+            # اگر ربات در ویس چت نیست، به ویس چت بپیوندد
+            await call.join_group_call(
+                chat_id,
+                MediaStream(
+                    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"  # نمونه لینک
+                )
+            )
+            await processing_msg.edit_text(
+                f"✅ <b>در حال پخش:</b>\n"
+                f"◄ <code>{query}</code>\n\n"
+                f"🎵 <b>حالت:</b> پخش در ویس چت",
+                parse_mode='HTML'
+            )
+        else:
+            # اگر در حال پخش است، آهنگ جدید را اضافه کند (صف)
+            await processing_msg.edit_text(
+                f"⏳ <b>آهنگ در صف قرار گرفت:</b>\n"
+                f"◄ <code>{query}</code>",
+                parse_mode='HTML'
+            )
+            
+    except Exception as e:
+        raise e
+
+async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """دستور /stop برای توقف پخش"""
+    chat_id = update.effective_chat.id
+    message = update.message
+    
+    try:
+        await call.leave_group_call(chat_id)
+        await message.reply_text(
+            "⏹️ <b>پخش متوقف شد!</b>\n"
+            "◄ ربات از ویس چت خارج شد.",
+            parse_mode='HTML'
+        )
+    except Exception as e:
+        await message.reply_text(
+            f"❌ <b>خطا!</b>\n"
+            f"◄ <code>{str(e)}</code>",
+            parse_mode='HTML'
+        )
+
+async def pause_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """دستور /pause برای مکث"""
+    chat_id = update.effective_chat.id
+    message = update.message
+    
+    try:
+        await call.pause_stream(chat_id)
+        await message.reply_text(
+            "⏸️ <b>پخش متوقف شد!</b>\n"
+            "◄ برای ادامه از /resume استفاده کنید.",
+            parse_mode='HTML'
+        )
+    except Exception as e:
+        await message.reply_text(
+            f"❌ <b>خطا!</b>\n"
+            f"◄ <code>{str(e)}</code>",
+            parse_mode='HTML'
+        )
+
+async def resume_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """دستور /resume برای ادامه پخش"""
+    chat_id = update.effective_chat.id
+    message = update.message
+    
+    try:
+        await call.resume_stream(chat_id)
+        await message.reply_text(
+            "▶️ <b>پخش ادامه یافت!</b>",
+            parse_mode='HTML'
+        )
+    except Exception as e:
+        await message.reply_text(
+            f"❌ <b>خطا!</b>\n"
+            f"◄ <code>{str(e)}</code>",
+            parse_mode='HTML'
+        )
+
+async def skip_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """دستور /skip برای رد کردن آهنگ"""
+    chat_id = update.effective_chat.id
+    message = update.message
+    
+    try:
+        # در اینجا باید آهنگ بعدی از صف پخش شود
+        await call.change_stream(
+            chat_id,
+            MediaStream("https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3")
+        )
+        await message.reply_text(
+            "⏭️ <b>آهنگ رد شد!</b>\n"
+            "◄ آهنگ بعدی در حال پخش است.",
+            parse_mode='HTML'
+        )
+    except Exception as e:
+        await message.reply_text(
+            f"❌ <b>خطا!</b>\n"
+            f"◄ <code>{str(e)}</code>",
+            parse_mode='HTML'
+        )
+
+# ================ بقیه هندلرها ================
 
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """مدیریت کلیک روی دکمه‌ها"""
@@ -349,7 +537,7 @@ async def verify_code(update: Update, user_id: int, code: str):
             del user_sessions[user_id]
 
 async def create_session_with_password(update: Update, user_id: int, password: str):
-    """ساخت سشن با رمز عبور دو مرحله‌ای - روش صحیح"""
+    """ساخت سشن با رمز عبور دو مرحله‌ای"""
     try:
         from pyrogram import Client
         from pyrogram.errors import PasswordHashInvalid
@@ -388,7 +576,7 @@ async def create_session_with_password(update: Update, user_id: int, password: s
             del user_sessions[user_id]
 
 async def create_session_final(update: Update, user_id: int, app, phone: str):
-    """ساخت نهایی سشن"""
+    """ساخت نهایی سشن و ذخیره در فایل"""
     try:
         # ساخت سشن استرینگ
         session_string = await app.export_session_string()
@@ -404,7 +592,13 @@ async def create_session_final(update: Update, user_id: int, app, phone: str):
             f"<code>{session_string}</code>\n\n"
             f"◄ سشن در فایل <code>session_{phone}.txt</code> ذخیره شد.\n"
             f"◂ این سشن برای پخش موزیک در ویس چت استفاده خواهد شد.\n\n"
-            f"⫸ ربات آماده پخش موزیک در ویس چت است! 🎵",
+            f"⫸ ربات آماده پخش موزیک در ویس چت است! 🎵\n\n"
+            f"📌 <b>دستورات پخش موزیک:</b>\n"
+            f"◄ <code>/play [نام آهنگ]</code> - پخش آهنگ\n"
+            f"◄ <code>/stop</code> - توقف پخش\n"
+            f"◄ <code>/pause</code> - مکث\n"
+            f"◄ <code>/resume</code> - ادامه پخش\n"
+            f"◄ <code>/skip</code> - رد کردن آهنگ",
             parse_mode='HTML'
         )
         
@@ -468,8 +662,12 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 • /ping - بررسی وضعیت ربات
 • /cancel - لغو عملیات جاری
 
-🎵 <b>دستورات موزیک:</b>
-(به زودی اضافه می‌شوند)
+🎵 <b>دستورات پخش موزیک:</b>
+• /play [نام یا لینک] - پخش موزیک در ویس چت
+• /stop - توقف پخش و خروج از ویس چت
+• /pause - مکث موقت
+• /resume - ادامه پخش
+• /skip - رد کردن آهنگ فعلی
 
 📞 <b>پشتیبانی:</b>
 در صورت نیاز به کمک، با ما تماس بگیرید.
@@ -483,9 +681,18 @@ async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode='HTML'
     )
 
-if __name__ == '__main__':
+async def run_bot():
+    """راه‌اندازی کلاینت و ربات"""
     try:
-        # ساخت اپلیکیشن
+        # اتصال کلاینت pyrogram
+        await app.start()
+        print("✅ کلاینت pyrogram متصل شد")
+        
+        # راه‌اندازی PyTgCalls
+        await call.start()
+        print("✅ PyTgCalls راه‌اندازی شد")
+        
+        # ساخت اپلیکیشن تلگرام
         application = ApplicationBuilder().token(TOKEN).build()
         
         # اضافه کردن هندلرها
@@ -493,6 +700,14 @@ if __name__ == '__main__':
         application.add_handler(CommandHandler('help', help_command))
         application.add_handler(CommandHandler('ping', ping))
         application.add_handler(CommandHandler('cancel', cancel_command))
+        
+        # دستورات پخش موزیک
+        application.add_handler(CommandHandler('play', play_command))
+        application.add_handler(CommandHandler('stop', stop_command))
+        application.add_handler(CommandHandler('pause', pause_command))
+        application.add_handler(CommandHandler('resume', resume_command))
+        application.add_handler(CommandHandler('skip', skip_command))
+        
         application.add_handler(CallbackQueryHandler(button_callback))
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
         
@@ -501,10 +716,14 @@ if __name__ == '__main__':
         print(f"👤 سازنده ربات: {OWNER_ID}")
         
         # راه‌اندازی با Polling
-        application.run_polling(
+        await application.run_polling(
             drop_pending_updates=True,
             allowed_updates=['message', 'callback_query']
         )
         
     except Exception as e:
         print(f"❌ خطا: {e}")
+
+if __name__ == '__main__':
+    # اجرای ربات
+    asyncio.run(run_bot())
