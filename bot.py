@@ -349,15 +349,28 @@ async def verify_code(update: Update, user_id: int, code: str):
             del user_sessions[user_id]
 
 async def create_session_with_password(update: Update, user_id: int, password: str):
-    """ساخت سشن با رمز عبور دو مرحله‌ای"""
+    """ساخت سشن با رمز عبور دو مرحله‌ای - روش صحیح"""
     try:
         from pyrogram import Client
+        from pyrogram.errors import PasswordHashInvalid
         
         phone = user_sessions[user_id]['phone']
         app = user_sessions[user_id]['app']
         
         # روش صحیح ورود با رمز عبور در pyrogram
-        await app.sign_in(password=password)
+        try:
+            await app.check_password(password)
+        except PasswordHashInvalid:
+            await update.message.reply_text(
+                "❌ <b>رمز عبور وارد شده اشتباه است!</b>\n\n"
+                "◄ لطفاً رمز عبور صحیح حساب تلگرام خود را وارد کنید.\n"
+                "◂ اگر رمز را فراموش کرده‌اید، از طریق تلگرام آن را بازیابی کنید.\n"
+                "⫸ برای شروع مجدد، روی دکمه افزودن CLI کلیک کنید.",
+                parse_mode='HTML'
+            )
+            if user_id in user_sessions:
+                del user_sessions[user_id]
+            return
         
         # ساخت سشن
         await create_session_final(update, user_id, app, phone)
