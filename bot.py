@@ -21,8 +21,8 @@ if not TOKEN:
 OWNER_ID = 8831703400
 
 # 🔑 اطلاعات API خود را از my.telegram.org بگیرید
-API_ID = 37160656  # API ID خود را اینجا بگذارید
-API_HASH = "c75ef3eadae1ffb6cad9d6736d0e2323"  # API HASH خود را اینجا بگذارید
+API_ID = 37160656
+API_HASH = "c75ef3eadae1ffb6cad9d6736d0e2323"
 
 # متغیرهای ذخیره موقت برای فرآیند ساخت سشن
 user_sessions = {}
@@ -233,15 +233,29 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
         
-        # تایید کد و ساخت سشن
-        await verify_code_and_create_session(update, user_id, code)
+        # تایید کد و بررسی نیاز به رمز عبور
+        await verify_code(update, user_id, code)
+    
+    elif step == 'password':
+        # دریافت رمز عبور دو مرحله‌ای
+        password = text.strip()
+        
+        if len(password) < 4:
+            await update.message.reply_text(
+                "❌ <b>رمز عبور وارد شده کوتاه است!</b>\n\n"
+                "◄ لطفاً رمز عبور صحیح حساب تلگرام خود را وارد کنید.",
+                parse_mode='HTML'
+            )
+            return
+        
+        # ساخت سشن با رمز عبور
+        await create_session_with_password(update, user_id, password)
 
 async def send_verification_code(update: Update, user_id: int, phone: str):
-    """ارسال کد تایید به شماره کاربر با استفاده از pyrogram"""
+    """ارسال کد تایید به شماره کاربر"""
     try:
         from pyrogram import Client
         
-        # استفاده از API_ID و API_HASH تعریف شده در بالا
         app = Client(
             f"session_{user_id}",
             api_id=API_ID,
@@ -278,50 +292,95 @@ async def send_verification_code(update: Update, user_id: int, phone: str):
             
     except Exception as e:
         error_msg = str(e)
-        if "API_ID_INVALID" in error_msg:
-            await update.message.reply_text(
-                f"❌ <b>خطا در ارسال کد!</b>\n\n"
-                f"◄ خطا: <code>{error_msg}</code>\n\n"
-                "◂ <b>API_ID و API_HASH</b> نامعتبر هستند!\n"
-                "◄ لطفاً از سایت <a href='https://my.telegram.org'>my.telegram.org</a> مقادیر جدید بگیرید.\n"
-                "◂ مطمئن شوید با شماره‌ای که میخواهید سشن بسازید وارد شده‌اید.\n"
-                "⫸ برای شروع مجدد، روی دکمه افزودن CLI کلیک کنید.",
-                parse_mode='HTML',
-                disable_web_page_preview=True
-            )
-        else:
-            await update.message.reply_text(
-                f"❌ <b>خطا در ارسال کد!</b>\n\n"
-                f"◄ خطا: <code>{error_msg}</code>\n\n"
-                "◂ لطفاً شماره و API را بررسی کنید.\n"
-                "⫸ برای شروع مجدد، روی دکمه افزودن CLI کلیک کنید.",
-                parse_mode='HTML'
-            )
-        # پاک کردن جلسه در صورت خطا
+        await update.message.reply_text(
+            f"❌ <b>خطا در ارسال کد!</b>\n\n"
+            f"◄ خطا: <code>{error_msg}</code>\n\n"
+            "◂ لطفاً شماره و API را بررسی کنید.\n"
+            "⫸ برای شروع مجدد، روی دکمه افزودن CLI کلیک کنید.",
+            parse_mode='HTML'
+        )
         if user_id in user_sessions:
             del user_sessions[user_id]
 
-async def verify_code_and_create_session(update: Update, user_id: int, code: str):
-    """تایید کد و ساخت سشن"""
+async def verify_code(update: Update, user_id: int, code: str):
+    """تایید کد و بررسی نیاز به رمز عبور"""
     try:
         from pyrogram import Client
+        from pyrogram.errors import SessionPasswordNeeded
         
-        # دریافت اطلاعات از جلسه
         phone = user_sessions[user_id]['phone']
         phone_code_hash = user_sessions[user_id]['phone_code_hash']
         app = user_sessions[user_id]['client']
         
         # تایید کد
-        await app.sign_in(
-            phone_number=phone,
-            phone_code_hash=phone_code_hash,
-            phone_code=code
-        )
+        try:
+            await app.sign_in(
+                phone_number=phone,
+                phone_code_hash=phone_code_hash,
+                phone_code=code
+            )
+            
+            # اگر کد درست بود و رمز عبور نیاز نبود
+            await create_session_final(update, user_id, app, phone)
+            
+        except SessionPasswordNeeded:
+            # اگر رمز عبور دو مرحله‌ای فعال بود
+            user_sessions[user_id]['step'] = 'password'
+            user_sessions[user_id]['app'] = app
+            
+            await update.message.reply_text(
+                "🔐 <b>حساب شما دارای رمز عبور دو مرحله‌ای است!</b>\n\n"
+                "◄ لطفاً <b>رمز عبور</b> حساب تلگرام خود را وارد کنید.\n"
+                "◂ این رمزی است که برای ورود به تلگرام تنظیم کرده‌اید.\n\n"
+                "⫸ برای لغو عملیات، دستور /cancel را ارسال کنید.",
+                parse_mode='HTML'
+            )
         
+    except Exception as e:
+        error_msg = str(e)
+        await update.message.reply_text(
+            f"❌ <b>خطا در تایید کد!</b>\n\n"
+            f"◄ خطا: <code>{error_msg}</code>\n\n"
+            "◂ لطفاً کد وارد شده را بررسی کنید و دوباره تلاش کنید.\n"
+            "⫸ برای شروع مجدد، روی دکمه افزودن CLI کلیک کنید.",
+            parse_mode='HTML'
+        )
+        if user_id in user_sessions:
+            del user_sessions[user_id]
+
+async def create_session_with_password(update: Update, user_id: int, password: str):
+    """ساخت سشن با رمز عبور دو مرحله‌ای"""
+    try:
+        from pyrogram import Client
+        
+        phone = user_sessions[user_id]['phone']
+        app = user_sessions[user_id]['app']
+        
+        # ورود با رمز عبور
+        await app.sign_in(password=password)
+        
+        # ساخت سشن
+        await create_session_final(update, user_id, app, phone)
+        
+    except Exception as e:
+        error_msg = str(e)
+        await update.message.reply_text(
+            f"❌ <b>خطا در ساخت سشن!</b>\n\n"
+            f"◄ خطا: <code>{error_msg}</code>\n\n"
+            "◂ لطفاً رمز عبور را بررسی کنید و دوباره تلاش کنید.\n"
+            "⫸ برای شروع مجدد، روی دکمه افزودن CLI کلیک کنید.",
+            parse_mode='HTML'
+        )
+        if user_id in user_sessions:
+            del user_sessions[user_id]
+
+async def create_session_final(update: Update, user_id: int, app, phone: str):
+    """ساخت نهایی سشن"""
+    try:
         # ساخت سشن استرینگ
         session_string = await app.export_session_string()
         
-        # ذخیره سشن در فایل (اختیاری)
+        # ذخیره سشن در فایل
         with open(f"session_{phone}.txt", "w") as f:
             f.write(session_string)
         
@@ -347,19 +406,11 @@ async def verify_code_and_create_session(update: Update, user_id: int, code: str
         await update.message.reply_text(
             f"❌ <b>خطا در ساخت سشن!</b>\n\n"
             f"◄ خطا: <code>{error_msg}</code>\n\n"
-            "◂ لطفاً کد وارد شده را بررسی کنید و دوباره تلاش کنید.\n"
+            "◂ لطفاً دوباره تلاش کنید.\n"
             "⫸ برای شروع مجدد، روی دکمه افزودن CLI کلیک کنید.",
             parse_mode='HTML'
         )
-        
-        # پاک کردن جلسه در صورت خطا
         if user_id in user_sessions:
-            # قطع اتصال کلاینت
-            if 'client' in user_sessions[user_id]:
-                try:
-                    await user_sessions[user_id]['client'].disconnect()
-                except:
-                    pass
             del user_sessions[user_id]
 
 async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -371,6 +422,11 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if 'client' in user_sessions[user_id]:
             try:
                 await user_sessions[user_id]['client'].disconnect()
+            except:
+                pass
+        if 'app' in user_sessions[user_id]:
+            try:
+                await user_sessions[user_id]['app'].disconnect()
             except:
                 pass
         
@@ -430,7 +486,6 @@ if __name__ == '__main__':
         print(f"🚀 ربات در حال روشن شدن با Polling...")
         print(f"✅ Webhook قبلی پاک شده")
         print(f"👤 سازنده ربات: {OWNER_ID}")
-        print(f"🔑 API_ID: {API_ID}")
         
         # راه‌اندازی با Polling
         application.run_polling(
