@@ -29,12 +29,12 @@ OWNER_ID = 8831703400
 API_ID = 37160656
 API_HASH = "c75ef3eadae1ffb6cad9d6736d0e2323"
 
-# سشن استرینگ ساخته شده (این رو از مرحله قبل کپی کنید)
-SESSION_STRING = "your_session_string_here"  # سشن خود را اینجا بگذارید
+# 🔑 سشن استرینگ ساخته شده
+SESSION_STRING = "BAI3BtAAq_xN1hnEFi-XlIAys4IQ8lmBNLBIPu2Y-O302Zp4eO6QLTs6fN9CT-Ho9zwgOp5AvNWFBcdcKG8EcQbvH3pA07kP9AYTwOdAgIOKxtiyZYugt4UZxjXBRR-XhS25FNiSBS3kD4VoL2xcCvNcXUIiBjXAIJqaiWfT5sHpeNnUOW_cr-I_RI6voZHuH7v1x9ZW3jG4HYlMcPhz3w-O4dxgGC6KC4a5WNsjIjPKwSQZVT3AhG3DlyA5-HffOerxi2A6gy1y8aGPpTXobCPxpy-UGWamNqjs0RRUacYbn5iV6xkDCuwnhvRvOjN3XDnfls3_gB_1kdV0DKpJzL28jiEtbQAAAAHvR2q6AA"
 
 # متغیرهای ذخیره موقت
 user_sessions = {}
-active_calls = {}  # برای ذخیره گروه‌های فعال
+playlist = {}  # برای ذخیره صف پخش
 
 # پاک کردن Webhook قبلی
 try:
@@ -185,9 +185,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def play_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """دستور /play برای پخش موزیک"""
-    user = update.effective_user
     chat_id = update.effective_chat.id
     message = update.message
+    user = update.effective_user
     
     # بررسی اینکه کاربر در گروه است
     if update.effective_chat.type not in ['group', 'supergroup']:
@@ -211,14 +211,12 @@ async def play_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # پیام در حال پردازش
     processing_msg = await message.reply_text(
         f"🔍 <b>در حال جستجو و پخش:</b>\n"
-        f"◄ <code>{query}</code>",
+        f"◄ <code>{query}</code>\n\n"
+        f"🎵 <b>درخواست دهنده:</b> {user.first_name}",
         parse_mode='HTML'
     )
     
     try:
-        # بررسی اینکه کاربر در ویس چت هست
-        chat_member = await app.get_chat_member(chat_id, user.id)
-        
         # پخش موزیک
         await play_music(chat_id, query, processing_msg)
         
@@ -236,32 +234,44 @@ async def play_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def play_music(chat_id: int, query: str, processing_msg):
     """پخش موزیک در ویس چت"""
     try:
-        # اینجا باید موزیک رو از یوتیوب یا ساندکلاد دانلود کنید
-        # برای نمونه از یک لینک مستقیم استفاده میکنیم
-        # شما می‌توانید از کتابخانه yt-dlp برای دانلود از یوتیوب استفاده کنید
-        
         # بررسی اینکه آیا ربات در ویس چت است
-        call_status = await call.get_call(chat_id)
+        try:
+            call_status = await call.get_call(chat_id)
+            is_playing = True
+        except:
+            is_playing = False
         
-        if not call_status:
+        # ساخت لینک پخش (برای نمونه از یک لینک نمونه استفاده میکنیم)
+        # شما می‌توانید از yt-dlp برای دریافت لینک واقعی از یوتیوب استفاده کنید
+        audio_url = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+        
+        if not is_playing:
             # اگر ربات در ویس چت نیست، به ویس چت بپیوندد
             await call.join_group_call(
                 chat_id,
-                MediaStream(
-                    "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"  # نمونه لینک
-                )
+                MediaStream(audio_url)
             )
             await processing_msg.edit_text(
                 f"✅ <b>در حال پخش:</b>\n"
                 f"◄ <code>{query}</code>\n\n"
-                f"🎵 <b>حالت:</b> پخش در ویس چت",
+                f"🎵 <b>حالت:</b> پخش در ویس چت\n"
+                f"⏸️ <b>دستورات:</b>\n"
+                f"  ◄ /pause - مکث\n"
+                f"  ◄ /resume - ادامه\n"
+                f"  ◄ /stop - توقف\n"
+                f"  ◄ /skip - رد کردن",
                 parse_mode='HTML'
             )
         else:
-            # اگر در حال پخش است، آهنگ جدید را اضافه کند (صف)
+            # اگر در حال پخش است، آهنگ جدید را به صف اضافه کند
+            if chat_id not in playlist:
+                playlist[chat_id] = []
+            playlist[chat_id].append(query)
+            
             await processing_msg.edit_text(
-                f"⏳ <b>آهنگ در صف قرار گرفت:</b>\n"
-                f"◄ <code>{query}</code>",
+                f"⏳ <b>آهنگ به صف اضافه شد!</b>\n"
+                f"◄ <code>{query}</code>\n"
+                f"🎵 <b>شماره در صف:</b> {len(playlist[chat_id])}",
                 parse_mode='HTML'
             )
             
@@ -275,9 +285,12 @@ async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     try:
         await call.leave_group_call(chat_id)
+        if chat_id in playlist:
+            del playlist[chat_id]
         await message.reply_text(
             "⏹️ <b>پخش متوقف شد!</b>\n"
-            "◄ ربات از ویس چت خارج شد.",
+            "◄ ربات از ویس چت خارج شد.\n"
+            "◄ لیست پخش پاک شد.",
             parse_mode='HTML'
         )
     except Exception as e:
@@ -330,16 +343,26 @@ async def skip_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.message
     
     try:
-        # در اینجا باید آهنگ بعدی از صف پخش شود
-        await call.change_stream(
-            chat_id,
-            MediaStream("https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3")
-        )
-        await message.reply_text(
-            "⏭️ <b>آهنگ رد شد!</b>\n"
-            "◄ آهنگ بعدی در حال پخش است.",
-            parse_mode='HTML'
-        )
+        # اگر آهنگ بعدی در صف وجود داشت
+        if chat_id in playlist and playlist[chat_id]:
+            next_song = playlist[chat_id].pop(0)
+            await message.reply_text(
+                f"⏭️ <b>آهنگ بعدی:</b>\n"
+                f"◄ <code>{next_song}</code>\n\n"
+                f"🎵 در حال پخش آهنگ بعدی...",
+                parse_mode='HTML'
+            )
+            # تغییر آهنگ
+            await call.change_stream(
+                chat_id,
+                MediaStream("https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3")
+            )
+        else:
+            await message.reply_text(
+                "⚠️ <b>صف پخش خالی است!</b>\n"
+                "◄ برای افزودن آهنگ از /play استفاده کنید.",
+                parse_mode='HTML'
+            )
     except Exception as e:
         await message.reply_text(
             f"❌ <b>خطا!</b>\n"
@@ -667,7 +690,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 • /stop - توقف پخش و خروج از ویس چت
 • /pause - مکث موقت
 • /resume - ادامه پخش
-• /skip - رد کردن آهنگ فعلی
+• /skip - رد کردن آهنگ
 
 📞 <b>پشتیبانی:</b>
 در صورت نیاز به کمک، با ما تماس بگیرید.
@@ -714,6 +737,7 @@ async def run_bot():
         print(f"🚀 ربات در حال روشن شدن با Polling...")
         print(f"✅ Webhook قبلی پاک شده")
         print(f"👤 سازنده ربات: {OWNER_ID}")
+        print(f"🔑 سشن: {SESSION_STRING[:50]}...")
         
         # راه‌اندازی با Polling
         await application.run_polling(
