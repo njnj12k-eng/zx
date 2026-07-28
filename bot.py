@@ -356,7 +356,7 @@ async def create_session_with_password(update: Update, user_id: int, password: s
         phone = user_sessions[user_id]['phone']
         app = user_sessions[user_id]['app']
         
-        # ورود با رمز عبور
+        # روش صحیح ورود با رمز عبور در pyrogram
         await app.sign_in(password=password)
         
         # ساخت سشن
