@@ -1,5 +1,4 @@
 python-telegram-bot==20.0
-httpx==0.25.0
 pyrogram==2.0.106
-pytgcalls==4.0.0
+pytgcalls==5.0.2
 yt-dlp==2023.10.13
