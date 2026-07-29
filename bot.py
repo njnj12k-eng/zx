@@ -75,13 +75,6 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode='HTML'
             )
             
-            # ریپلای به کاربر
-            await context.bot.send_message(
-                chat_id=user_id,
-                text=f"✅ {user_name} عزیز، عضویت شما تأیید شد!",
-                reply_to_message_id=query.message.message_id
-            )
-            
         else:
             # کاربر عضو نیست - پیام خطا با دکمه‌ها
             new_text = (
@@ -99,13 +92,6 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 new_text,
                 reply_markup=reply_markup,
                 parse_mode='HTML'
-            )
-            
-            # ریپلای به کاربر با هشدار
-            await context.bot.send_message(
-                chat_id=user_id,
-                text=f"⚠️ {user_name} جان، شما هنوز عضو کانال نشدید! لطفاً اول عضو شوید.",
-                reply_to_message_id=query.message.message_id
             )
             
     except Exception as e:
