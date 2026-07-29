@@ -6,19 +6,32 @@ CHANNEL_USERNAME = "@ReaperSelfChannel"
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
+    user_name = update.effective_user.first_name
+    user_mention = f"@{update.effective_user.username}" if update.effective_user.username else user_name
     
-    # بررسی اولیه عضویت
+    # بررسی عضویت
     try:
         chat_member = await context.bot.get_chat_member(CHANNEL_USERNAME, user_id)
+        
         if chat_member.status in ["member", "administrator", "creator"]:
+            # کاربر عضو است - پیام خوش‌آمدگویی
+            text = (
+                "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>\n"
+                "<b>⫸ سلام {user_mention} به ربات ریپر سلف Reaper Self خوش آمدید !</b>\n\n"
+                "<b>◄ توی این ربات میتوانید از پشتیبانی ، خرید ، نصب ربات سلف بهره ببرید !</b>\n\n"
+                "<b>◂ لطفا اگر سوالی دارید از بخش پشتیبانی ، با پشتیبان ها در ارتباط باشید !</b>\n"
+                "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>"
+            )
+            
             await update.message.reply_text(
-                "✅ شما قبلاً عضو کانال هستید.\nخوش آمدید!"
+                text,
+                parse_mode='HTML'
             )
             return
     except:
         pass
     
-    # متن پیام با فرمت جدید
+    # کاربر عضو نیست - پیام درخواست عضویت
     text = (
         "<b>⫸ برای دسترسی به خدمات ما، ابتدا باید در کانال زیر عضو شوید.</b>\n"
         "<b>◄ پس از عضویت، روی دکمه‌ی «عضو شدم» کلیک کنید.</b>"
@@ -42,26 +55,23 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     user_id = query.from_user.id
     user_name = query.from_user.first_name
+    user_mention = f"@{query.from_user.username}" if query.from_user.username else user_name
     
     try:
         chat_member = await context.bot.get_chat_member(CHANNEL_USERNAME, user_id)
         
         if chat_member.status in ["member", "administrator", "creator"]:
-            # کاربر عضو شده - پیام موفقیت با ریپلای
+            # کاربر عضو شده - پیام خوش‌آمدگویی
             new_text = (
-                "<b>⫸ این ربات درحال کد نویسی و توسعه است لطفا صبر نمایید !</b>"
+                "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>\n"
+                "<b>⫸ سلام {user_mention} به ربات ریپر سلف Reaper Self خوش آمدید !</b>\n\n"
+                "<b>◄ توی این ربات میتوانید از پشتیبانی ، خرید ، نصب ربات سلف بهره ببرید !</b>\n\n"
+                "<b>◂ لطفا اگر سوالی دارید از بخش پشتیبانی ، با پشتیبان ها در ارتباط باشید !</b>\n"
+                "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>"
             )
             
-            keyboard = [
-                [InlineKeyboardButton("ریپر سلف Reaper Self", url="https://t.me/ReaperSelfChannel")],
-                [InlineKeyboardButton("✓ عضو شدم", callback_data="check_membership")]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            
-            # ویرایش پیام اصلی
             await query.edit_message_text(
                 new_text,
-                reply_markup=reply_markup,
                 parse_mode='HTML'
             )
             
@@ -85,7 +95,6 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
-            # ویرایش پیام اصلی
             await query.edit_message_text(
                 new_text,
                 reply_markup=reply_markup,
@@ -100,7 +109,6 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             
     except Exception as e:
-        # خطا در بررسی عضویت
         await query.answer("❌ خطا در بررسی عضویت!", show_alert=True)
 
 def main():
