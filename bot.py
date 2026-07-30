@@ -1,6 +1,5 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
-import asyncio
 
 TOKEN = "8961040480:AAHNKEnK7LZuCp9fSJ5td2_XdGFqPtwp_dY"
 CHANNEL_USERNAME = "@ReaperSelfChannel"
@@ -13,17 +12,20 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_member = await context.bot.get_chat_member(CHANNEL_USERNAME, user_id)
         
         if chat_member.status in ["member", "administrator", "creator"]:
-            # منوی اصلی با متن جدید
+            # منوی اصلی
             text = (
                 "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>\n"
-                "<b>⫸ سلام {user_mention} به ربات ریپر سلف Reaper Self خوش آمدید !</b>\n\n"
+                f"<b>⫸ سلام {user_mention} به ربات ریپر سلف Reaper Self خوش آمدید !</b>\n\n"
                 "<b>◄ توی این ربات میتوانید از پشتیبانی ، خرید ، نصب ربات سلف بهره ببرید !</b>\n\n"
                 "<b>◂ لطفا اگر سوالی دارید از بخش پشتیبانی ، با پشتیبان ها در ارتباط باشید !</b>\n"
                 "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯   ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>"
             )
             
             keyboard = [
-                [InlineKeyboardButton("پشتیبانی 👨‍💻", callback_data="support")]
+                [InlineKeyboardButton("سلف چیست ؟ 🤔", callback_data="what_is_self")],
+                [InlineKeyboardButton("📢 کانال دستورات", url="https://t.me/ReaperSelfChannel")],
+                [InlineKeyboardButton("انقضا : ( 0 روز )", callback_data="expiry")],
+                [InlineKeyboardButton("خرید اشتراک 💳", callback_data="buy_subscription")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
@@ -65,17 +67,20 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_member = await context.bot.get_chat_member(CHANNEL_USERNAME, user_id)
         
         if chat_member.status in ["member", "administrator", "creator"]:
-            # منوی اصلی با متن جدید
+            # منوی اصلی
             text = (
                 "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>\n"
-                "<b>⫸ سلام {user_mention} به ربات ریپر سلف Reaper Self خوش آمدید !</b>\n\n"
+                f"<b>⫸ سلام {user_mention} به ربات ریپر سلف Reaper Self خوش آمدید !</b>\n\n"
                 "<b>◄ توی این ربات میتوانید از پشتیبانی ، خرید ، نصب ربات سلف بهره ببرید !</b>\n\n"
                 "<b>◂ لطفا اگر سوالی دارید از بخش پشتیبانی ، با پشتیبان ها در ارتباط باشید !</b>\n"
                 "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯   ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>"
             )
             
             keyboard = [
-                [InlineKeyboardButton("پشتیبانی 👨‍💻", callback_data="support")]
+                [InlineKeyboardButton("سلف چیست ؟ 🤔", callback_data="what_is_self")],
+                [InlineKeyboardButton("📢 کانال دستورات", url="https://t.me/ReaperSelfChannel")],
+                [InlineKeyboardButton("انقضا : ( 0 روز )", callback_data="expiry")],
+                [InlineKeyboardButton("خرید اشتراک 💳", callback_data="buy_subscription")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
@@ -107,17 +112,38 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await query.answer("❌ خطا در بررسی عضویت!", show_alert=True)
 
-async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def what_is_self(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
     text = (
-        "<b>⫸ شما با موفقیت به پشتیبانی متصل شدید !</b>\n"
-        "<b>◄ لطفا دقت کنید که توی پشتیبانی اسپم ندهید و از دستورات سلف توی بخش پشتیبانی استفاده نکنید ، اکنون میتوانید پیام خود را ارسال کنید !</b>"
+        "<b>سلف به رباتی گفته میشه که روی اکانت شما نصب میشه و امکانات خاصی رو در اختیارتون میزاره ، لازم به ذکر هست که نصب شدن بر روی اکانت شما به معنی وارد شدن ربات به اکانت شما هست ( به دلیل دستور گرفتن و انجام فعالیت ها )\n\nاز جمله امکاناتی که در اختیار شما قرار میدهد شامل موارد زیر است :\n\n⫸ گذاشتن ساعت با فونت های مختلف بر روی بیو ، اسم\n⫸ قابلیت تنظیم حالت خوانده شدن خودکار پیام ها\n⫸ تنظیم حالت پاسخ خودکار\n⫸ جواب دادن به شخصی که به شما توهین میکنه\n⫸ پیام انیمیشنی\n⫸ منشی هوشمند\n⫸ دریافت پنل و تنظیمات اکانت هوشمند\n⫸ دو زبانه بودن دستورات و جواب ها\n⫸ تغییر نام و کاور فایل ها\n⫸ اعلان پیام ادیت و حذف شده در پیوی\n⫸ ذخیره پروفایل های جدید و اعلان حذف پروفایل مخاطبین\n\nو امکاناتی دیگر که میتوانید با مراجعه به بخش راهنما آن ها را ببینید و مطالعه کنید !\n\n◄ لازم به ذکر است که امکاناتی که در بالا گفته شده تنها ذره ای از امکانات سلف میباشد .</b>"
     )
     
     keyboard = [
         [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(
+        text,
+        reply_markup=reply_markup,
+        parse_mode='HTML'
+    )
+
+async def buy_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    text = (
+        "<b>◄ لطفا از منوی زیر انتخاب نمایید سلف را برای چند ماه میخواهید خریداری نمایید.</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")],
+        [InlineKeyboardButton("خرید با کد 💶", callback_data="buy_with_code")],
+        [InlineKeyboardButton("نرخ 💎", callback_data="rate")],
+        [InlineKeyboardButton("📣 کانال ما", url="https://t.me/ReaperSelfChannel")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -135,14 +161,17 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     text = (
         "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>\n"
-        "<b>⫸ سلام {user_mention} به ربات ریپر سلف Reaper Self خوش آمدید !</b>\n\n"
+        f"<b>⫸ سلام {user_mention} به ربات ریپر سلف Reaper Self خوش آمدید !</b>\n\n"
         "<b>◄ توی این ربات میتوانید از پشتیبانی ، خرید ، نصب ربات سلف بهره ببرید !</b>\n\n"
         "<b>◂ لطفا اگر سوالی دارید از بخش پشتیبانی ، با پشتیبان ها در ارتباط باشید !</b>\n"
         "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯   ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>"
     )
     
     keyboard = [
-        [InlineKeyboardButton("پشتیبانی 👨‍💻", callback_data="support")]
+        [InlineKeyboardButton("سلف چیست ؟ 🤔", callback_data="what_is_self")],
+        [InlineKeyboardButton("📢 کانال دستورات", url="https://t.me/ReaperSelfChannel")],
+        [InlineKeyboardButton("انقضا : ( 0 روز )", callback_data="expiry")],
+        [InlineKeyboardButton("خرید اشتراک 💳", callback_data="buy_subscription")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -152,13 +181,32 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode='HTML'
     )
 
+async def buy_with_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.answer("🛒 لطفا کد خود را وارد کنید!", show_alert=True)
+
+async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.answer("💎 نرخ ها به زودی اعلام میشود!", show_alert=True)
+
+async def expiry(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.answer("⏳ اشتراک شما فعال نمیباشد!", show_alert=True)
+
 def main():
     app = Application.builder().token(TOKEN).build()
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(check_membership, pattern="check_membership"))
-    app.add_handler(CallbackQueryHandler(support, pattern="support"))
+    app.add_handler(CallbackQueryHandler(what_is_self, pattern="what_is_self"))
+    app.add_handler(CallbackQueryHandler(buy_subscription, pattern="buy_subscription"))
     app.add_handler(CallbackQueryHandler(main_menu, pattern="main_menu"))
+    app.add_handler(CallbackQueryHandler(buy_with_code, pattern="buy_with_code"))
+    app.add_handler(CallbackQueryHandler(rate, pattern="rate"))
+    app.add_handler(CallbackQueryHandler(expiry, pattern="expiry"))
     
     print("🤖 ربات در حال اجراست...")
     app.run_polling()
