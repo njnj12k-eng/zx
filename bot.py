@@ -140,6 +140,12 @@ async def buy_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     keyboard = [
+        [InlineKeyboardButton("( 1 ) ماه معادل 3 ترون ( trx )", callback_data="buy_1_month")],
+        [InlineKeyboardButton("( 2 ) ماه معادل 6 ترون ( trx )", callback_data="buy_2_month")],
+        [InlineKeyboardButton("( 3 ) ماه معادل 9 ترون ( trx )", callback_data="buy_3_month")],
+        [InlineKeyboardButton("( 4 ) ماه معادل 13 ترون ( trx )", callback_data="buy_4_month")],
+        [InlineKeyboardButton("( 5 ) ماه معادل 16 ترون ( trx )", callback_data="buy_5_month")],
+        [InlineKeyboardButton("( 6 ) ماه معادل 19 ترون ( trx )", callback_data="buy_6_month")],
         [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")],
         [InlineKeyboardButton("خرید با کد 💶", callback_data="buy_with_code")],
         [InlineKeyboardButton("نرخ 💎", callback_data="rate")],
@@ -196,6 +202,36 @@ async def expiry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     await query.answer("⏳ اشتراک شما فعال نمیباشد!", show_alert=True)
 
+async def buy_1_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.answer("💳 لطفا مبلغ 3 ترون را واریز کنید!", show_alert=True)
+
+async def buy_2_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.answer("💳 لطفا مبلغ 6 ترون را واریز کنید!", show_alert=True)
+
+async def buy_3_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.answer("💳 لطفا مبلغ 9 ترون را واریز کنید!", show_alert=True)
+
+async def buy_4_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.answer("💳 لطفا مبلغ 13 ترون را واریز کنید!", show_alert=True)
+
+async def buy_5_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.answer("💳 لطفا مبلغ 16 ترون را واریز کنید!", show_alert=True)
+
+async def buy_6_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.answer("💳 لطفا مبلغ 19 ترون را واریز کنید!", show_alert=True)
+
 def main():
     app = Application.builder().token(TOKEN).build()
     
@@ -207,6 +243,12 @@ def main():
     app.add_handler(CallbackQueryHandler(buy_with_code, pattern="buy_with_code"))
     app.add_handler(CallbackQueryHandler(rate, pattern="rate"))
     app.add_handler(CallbackQueryHandler(expiry, pattern="expiry"))
+    app.add_handler(CallbackQueryHandler(buy_1_month, pattern="buy_1_month"))
+    app.add_handler(CallbackQueryHandler(buy_2_month, pattern="buy_2_month"))
+    app.add_handler(CallbackQueryHandler(buy_3_month, pattern="buy_3_month"))
+    app.add_handler(CallbackQueryHandler(buy_4_month, pattern="buy_4_month"))
+    app.add_handler(CallbackQueryHandler(buy_5_month, pattern="buy_5_month"))
+    app.add_handler(CallbackQueryHandler(buy_6_month, pattern="buy_6_month"))
     
     print("🤖 ربات در حال اجراست...")
     app.run_polling()
