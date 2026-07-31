@@ -371,7 +371,7 @@ async def handle_card_number(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if len(card_number) == 16 and card_number.isdigit():
         # شماره کارت معتبر
         await update.message.reply_text(
-            "<b>✅ شماره کارت شما با موفقیت ثبت شد!\nکارت شما احراز هویت شد.</b>",
+            "<b>درخواست احراز هویت شما برای پشتیبانی ارسال شد و در اولین فرصت تایید خواهد شد ، لطفا صبور باشید.\n\nلطفا برای تایید کارت به پشتیبانی پیام ارسال نفرمایید و درخواست احرازهویتتون رو اسپم نکنید ، در صورت مشاهده این کار یک روز با تاخیر تایید میشود.</b>",
             parse_mode='HTML'
         )
         # پاک کردن وضعیت کاربر
