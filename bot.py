@@ -22,10 +22,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             
             keyboard = [
-                [InlineKeyboardButton("سلف چیست ؟ 🤔", callback_data="what_is_self")],
-                [InlineKeyboardButton("📢 کانال دستورات", url="https://t.me/ReaperSelfChannel")],
+                [InlineKeyboardButton("پشتیبانی 👨‍💻", callback_data="support")],
+                [InlineKeyboardButton("سلف چیست ؟ 🤔", callback_data="what_is_self"), InlineKeyboardButton("📢 کانال دستورات", url="https://t.me/ReaperSelfChannel")],
                 [InlineKeyboardButton("انقضا : ( 0 روز )", callback_data="expiry")],
-                [InlineKeyboardButton("خرید اشتراک 💳", callback_data="buy_subscription")],
+                [InlineKeyboardButton("خرید اشتراک 💳", callback_data="buy_subscription"), InlineKeyboardButton("احراز هویت ✔️", callback_data="verify")],
                 [InlineKeyboardButton("خرید با کد 💶", callback_data="buy_with_code")],
                 [InlineKeyboardButton("نرخ 💎", callback_data="rate")],
                 [InlineKeyboardButton("📣 کانال ما", url="https://t.me/ReaperSelfChannel")]
@@ -80,10 +80,10 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             
             keyboard = [
-                [InlineKeyboardButton("سلف چیست ؟ 🤔", callback_data="what_is_self")],
-                [InlineKeyboardButton("📢 کانال دستورات", url="https://t.me/ReaperSelfChannel")],
+                [InlineKeyboardButton("پشتیبانی 👨‍💻", callback_data="support")],
+                [InlineKeyboardButton("سلف چیست ؟ 🤔", callback_data="what_is_self"), InlineKeyboardButton("📢 کانال دستورات", url="https://t.me/ReaperSelfChannel")],
                 [InlineKeyboardButton("انقضا : ( 0 روز )", callback_data="expiry")],
-                [InlineKeyboardButton("خرید اشتراک 💳", callback_data="buy_subscription")],
+                [InlineKeyboardButton("خرید اشتراک 💳", callback_data="buy_subscription"), InlineKeyboardButton("احراز هویت ✔️", callback_data="verify")],
                 [InlineKeyboardButton("خرید با کد 💶", callback_data="buy_with_code")],
                 [InlineKeyboardButton("نرخ 💎", callback_data="rate")],
                 [InlineKeyboardButton("📣 کانال ما", url="https://t.me/ReaperSelfChannel")]
@@ -117,6 +117,26 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
     except Exception as e:
         await query.answer("❌ خطا در بررسی عضویت!", show_alert=True)
+
+async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    text = (
+        "<b>⫸ شما با موفقیت به پشتیبانی متصل شدید !</b>\n"
+        "<b>◄ لطفا دقت کنید که توی پشتیبانی اسپم ندهید و از دستورات سلف توی بخش پشتیبانی استفاده نکنید ، اکنون میتوانید پیام خود را ارسال کنید !</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(
+        text,
+        reply_markup=reply_markup,
+        parse_mode='HTML'
+    )
 
 async def what_is_self(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -177,10 +197,10 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     keyboard = [
-        [InlineKeyboardButton("سلف چیست ؟ 🤔", callback_data="what_is_self")],
-        [InlineKeyboardButton("📢 کانال دستورات", url="https://t.me/ReaperSelfChannel")],
+        [InlineKeyboardButton("پشتیبانی 👨‍💻", callback_data="support")],
+        [InlineKeyboardButton("سلف چیست ؟ 🤔", callback_data="what_is_self"), InlineKeyboardButton("📢 کانال دستورات", url="https://t.me/ReaperSelfChannel")],
         [InlineKeyboardButton("انقضا : ( 0 روز )", callback_data="expiry")],
-        [InlineKeyboardButton("خرید اشتراک 💳", callback_data="buy_subscription")],
+        [InlineKeyboardButton("خرید اشتراک 💳", callback_data="buy_subscription"), InlineKeyboardButton("احراز هویت ✔️", callback_data="verify")],
         [InlineKeyboardButton("خرید با کد 💶", callback_data="buy_with_code")],
         [InlineKeyboardButton("نرخ 💎", callback_data="rate")],
         [InlineKeyboardButton("📣 کانال ما", url="https://t.me/ReaperSelfChannel")]
@@ -207,6 +227,11 @@ async def expiry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     await query.answer("⏳ اشتراک شما فعال نمیباشد!", show_alert=True)
+
+async def verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.answer("✔️ لطفا شماره تماس خود را ارسال کنید!", show_alert=True)
 
 async def buy_1_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -243,12 +268,14 @@ def main():
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(check_membership, pattern="check_membership"))
+    app.add_handler(CallbackQueryHandler(support, pattern="support"))
     app.add_handler(CallbackQueryHandler(what_is_self, pattern="what_is_self"))
     app.add_handler(CallbackQueryHandler(buy_subscription, pattern="buy_subscription"))
     app.add_handler(CallbackQueryHandler(main_menu, pattern="main_menu"))
     app.add_handler(CallbackQueryHandler(buy_with_code, pattern="buy_with_code"))
     app.add_handler(CallbackQueryHandler(rate, pattern="rate"))
     app.add_handler(CallbackQueryHandler(expiry, pattern="expiry"))
+    app.add_handler(CallbackQueryHandler(verify, pattern="verify"))
     app.add_handler(CallbackQueryHandler(buy_1_month, pattern="buy_1_month"))
     app.add_handler(CallbackQueryHandler(buy_2_month, pattern="buy_2_month"))
     app.add_handler(CallbackQueryHandler(buy_3_month, pattern="buy_3_month"))
