@@ -1,12 +1,19 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters
 
 TOKEN = "8961040480:AAHNKEnK7LZuCp9fSJ5td2_XdGFqPtwp_dY"
 CHANNEL_USERNAME = "@ReaperSelfChannel"
 
+# ذخیره وضعیت کاربران برای مرحله احراز هویت
+user_states = {}
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_mention = f"@{update.effective_user.username}" if update.effective_user.username else update.effective_user.first_name
+    
+    # پاک کردن وضعیت کاربر
+    if user_id in user_states:
+        del user_states[user_id]
     
     try:
         chat_member = await context.bot.get_chat_member(CHANNEL_USERNAME, user_id)
@@ -279,6 +286,9 @@ async def new_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
+    # ذخیره وضعیت کاربر برای مرحله دریافت عکس
+    user_states[query.from_user.id] = "waiting_for_photo"
+    
     text = (
         "<b>به بخش احراز هویت خوش آمدید.\n\nنکات :\n1) شماره کارت و نام صاحب کارت کاملا مشخص باشد.\n2) لطفا تاریخ اعتبار و Cvv2 کارت خود را بپوشانید!\n3) فقط با کارتی که احراز هویت میکنید میتوانید خرید انجام بدید و اگر با کارت دیگری اقدام کنید تراکنش ناموفق میشود و هزینه از سمت خودِ بانک به شما بازگشت داده میشود.\n4) در صورتی که توانایی ارسال عکس از کارت را ندارید تنها راه حل ارسال عکس از کارت ملی یا شناسنامه صاحب کارت است.\n\nلطفا عکس از کارتی که میخواهید با آن خرید انجام دهید ارسال کنید.</b>"
     )
@@ -298,6 +308,10 @@ async def back_to_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
+    # پاک کردن وضعیت کاربر
+    if query.from_user.id in user_states:
+        del user_states[query.from_user.id]
+    
     text = (
         "<b>◄ به منوی احراز هویت خوش آمدید ، لطفا انتخاب کنید :</b>"
     )
@@ -313,6 +327,61 @@ async def back_to_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup,
         parse_mode='HTML'
     )
+
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    
+    # بررسی اینکه کاربر در مرحله دریافت عکس هست یا نه
+    if user_id not in user_states or user_states[user_id] != "waiting_for_photo":
+        return
+    
+    # بررسی اینکه پیام عکس هست یا نه
+    if update.message.photo:
+        # عکس دریافت شد
+        user_states[user_id] = "waiting_for_card_number"
+        
+        text = (
+            "<b>◄ لطفا شماره کارت خود را به صورت اعداد انگلیسی ارسال کنید\nدر صورتی که منصرف شدید ربات را مجدد استارت کنید : [ /start ]</b>"
+        )
+        
+        await update.message.reply_text(
+            text,
+            parse_mode='HTML'
+        )
+    else:
+        # هر چیزی غیر از عکس
+        await update.message.reply_text(
+            "<b>❌ لطفا فقط عکس ارسال کنید!</b>",
+            parse_mode='HTML'
+        )
+
+async def handle_card_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    
+    # بررسی اینکه کاربر در مرحله دریافت شماره کارت هست یا نه
+    if user_id not in user_states or user_states[user_id] != "waiting_for_card_number":
+        return
+    
+    text = update.message.text.strip()
+    
+    # حذف فاصله ها و کاراکترهای اضافی
+    card_number = ''.join(filter(str.isdigit, text))
+    
+    # بررسی 16 رقمی بودن
+    if len(card_number) == 16 and card_number.isdigit():
+        # شماره کارت معتبر
+        await update.message.reply_text(
+            "<b>✅ شماره کارت شما با موفقیت ثبت شد!\nکارت شما احراز هویت شد.</b>",
+            parse_mode='HTML'
+        )
+        # پاک کردن وضعیت کاربر
+        del user_states[user_id]
+    else:
+        # شماره کارت نامعتبر
+        await update.message.reply_text(
+            "<b>شماره کارت 16 رقمی است.\nلطفا شماره کارت خود را بدون هیچ کاراکتر اضافه ای وارد کنید</b>",
+            parse_mode='HTML'
+        )
 
 async def buy_1_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -366,6 +435,10 @@ def main():
     app.add_handler(CallbackQueryHandler(buy_4_month, pattern="buy_4_month"))
     app.add_handler(CallbackQueryHandler(buy_5_month, pattern="buy_5_month"))
     app.add_handler(CallbackQueryHandler(buy_6_month, pattern="buy_6_month"))
+    
+    # هندلرهای پیام
+    app.add_handler(MessageHandler(filters.PHOTO, handle_message))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_card_number))
     
     print("🤖 ربات در حال اجراست...")
     app.run_polling()
