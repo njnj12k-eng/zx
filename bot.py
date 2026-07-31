@@ -278,7 +278,41 @@ async def delete_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def new_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.answer("➕ لطفا شماره کارت جدید را وارد کنید!", show_alert=True)
+    
+    text = (
+        "<b>به بخش احراز هویت خوش آمدید.\n\nنکات :\n1) شماره کارت و نام صاحب کارت کاملا مشخص باشد.\n2) لطفا تاریخ اعتبار و Cvv2 کارت خود را بپوشانید!\n3) فقط با کارتی که احراز هویت میکنید میتوانید خرید انجام بدید و اگر با کارت دیگری اقدام کنید تراکنش ناموفق میشود و هزینه از سمت خودِ بانک به شما بازگشت داده میشود.\n4) در صورتی که توانایی ارسال عکس از کارت را ندارید تنها راه حل ارسال عکس از کارت ملی یا شناسنامه صاحب کارت است.\n\nلطفا عکس از کارتی که میخواهید با آن خرید انجام دهید ارسال کنید.</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("(🔙) بازگشت", callback_data="back_to_verify")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(
+        text,
+        reply_markup=reply_markup,
+        parse_mode='HTML'
+    )
+
+async def back_to_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    text = (
+        "<b>◄ به منوی احراز هویت خوش آمدید ، لطفا انتخاب کنید :</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("حذف کارت ➖", callback_data="delete_card"), InlineKeyboardButton("کارت جدید ➕", callback_data="new_card")],
+        [InlineKeyboardButton("(🔙) بازگشت به منوی اصلی", callback_data="main_menu")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(
+        text,
+        reply_markup=reply_markup,
+        parse_mode='HTML'
+    )
 
 async def buy_1_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -325,6 +359,7 @@ def main():
     app.add_handler(CallbackQueryHandler(verify, pattern="verify"))
     app.add_handler(CallbackQueryHandler(delete_card, pattern="delete_card"))
     app.add_handler(CallbackQueryHandler(new_card, pattern="new_card"))
+    app.add_handler(CallbackQueryHandler(back_to_verify, pattern="back_to_verify"))
     app.add_handler(CallbackQueryHandler(buy_1_month, pattern="buy_1_month"))
     app.add_handler(CallbackQueryHandler(buy_2_month, pattern="buy_2_month"))
     app.add_handler(CallbackQueryHandler(buy_3_month, pattern="buy_3_month"))
