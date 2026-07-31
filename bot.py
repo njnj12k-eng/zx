@@ -221,7 +221,29 @@ async def buy_with_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.answer("💎 نرخ ها به زودی اعلام میشود!", show_alert=True)
+    
+    text = (
+        "<b>⫸ نرخ سلف عبارت است از :</b>\n\n"
+        "<b>◄ ماهانه : 100,000 هزار تومان</b>\n\n"
+        "<b>◄ دو ماهه : 150,000 هزار تومان</b>\n\n"
+        "<b>◄ سه ماهه : 200,000 هزار تومان</b>\n\n"
+        "<b>◄ چهار ماهه : 250,000 هزار تومان</b>\n\n"
+        "<b>◄ پنج ماهه : 300,000 هزار تومان</b>\n\n"
+        "<b>◄ شش ماهه : 350,000 هزار تومان</b>\n\n"
+        "<b>(⚠️) توجه داشته باشید سلف فقط بر روی اکانت هایی که با شماره ایران هستند نصب میشود و اما در صورت نصب روی شماره های مجازی مسئولیت دیلیت شدن اکانت به عهده خودتان خواهد بود.</b>\n\n"
+        "<b>֍ @ReaperSelfChannel</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(
+        text,
+        reply_markup=reply_markup,
+        parse_mode='HTML'
+    )
 
 async def expiry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
