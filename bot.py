@@ -253,7 +253,32 @@ async def expiry(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.answer("✔️ لطفا شماره تماس خود را ارسال کنید!", show_alert=True)
+    
+    text = (
+        "<b>◄ به منوی احراز هویت خوش آمدید ، لطفا انتخاب کنید :</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("حذف کارت ➖", callback_data="delete_card"), InlineKeyboardButton("کارت جدید ➕", callback_data="new_card")],
+        [InlineKeyboardButton("(🔙) بازگشت به منوی اصلی", callback_data="main_menu")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(
+        text,
+        reply_markup=reply_markup,
+        parse_mode='HTML'
+    )
+
+async def delete_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.answer("❌ کارت شما با موفقیت حذف شد!", show_alert=True)
+
+async def new_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.answer("➕ لطفا شماره کارت جدید را وارد کنید!", show_alert=True)
 
 async def buy_1_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -298,6 +323,8 @@ def main():
     app.add_handler(CallbackQueryHandler(rate, pattern="rate"))
     app.add_handler(CallbackQueryHandler(expiry, pattern="expiry"))
     app.add_handler(CallbackQueryHandler(verify, pattern="verify"))
+    app.add_handler(CallbackQueryHandler(delete_card, pattern="delete_card"))
+    app.add_handler(CallbackQueryHandler(new_card, pattern="new_card"))
     app.add_handler(CallbackQueryHandler(buy_1_month, pattern="buy_1_month"))
     app.add_handler(CallbackQueryHandler(buy_2_month, pattern="buy_2_month"))
     app.add_handler(CallbackQueryHandler(buy_3_month, pattern="buy_3_month"))
