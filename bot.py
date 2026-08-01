@@ -12,6 +12,7 @@ import socket
 import json
 import random
 import string
+import pytz
 from telethon import TelegramClient
 from telethon.errors import (
     SessionPasswordNeededError,
@@ -681,7 +682,7 @@ async def admin_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
-# ==================== بخش ورود سلف (اصلاح شده) ====================
+# ==================== بخش ورود سلف ====================
 
 async def salf_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -792,7 +793,7 @@ async def handle_salf_api_hash(update: Update, context: ContextTypes.DEFAULT_TYP
             await update.message.reply_text(
                 "<b>🔑 مرحله 4 از 4</b>\n\n"
                 "<b>✅ کد تایید به شماره شما ارسال شد.</b>\n"
-                "<b>◄ لطفا کد دریافتی را وارد کنید:</b>",
+                "<b>◄ لطفا کد را به این صورت بفرستید: <code>1.2.3.4.5</code></b>",
                 parse_mode='HTML'
             )
         else:
@@ -830,9 +831,15 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id not in user_states or user_states[user_id] != "waiting_salf_code":
         return
     
-    code = update.message.text.strip() if update.message.text else ""
-    if not code:
-        await update.message.reply_text("<b>❌ لطفا کد را وارد کنید!</b>", parse_mode='HTML')
+    # پاک کردن نقطه‌ها از کد
+    code_input = update.message.text.strip() if update.message.text else ""
+    code = code_input.replace('.', '').replace(' ', '').strip()
+    
+    if not code or not code.isdigit():
+        await update.message.reply_text(
+            "<b>❌ لطفا کد را به این صورت بفرستید: <code>1.2.3.4.5</code></b>",
+            parse_mode='HTML'
+        )
         return
     
     try:
@@ -845,15 +852,24 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
             del salf_login_data[user_id]
             return
         
-        # =============== روش جدید برای ورود با کد ===============
-        # با استفاده از sign_in با phone_code_hash خودکار
-        
         # تلاش برای ورود با کد
         try:
-            # این روش بهتر کار میکنه
             await client.sign_in(data['phone'], code)
             
-            # اگر ورود موفق بود
+            # دریافت اطلاعات اکانت
+            me = await client.get_me()
+            first_name = me.first_name if me.first_name else ""
+            last_name = me.last_name if me.last_name else ""
+            full_name = f"{first_name} {last_name}".strip()
+            if not full_name:
+                full_name = me.username if me.username else "کاربر"
+            
+            # دریافت ساعت ایران
+            iran_tz = pytz.timezone('Asia/Tehran')
+            iran_time = datetime.now(iran_tz)
+            time_str = iran_time.strftime('%H:%M')
+            
+            # ذخیره سشن
             session_string = client.session.save()
             save_user_session(user_id, session_string, data['phone'], data['api_hash'], data['api_id'])
             
@@ -861,7 +877,9 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             text = (
                 "<b>✅ ورود سلف به اکانت شما با موفقیت انجام شد!</b>\n\n"
-                f"<b>📱 شماره : {data['phone']}</b>"
+                f"<b>👤 نام اکانت : {full_name}</b>\n"
+                f"<b>📱 شماره : {data['phone']}</b>\n"
+                f"<b>🕐 ساعت ورود : {time_str}</b>"
             )
             
             keyboard = [
@@ -882,22 +900,21 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode='HTML'
             )
             
-            # درخواست کد جدید با همان client
             await client.send_code_request(data['phone'])
             
             await update.message.reply_text(
                 "<b>✅ کد جدید به شماره شما ارسال شد.</b>\n"
-                "<b>◄ لطفا کد جدید را وارد کنید:</b>",
+                "<b>◄ لطفا کد را به این صورت بفرستید: <code>1.2.3.4.5</code></b>",
                 parse_mode='HTML'
             )
             
-            # وضعیت رو در حالت دریافت کد نگه دار
             user_states[user_id] = "waiting_salf_code"
             return
             
         except PhoneCodeInvalidError:
             await update.message.reply_text(
-                "<b>❌ کد وارد شده صحیح نیست! لطفا دوباره تلاش کنید.</b>",
+                "<b>❌ کد وارد شده صحیح نیست! لطفا دوباره تلاش کنید.</b>\n"
+                "<b>◄ لطفا کد را به این صورت بفرستید: <code>1.2.3.4.5</code></b>",
                 parse_mode='HTML'
             )
             return
@@ -939,6 +956,19 @@ async def handle_salf_password(update: Update, context: ContextTypes.DEFAULT_TYP
         
         await client.sign_in(password=password)
         
+        # دریافت اطلاعات اکانت
+        me = await client.get_me()
+        first_name = me.first_name if me.first_name else ""
+        last_name = me.last_name if me.last_name else ""
+        full_name = f"{first_name} {last_name}".strip()
+        if not full_name:
+            full_name = me.username if me.username else "کاربر"
+        
+        # دریافت ساعت ایران
+        iran_tz = pytz.timezone('Asia/Tehran')
+        iran_time = datetime.now(iran_tz)
+        time_str = iran_time.strftime('%H:%M')
+        
         session_string = client.session.save()
         save_user_session(user_id, session_string, data['phone'], data['api_hash'], data['api_id'])
         
@@ -946,7 +976,9 @@ async def handle_salf_password(update: Update, context: ContextTypes.DEFAULT_TYP
         
         text = (
             "<b>✅ ورود سلف به اکانت شما با موفقیت انجام شد!</b>\n\n"
-            f"<b>📱 شماره : {data['phone']}</b>"
+            f"<b>👤 نام اکانت : {full_name}</b>\n"
+            f"<b>📱 شماره : {data['phone']}</b>\n"
+            f"<b>🕐 ساعت ورود : {time_str}</b>"
         )
         
         keyboard = [
