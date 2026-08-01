@@ -4,6 +4,9 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Cont
 TOKEN = "8961040480:AAHNKEnK7LZuCp9fSJ5td2_XdGFqPtwp_dY"
 CHANNEL_USERNAME = "@ReaperSelfChannel"
 
+# آیدی عددی ادمین
+ADMIN_ID = 7803165903
+
 # ذخیره وضعیت کاربران برای مرحله احراز هویت
 user_states = {}
 
@@ -15,11 +18,36 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id in user_states:
         del user_states[user_id]
     
+    # بررسی اینکه کاربر ادمین هست یا نه
+    if user_id == ADMIN_ID:
+        # منوی ادمین
+        text = (
+            "<b>⫸ درود {user_mention} به پنل ریپر سلف Reaper Self خوش آمدید.</b>\n\n"
+            "<b>◄ توی این پنل میتوانید ربات ریپر سلف Reaper Self را کنترل و مدیریت کنید.</b>\n\n"
+            "<b>◂ لطفا از منوی زیر انتخاب نمایید که چه کاری را می‌خواهید انتخاب دهید.</b>"
+        )
+        
+        keyboard = [
+            [InlineKeyboardButton("📊 آمار کامل", callback_data="admin_stats")],
+            [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping")],
+            [InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")],
+            [InlineKeyboardButton("منوی کاربران", callback_data="admin_users")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.message.reply_text(
+            text,
+            reply_markup=reply_markup,
+            parse_mode='HTML'
+        )
+        return
+    
+    # کاربر عادی - بررسی عضویت
     try:
         chat_member = await context.bot.get_chat_member(CHANNEL_USERNAME, user_id)
         
         if chat_member.status in ["member", "administrator", "creator"]:
-            # منوی اصلی
+            # منوی اصلی کاربران
             text = (
                 "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>\n"
                 f"<b>⫸ سلام {user_mention} به ربات ریپر سلف Reaper Self خوش آمدید !</b>\n\n"
@@ -73,6 +101,29 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
     user_mention = f"@{query.from_user.username}" if query.from_user.username else query.from_user.first_name
     
+    # ادمین نیازی به بررسی عضویت ندارد
+    if user_id == ADMIN_ID:
+        text = (
+            "<b>⫸ درود {user_mention} به پنل ریپر سلف Reaper Self خوش آمدید.</b>\n\n"
+            "<b>◄ توی این پنل میتوانید ربات ریپر سلف Reaper Self را کنترل و مدیریت کنید.</b>\n\n"
+            "<b>◂ لطفا از منوی زیر انتخاب نمایید که چه کاری را می‌خواهید انتخاب دهید.</b>"
+        )
+        
+        keyboard = [
+            [InlineKeyboardButton("📊 آمار کامل", callback_data="admin_stats")],
+            [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping")],
+            [InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")],
+            [InlineKeyboardButton("منوی کاربران", callback_data="admin_users")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(
+            text,
+            reply_markup=reply_markup,
+            parse_mode='HTML'
+        )
+        return
+    
     try:
         chat_member = await context.bot.get_chat_member(CHANNEL_USERNAME, user_id)
         
@@ -124,6 +175,80 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
     except Exception as e:
         await query.answer("❌ خطا در بررسی عضویت!", show_alert=True)
+
+# =============== بخش ادمین ===============
+
+async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.answer("📊 آمار کامل به زودی اضافه میشود!", show_alert=True)
+
+async def admin_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    text = (
+        "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>\n"
+        "<b>⫸ به بخشه بررسی پینگ ربات ریپر سلف Reaper Self خوش آمدید.</b>\n\n"
+        "<b>◄ توی این بخش میتوانید پینگ واقعی رباتتان را بررسی نمایید.</b>\n\n"
+        "<b>◂ لطفا از منوی زیر انتخاب نمایید.</b>\n"
+        "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯   ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("بررسی پینگ", callback_data="admin_check_ping")],
+        [InlineKeyboardButton("بازگشت به منوی اصلی", callback_data="admin_back")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(
+        text,
+        reply_markup=reply_markup,
+        parse_mode='HTML'
+    )
+
+async def admin_check_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.answer("📡 پینگ ربات بررسی شد!", show_alert=True)
+
+async def admin_host(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.answer("⏳ اعتبار هاست: 28 روز باقی مانده!", show_alert=True)
+
+async def admin_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.answer("👥 منوی کاربران به زودی اضافه میشود!", show_alert=True)
+
+async def admin_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    user_mention = f"@{query.from_user.username}" if query.from_user.username else query.from_user.first_name
+    
+    text = (
+        "<b>⫸ درود {user_mention} به پنل ریپر سلف Reaper Self خوش آمدید.</b>\n\n"
+        "<b>◄ توی این پنل میتوانید ربات ریپر سلف Reaper Self را کنترل و مدیریت کنید.</b>\n\n"
+        "<b>◂ لطفا از منوی زیر انتخاب نمایید که چه کاری را می‌خواهید انتخاب دهید.</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("📊 آمار کامل", callback_data="admin_stats")],
+        [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping")],
+        [InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")],
+        [InlineKeyboardButton("منوی کاربران", callback_data="admin_users")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(
+        text,
+        reply_markup=reply_markup,
+        parse_mode='HTML'
+    )
+
+# =============== بخش کاربران عادی ===============
 
 async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -187,7 +312,31 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
+    user_id = query.from_user.id
     user_mention = f"@{query.from_user.username}" if query.from_user.username else query.from_user.first_name
+    
+    # ادمین
+    if user_id == ADMIN_ID:
+        text = (
+            "<b>⫸ درود {user_mention} به پنل ریپر سلف Reaper Self خوش آمدید.</b>\n\n"
+            "<b>◄ توی این پنل میتوانید ربات ریپر سلف Reaper Self را کنترل و مدیریت کنید.</b>\n\n"
+            "<b>◂ لطفا از منوی زیر انتخاب نمایید که چه کاری را می‌خواهید انتخاب دهید.</b>"
+        )
+        
+        keyboard = [
+            [InlineKeyboardButton("📊 آمار کامل", callback_data="admin_stats")],
+            [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping")],
+            [InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")],
+            [InlineKeyboardButton("منوی کاربران", callback_data="admin_users")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(
+            text,
+            reply_markup=reply_markup,
+            parse_mode='HTML'
+        )
+        return
     
     text = (
         "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>\n"
@@ -426,6 +575,16 @@ def main():
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(check_membership, pattern="check_membership"))
+    
+    # ادمین
+    app.add_handler(CallbackQueryHandler(admin_stats, pattern="admin_stats"))
+    app.add_handler(CallbackQueryHandler(admin_ping, pattern="admin_ping"))
+    app.add_handler(CallbackQueryHandler(admin_check_ping, pattern="admin_check_ping"))
+    app.add_handler(CallbackQueryHandler(admin_host, pattern="admin_host"))
+    app.add_handler(CallbackQueryHandler(admin_users, pattern="admin_users"))
+    app.add_handler(CallbackQueryHandler(admin_back, pattern="admin_back"))
+    
+    # کاربران
     app.add_handler(CallbackQueryHandler(support, pattern="support"))
     app.add_handler(CallbackQueryHandler(what_is_self, pattern="what_is_self"))
     app.add_handler(CallbackQueryHandler(buy_subscription, pattern="buy_subscription"))
