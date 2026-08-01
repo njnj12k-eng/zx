@@ -1,5 +1,10 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters
+import time
+import psutil
+import platform
+import subprocess
+import asyncio
 
 TOKEN = "8961040480:AAHNKEnK7LZuCp9fSJ5td2_XdGFqPtwp_dY"
 CHANNEL_USERNAME = "@ReaperSelfChannel"
@@ -9,6 +14,52 @@ ADMIN_ID = 7803165903
 
 # ذخیره وضعیت کاربران برای مرحله احراز هویت
 user_states = {}
+
+async def get_server_info():
+    """دریافت اطلاعات سرور"""
+    try:
+        # پینگ - زمان پاسخگویی سرور
+        ping_time = None
+        try:
+            # پینگ به گوگل برای تست اتصال
+            process = await asyncio.create_subprocess_exec(
+                "ping", "-c", "1", "8.8.8.8",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await process.communicate()
+            if process.returncode == 0:
+                output = stdout.decode()
+                import re
+                ping_match = re.search(r'time=(\d+\.?\d*)\s*ms', output)
+                if ping_match:
+                    ping_time = float(ping_match.group(1))
+        except:
+            ping_time = None
+        
+        # اطلاعات سیستم
+        cpu_percent = psutil.cpu_percent(interval=0.5)
+        memory = psutil.virtual_memory()
+        disk = psutil.disk_usage('/')
+        
+        # وضعیت سرور
+        status = "🟢 آنلاین"
+        if ping_time is None or cpu_percent > 90 or memory.percent > 90:
+            status = "🟡 هشدار"
+        if ping_time is None:
+            status = "🔴 قطع"
+        
+        return {
+            'status': status,
+            'ping': f"{ping_time:.1f} ms" if ping_time else "❌ نامشخص",
+            'cpu': f"{cpu_percent:.1f}%",
+            'memory': f"{memory.percent:.1f}% ({memory.used // (1024**3)}GB / {memory.total // (1024**3)}GB)",
+            'disk': f"{disk.percent:.1f}% ({disk.used // (1024**3)}GB / {disk.total // (1024**3)}GB)",
+            'os': platform.system(),
+            'uptime': "نامشخص"
+        }
+    except:
+        return None
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -30,8 +81,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = [
             [InlineKeyboardButton("📊 آمار کامل", callback_data="admin_stats")],
             [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping")],
-            [InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")],
-            [InlineKeyboardButton("👥 منوی کاربران", callback_data="admin_users")]
+            [InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -112,8 +162,7 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = [
             [InlineKeyboardButton("📊 آمار کامل", callback_data="admin_stats")],
             [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping")],
-            [InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")],
-            [InlineKeyboardButton("👥 منوی کاربران", callback_data="admin_users")]
+            [InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -187,16 +236,32 @@ async def admin_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
-    text = (
-        "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>\n"
-        "<b>⫸ به بخشه بررسی پینگ ربات ریپر سلف Reaper Self خوش آمدید.</b>\n\n"
-        "<b>◄ توی این بخش میتوانید پینگ واقعی رباتتان را بررسی نمایید.</b>\n\n"
-        "<b>◂ لطفا از منوی زیر انتخاب نمایید.</b>\n"
-        "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯   ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>"
-    )
+    # دریافت اطلاعات سرور
+    server_info = await get_server_info()
+    
+    if server_info:
+        text = (
+            "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>\n"
+            "<b>⫸ به بخشه بررسی پینگ ربات ریپر سلف Reaper Self خوش آمدید.</b>\n\n"
+            "<b>◄ توی این بخش میتوانید پینگ واقعی رباتتان را بررسی نمایید.</b>\n\n"
+            "<b>◂ لطفا از منوی زیر انتخاب نمایید.</b>\n\n"
+            "<b>━━━━━━━━━━━━━━━━━━━━</b>\n"
+            f"<b>📡 وضعیت هاست : {server_info['status']}</b>\n"
+            f"<b>⚡ پینگ : {server_info['ping']}</b>\n"
+            f"<b>💻 سی‌پی‌یو : {server_info['cpu']}</b>\n"
+            f"<b>🧠 رم : {server_info['memory']}</b>\n"
+            f"<b>💾 هارد : {server_info['disk']}</b>\n"
+            f"<b>🖥️ سیستم‌عامل : {server_info['os']}</b>\n"
+            "<b>━━━━━━━━━━━━━━━━━━━━</b>\n"
+            "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯   ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>"
+        )
+    else:
+        text = (
+            "<b>❌ خطا در دریافت اطلاعات سرور!</b>"
+        )
     
     keyboard = [
-        [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_check_ping")],
+        [InlineKeyboardButton("🔄 بروزرسانی پینگ", callback_data="admin_ping")],
         [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -207,60 +272,10 @@ async def admin_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode='HTML'
     )
 
-async def admin_check_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    await query.answer("📡 پینگ ربات بررسی شد!", show_alert=True)
-
 async def admin_host(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     await query.answer("⏳ اعتبار هاست: 28 روز باقی مانده!", show_alert=True)
-
-async def admin_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    
-    text = (
-        "<b>👥 به منوی کاربران خوش آمدید.</b>\n\n"
-        "<b>◄ در این بخش میتوانید کاربران را مدیریت کنید.</b>"
-    )
-    
-    keyboard = [
-        [InlineKeyboardButton("👑 پنل مدیریت", callback_data="admin_panel")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    await query.edit_message_text(
-        text,
-        reply_markup=reply_markup,
-        parse_mode='HTML'
-    )
-
-async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    
-    # فقط ادمین میتونه ببینه
-    if query.from_user.id != ADMIN_ID:
-        await query.answer("❌ شما دسترسی به این بخش ندارید!", show_alert=True)
-        return
-    
-    text = (
-        "<b>👑 به پنل مدیریت خوش آمدید.</b>\n\n"
-        "<b>◄ این بخش مخصوص ادمین است.</b>"
-    )
-    
-    keyboard = [
-        [InlineKeyboardButton("🔙 بازگشت به منوی کاربران", callback_data="admin_users")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    await query.edit_message_text(
-        text,
-        reply_markup=reply_markup,
-        parse_mode='HTML'
-    )
 
 async def admin_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -277,8 +292,7 @@ async def admin_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("📊 آمار کامل", callback_data="admin_stats")],
         [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping")],
-        [InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")],
-        [InlineKeyboardButton("👥 منوی کاربران", callback_data="admin_users")]
+        [InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -366,8 +380,7 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = [
             [InlineKeyboardButton("📊 آمار کامل", callback_data="admin_stats")],
             [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping")],
-            [InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")],
-            [InlineKeyboardButton("👥 منوی کاربران", callback_data="admin_users")]
+            [InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -619,10 +632,7 @@ def main():
     # ادمین
     app.add_handler(CallbackQueryHandler(admin_stats, pattern="admin_stats"))
     app.add_handler(CallbackQueryHandler(admin_ping, pattern="admin_ping"))
-    app.add_handler(CallbackQueryHandler(admin_check_ping, pattern="admin_check_ping"))
     app.add_handler(CallbackQueryHandler(admin_host, pattern="admin_host"))
-    app.add_handler(CallbackQueryHandler(admin_users, pattern="admin_users"))
-    app.add_handler(CallbackQueryHandler(admin_panel, pattern="admin_panel"))
     app.add_handler(CallbackQueryHandler(admin_back, pattern="admin_back"))
     
     # کاربران
