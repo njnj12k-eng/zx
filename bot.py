@@ -309,29 +309,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯   ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>"
             )
             
-            # ساخت دکمه‌ها با توجه به وضعیت اشتراک
             keyboard = []
-            
-            # ردیف اول: پشتیبانی
             keyboard.append([InlineKeyboardButton("👨‍💻 پشتیبانی", callback_data="support")])
-            
-            # ردیف دوم: سلف چیست + کانال دستورات
             keyboard.append([InlineKeyboardButton("🤔 سلف چیست ؟", callback_data="what_is_self"), InlineKeyboardButton("📢 کانال دستورات", url="https://t.me/ReaperSelfChannel")])
-            
-            # ردیف سوم: انقضا
             keyboard.append([InlineKeyboardButton(f"📅 انقضا : {expiry_date} ( {remaining_days} روز )", callback_data="expiry")])
-            
-            # ردیف چهارم: احراز هویت + خرید اشتراک
             keyboard.append([InlineKeyboardButton("✔️ احراز هویت", callback_data="verify"), InlineKeyboardButton("💳 خرید اشتراک", callback_data="buy_subscription")])
-            
-            # ردیف پنجم: خرید با کد
             keyboard.append([InlineKeyboardButton("💶 خرید با کد", callback_data="buy_with_code")])
             
-            # اگر کاربر اشتراک فعال دارد، دکمه ورود سلف اضافه میشود
             if has_subscription:
                 keyboard.append([InlineKeyboardButton("🔑 ورود سلف", callback_data="salf_login")])
             
-            # ردیف آخر: نرخ + کانال ما
             keyboard.append([InlineKeyboardButton("💎 نرخ", callback_data="rate"), InlineKeyboardButton("📣 کانال ما", url="https://t.me/ReaperSelfChannel")])
             
             reply_markup = InlineKeyboardMarkup(keyboard)
@@ -581,7 +568,8 @@ async def admin_users_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ===== دکمه‌های جدید =====
 
 async def admin_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query    await query.answer()
+    query = update.callback_query
+    await query.answer()
     await query.answer("⚙️ تنظیمات به زودی اضافه میشود!", show_alert=True)
 
 async def admin_create_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
