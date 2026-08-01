@@ -27,7 +27,6 @@ async def get_server_info():
         # ===== پینگ واقعی =====
         ping_time = None
         try:
-            # روش اول: پینگ به گوگل
             process = await asyncio.create_subprocess_exec(
                 "ping", "-c", "3", "-W", "2", "8.8.8.8",
                 stdout=asyncio.subprocess.PIPE,
@@ -36,7 +35,6 @@ async def get_server_info():
             stdout, stderr = await process.communicate(timeout=5)
             if process.returncode == 0:
                 output = stdout.decode()
-                # استخراج میانگین پینگ
                 avg_match = re.search(r'avg\s*=\s*(\d+\.?\d*)/(\d+\.?\d*)/(\d+\.?\d*)', output)
                 if avg_match:
                     ping_time = float(avg_match.group(2))
@@ -47,7 +45,6 @@ async def get_server_info():
         except Exception as e:
             ping_time = None
 
-        # اگر پینگ ناموفق بود، روش دوم: بررسی اتصال با socket
         if ping_time is None:
             try:
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -56,22 +53,18 @@ async def get_server_info():
                 sock.connect(("8.8.8.8", 53))
                 end_time = time.time()
                 sock.close()
-                ping_time = (end_time - start_time) * 1000  # تبدیل به میلی‌ثانیه
+                ping_time = (end_time - start_time) * 1000
             except:
                 ping_time = None
 
-        # ===== CPU با psutil =====
         cpu_percent = f"{psutil.cpu_percent(interval=0.5):.1f}%"
         
-        # ===== RAM با psutil =====
         memory = psutil.virtual_memory()
         memory_info = f"{memory.percent:.1f}% ({memory.used // (1024**3)}GB / {memory.total // (1024**3)}GB)"
         
-        # ===== Disk با psutil =====
         disk = psutil.disk_usage('/')
         disk_info = f"{disk.percent:.1f}% ({disk.used // (1024**3)}GB / {disk.total // (1024**3)}GB)"
         
-        # ===== آپ‌تایم با psutil =====
         boot_time = psutil.boot_time()
         uptime_seconds = time.time() - boot_time
         days = int(uptime_seconds // 86400)
@@ -85,7 +78,6 @@ async def get_server_info():
         else:
             uptime = f"{minutes} دقیقه"
         
-        # ===== وضعیت هاست (بر اساس پینگ واقعی) =====
         if ping_time is None:
             status = "🔴 قطع"
         elif ping_time < 50:
@@ -120,7 +112,6 @@ async def get_server_info():
 def get_host_expiry():
     """محاسبه اعتبار هاست بر اساس تاریخ شروع واقعی"""
     try:
-        # تاریخ شروع هاست - 28 جولای 2026
         start_date = datetime(2026, 7, 28)
         total_days = 30
         
@@ -168,6 +159,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = [
             [InlineKeyboardButton("⚙️ تنظیمات", callback_data="admin_settings")],
             [InlineKeyboardButton("➕ ساخت کد سلف", callback_data="admin_create_code"), InlineKeyboardButton("❌ باطل کد سلف", callback_data="admin_cancel_code")],
+            [InlineKeyboardButton("🚫 مسدود کردن کاربر", callback_data="admin_block_user"), InlineKeyboardButton("✅ آزاد کردن کاربر", callback_data="admin_unblock_user")],
+            [InlineKeyboardButton("📤 انتقال اعتبار", callback_data="admin_transfer_credit"), InlineKeyboardButton("📉 کسر اعتبار", callback_data="admin_deduct_credit")],
+            [InlineKeyboardButton("🔑 ورود سلف", callback_data="admin_salf_login"), InlineKeyboardButton("🚪 خروج سلف", callback_data="admin_salf_logout")],
             [InlineKeyboardButton("📊 آمار کل", callback_data="admin_stats")],
             [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping"), InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")]
         ]
@@ -249,6 +243,9 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = [
             [InlineKeyboardButton("⚙️ تنظیمات", callback_data="admin_settings")],
             [InlineKeyboardButton("➕ ساخت کد سلف", callback_data="admin_create_code"), InlineKeyboardButton("❌ باطل کد سلف", callback_data="admin_cancel_code")],
+            [InlineKeyboardButton("🚫 مسدود کردن کاربر", callback_data="admin_block_user"), InlineKeyboardButton("✅ آزاد کردن کاربر", callback_data="admin_unblock_user")],
+            [InlineKeyboardButton("📤 انتقال اعتبار", callback_data="admin_transfer_credit"), InlineKeyboardButton("📉 کسر اعتبار", callback_data="admin_deduct_credit")],
+            [InlineKeyboardButton("🔑 ورود سلف", callback_data="admin_salf_login"), InlineKeyboardButton("🚪 خروج سلف", callback_data="admin_salf_logout")],
             [InlineKeyboardButton("📊 آمار کل", callback_data="admin_stats")],
             [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping"), InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")]
         ]
@@ -408,6 +405,8 @@ async def admin_host(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await query.answer("❌ خطا در بروزرسانی!", show_alert=True)
 
+# ===== دکمه‌های جدید =====
+
 async def admin_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -422,6 +421,36 @@ async def admin_cancel_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     await query.answer("❌ لطفا کد مورد نظر برای باطل شدن را وارد کنید!", show_alert=True)
+
+async def admin_block_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.answer("🚫 لطفا آیدی کاربر مورد نظر را وارد کنید!", show_alert=True)
+
+async def admin_unblock_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.answer("✅ لطفا آیدی کاربر مورد نظر را وارد کنید!", show_alert=True)
+
+async def admin_transfer_credit(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.answer("📤 لطفا آیدی کاربر و مقدار اعتبار را وارد کنید!", show_alert=True)
+
+async def admin_deduct_credit(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.answer("📉 لطفا آیدی کاربر و مقدار اعتبار را وارد کنید!", show_alert=True)
+
+async def admin_salf_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.answer("🔑 لطفا کد سلف را وارد کنید!", show_alert=True)
+
+async def admin_salf_logout(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.answer("🚪 لطفا آیدی سلف مورد نظر را وارد کنید!", show_alert=True)
 
 async def admin_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -438,6 +467,9 @@ async def admin_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("⚙️ تنظیمات", callback_data="admin_settings")],
         [InlineKeyboardButton("➕ ساخت کد سلف", callback_data="admin_create_code"), InlineKeyboardButton("❌ باطل کد سلف", callback_data="admin_cancel_code")],
+        [InlineKeyboardButton("🚫 مسدود کردن کاربر", callback_data="admin_block_user"), InlineKeyboardButton("✅ آزاد کردن کاربر", callback_data="admin_unblock_user")],
+        [InlineKeyboardButton("📤 انتقال اعتبار", callback_data="admin_transfer_credit"), InlineKeyboardButton("📉 کسر اعتبار", callback_data="admin_deduct_credit")],
+        [InlineKeyboardButton("🔑 ورود سلف", callback_data="admin_salf_login"), InlineKeyboardButton("🚪 خروج سلف", callback_data="admin_salf_logout")],
         [InlineKeyboardButton("📊 آمار کل", callback_data="admin_stats")],
         [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping"), InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")]
     ]
@@ -526,6 +558,9 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = [
             [InlineKeyboardButton("⚙️ تنظیمات", callback_data="admin_settings")],
             [InlineKeyboardButton("➕ ساخت کد سلف", callback_data="admin_create_code"), InlineKeyboardButton("❌ باطل کد سلف", callback_data="admin_cancel_code")],
+            [InlineKeyboardButton("🚫 مسدود کردن کاربر", callback_data="admin_block_user"), InlineKeyboardButton("✅ آزاد کردن کاربر", callback_data="admin_unblock_user")],
+            [InlineKeyboardButton("📤 انتقال اعتبار", callback_data="admin_transfer_credit"), InlineKeyboardButton("📉 کسر اعتبار", callback_data="admin_deduct_credit")],
+            [InlineKeyboardButton("🔑 ورود سلف", callback_data="admin_salf_login"), InlineKeyboardButton("🚪 خروج سلف", callback_data="admin_salf_logout")],
             [InlineKeyboardButton("📊 آمار کل", callback_data="admin_stats")],
             [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping"), InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")]
         ]
@@ -774,6 +809,12 @@ def main():
     app.add_handler(CallbackQueryHandler(admin_settings, pattern="admin_settings"))
     app.add_handler(CallbackQueryHandler(admin_create_code, pattern="admin_create_code"))
     app.add_handler(CallbackQueryHandler(admin_cancel_code, pattern="admin_cancel_code"))
+    app.add_handler(CallbackQueryHandler(admin_block_user, pattern="admin_block_user"))
+    app.add_handler(CallbackQueryHandler(admin_unblock_user, pattern="admin_unblock_user"))
+    app.add_handler(CallbackQueryHandler(admin_transfer_credit, pattern="admin_transfer_credit"))
+    app.add_handler(CallbackQueryHandler(admin_deduct_credit, pattern="admin_deduct_credit"))
+    app.add_handler(CallbackQueryHandler(admin_salf_login, pattern="admin_salf_login"))
+    app.add_handler(CallbackQueryHandler(admin_salf_logout, pattern="admin_salf_logout"))
     app.add_handler(CallbackQueryHandler(admin_back, pattern="admin_back"))
     
     # کاربران
