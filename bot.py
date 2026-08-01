@@ -9,6 +9,9 @@ import re
 from datetime import datetime, timedelta
 import psutil
 import socket
+import json
+import random
+import string
 
 TOKEN = "8961040480:AAHNKEnK7LZuCp9fSJ5td2_XdGFqPtwp_dY"
 CHANNEL_USERNAME = "@ReaperSelfChannel"
@@ -16,8 +19,120 @@ CHANNEL_USERNAME = "@ReaperSelfChannel"
 # آیدی عددی ادمین
 ADMIN_ID = 7803165903
 
-# ذخیره وضعیت کاربران برای مرحله احراز هویت
+# ذخیره وضعیت کاربران برای مراحل مختلف
 user_states = {}
+
+# فایل دیتابیس کدها
+CODES_FILE = "codes_data.json"
+
+# ==================== دیتابیس کدها ====================
+
+def load_codes():
+    """بارگذاری کدها از فایل"""
+    try:
+        if os.path.exists(CODES_FILE):
+            with open(CODES_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        return {}
+    except:
+        return {}
+
+def save_codes(codes):
+    """ذخیره کدها در فایل"""
+    try:
+        with open(CODES_FILE, 'w', encoding='utf-8') as f:
+            json.dump(codes, f, ensure_ascii=False, indent=4)
+    except:
+        pass
+
+def generate_code():
+    """تولید کد سلف با فرمت مشخص"""
+    # ترکیبی از حروف بزرگ و اعداد
+    chars = string.ascii_uppercase + string.digits
+    # ساخت کد 15 رقمی
+    code = ''.join(random.choices(chars, k=15))
+    return code
+
+def create_new_code(days):
+    """ساخت کد جدید با تعداد روز مشخص"""
+    codes = load_codes()
+    
+    # تولید کد منحصر به فرد
+    while True:
+        new_code = generate_code()
+        if new_code not in codes:
+            break
+    
+    # تاریخ انقضا
+    expiry_date = datetime.now() + timedelta(days=days)
+    
+    codes[new_code] = {
+        'days': days,
+        'expiry': expiry_date.isoformat(),
+        'created': datetime.now().isoformat(),
+        'used': False,
+        'used_by': None
+    }
+    
+    save_codes(codes)
+    return new_code
+
+def validate_code(code):
+    """بررسی اعتبار کد"""
+    codes = load_codes()
+    
+    if code not in codes:
+        return None, "❌ کد وارد شده صحیح نیست!"
+    
+    code_data = codes[code]
+    
+    # بررسی انقضا
+    expiry_date = datetime.fromisoformat(code_data['expiry'])
+    if datetime.now() > expiry_date:
+        return None, "⏳ کد وارد شده منقضی شده است!"
+    
+    # بررسی استفاده شده
+    if code_data.get('used', False):
+        return None, "❌ این کد قبلاً استفاده شده است!"
+    
+    return code_data, None
+
+def use_code(code, user_id):
+    """استفاده از کد توسط کاربر"""
+    codes = load_codes()
+    
+    if code not in codes:
+        return False
+    
+    codes[code]['used'] = True
+    codes[code]['used_by'] = str(user_id)
+    codes[code]['used_at'] = datetime.now().isoformat()
+    
+    save_codes(codes)
+    return True
+
+def get_user_expiry(user_id):
+    """دریافت انقضای کاربر از کدهای استفاده شده"""
+    codes = load_codes()
+    user_expiry = None
+    user_days = 0
+    
+    for code, data in codes.items():
+        if data.get('used_by') == str(user_id) and data.get('used', False):
+            expiry = datetime.fromisoformat(data['expiry'])
+            if user_expiry is None or expiry > user_expiry:
+                user_expiry = expiry
+                user_days = data.get('days', 0)
+    
+    return user_expiry, user_days
+
+def get_remaining_days(user_id):
+    """دریافت روزهای باقیمانده کاربر"""
+    expiry, _ = get_user_expiry(user_id)
+    if expiry:
+        remaining = (expiry - datetime.now()).days
+        return max(0, remaining)
+    return 0
 
 # ==================== توابع دریافت اطلاعات واقعی سرور ====================
 
@@ -180,18 +295,22 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_member = await context.bot.get_chat_member(CHANNEL_USERNAME, user_id)
         
         if chat_member.status in ["member", "administrator", "creator"]:
+            # دریافت روزهای باقیمانده
+            remaining_days = get_remaining_days(user_id)
+            
             text = (
                 "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>\n"
                 f"<b>⫸ سلام {user_mention} به ربات ریپر سلف Reaper Self خوش آمدید !</b>\n\n"
                 "<b>◄ توی این ربات میتوانید از پشتیبانی ، خرید ، نصب ربات سلف بهره ببرید !</b>\n\n"
                 "<b>◂ لطفا اگر سوالی دارید از بخش پشتیبانی ، با پشتیبان ها در ارتباط باشید !</b>\n"
+                f"<b>⏳ انقضا : ( {remaining_days} روز )</b>\n"
                 "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯   ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>"
             )
             
             keyboard = [
                 [InlineKeyboardButton("🛡️ پشتیبانی 👨‍💻", callback_data="support")],
                 [InlineKeyboardButton("📢 کانال دستورات", url="https://t.me/ReaperSelfChannel"), InlineKeyboardButton("❓ سلف چیست ؟ 🤔", callback_data="what_is_self")],
-                [InlineKeyboardButton("⏳ انقضا : ( 0 روز )", callback_data="expiry")],
+                [InlineKeyboardButton("⏳ انقضا : ( {remaining_days} روز )", callback_data="expiry")],
                 [InlineKeyboardButton("✔️ احراز هویت", callback_data="verify"), InlineKeyboardButton("💳 خرید اشتراک", callback_data="buy_subscription")],
                 [InlineKeyboardButton("💶 خرید با کد", callback_data="buy_with_code")],
                 [InlineKeyboardButton("💎 نرخ", callback_data="rate")],
@@ -264,18 +383,21 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_member = await context.bot.get_chat_member(CHANNEL_USERNAME, user_id)
         
         if chat_member.status in ["member", "administrator", "creator"]:
+            remaining_days = get_remaining_days(user_id)
+            
             text = (
                 "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>\n"
                 f"<b>⫸ سلام {user_mention} به ربات ریپر سلف Reaper Self خوش آمدید !</b>\n\n"
                 "<b>◄ توی این ربات میتوانید از پشتیبانی ، خرید ، نصب ربات سلف بهره ببرید !</b>\n\n"
                 "<b>◂ لطفا اگر سوالی دارید از بخش پشتیبانی ، با پشتیبان ها در ارتباط باشید !</b>\n"
+                f"<b>⏳ انقضا : ( {remaining_days} روز )</b>\n"
                 "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯   ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>"
             )
             
             keyboard = [
                 [InlineKeyboardButton("🛡️ پشتیبانی 👨‍💻", callback_data="support")],
                 [InlineKeyboardButton("📢 کانال دستورات", url="https://t.me/ReaperSelfChannel"), InlineKeyboardButton("❓ سلف چیست ؟ 🤔", callback_data="what_is_self")],
-                [InlineKeyboardButton("⏳ انقضا : ( 0 روز )", callback_data="expiry")],
+                [InlineKeyboardButton("⏳ انقضا : ( {remaining_days} روز )", callback_data="expiry")],
                 [InlineKeyboardButton("✔️ احراز هویت", callback_data="verify"), InlineKeyboardButton("💳 خرید اشتراک", callback_data="buy_subscription")],
                 [InlineKeyboardButton("💶 خرید با کد", callback_data="buy_with_code")],
                 [InlineKeyboardButton("💎 نرخ", callback_data="rate")],
@@ -315,7 +437,22 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.answer("📊 آمار کل به زودی اضافه میشود!", show_alert=True)
+    
+    codes = load_codes()
+    total_codes = len(codes)
+    used_codes = sum(1 for c in codes.values() if c.get('used', False))
+    
+    text = (
+        "<b>📊 آمار کل</b>\n\n"
+        f"<b>🔢 تعداد کل کدها : {total_codes}</b>\n"
+        f"<b>✅ کدهای استفاده شده : {used_codes}</b>\n"
+        f"<b>❌ کدهای استفاده نشده : {total_codes - used_codes}</b>\n"
+    )
+    
+    await query.edit_message_text(
+        text,
+        parse_mode='HTML'
+    )
 
 async def admin_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -422,12 +559,118 @@ async def admin_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def admin_create_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.answer("➕ لطفا مقدار کد را وارد کنید!", show_alert=True)
+    
+    # ذخیره وضعیت برای دریافت روز
+    user_states[query.from_user.id] = "waiting_for_code_days"
+    
+    text = (
+        "<b>➕ ساخت کد سلف جدید</b>\n\n"
+        "<b>◄ لطفا روز انقضا را بفرستید (عدد بین 1 تا 100000):</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_back")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(
+        text,
+        reply_markup=reply_markup,
+        parse_mode='HTML'
+    )
 
 async def admin_cancel_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.answer("❌ لطفا کد مورد نظر برای باطل شدن را وارد کنید!", show_alert=True)
+    
+    # ذخیره وضعیت برای دریافت کد
+    user_states[query.from_user.id] = "waiting_for_cancel_code"
+    
+    text = (
+        "<b>❌ باطل کردن کد سلف</b>\n\n"
+        "<b>◄ لطفا کد سلف مورد نظر برای باطل شدن را وارد کنید:</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_back")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(
+        text,
+        reply_markup=reply_markup,
+        parse_mode='HTML'
+    )
+
+async def handle_code_days(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    
+    if user_id not in user_states or user_states[user_id] != "waiting_for_code_days":
+        return
+    
+    try:
+        days = int(update.message.text.strip())
+        if days < 1 or days > 100000:
+            await update.message.reply_text(
+                "<b>❌ عدد باید بین 1 تا 100000 باشد!</b>",
+                parse_mode='HTML'
+            )
+            return
+        
+        # ساخت کد
+        new_code = create_new_code(days)
+        
+        text = (
+            "<b>✅ کد سلف شما با موفقیت ساخته شد</b>\n\n"
+            f"<b>📝 کد سلف شما : <code>{new_code}</code></b>\n\n"
+            "<b>📅 برای کپی کردن روی کد کلیک کنید.</b>"
+        )
+        
+        await update.message.reply_text(
+            text,
+            parse_mode='HTML'
+        )
+        
+        # پاک کردن وضعیت
+        del user_states[user_id]
+        
+    except ValueError:
+        await update.message.reply_text(
+            "<b>❌ لطفا یک عدد معتبر وارد کنید!</b>",
+            parse_mode='HTML'
+        )
+
+async def handle_cancel_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    
+    if user_id not in user_states or user_states[user_id] != "waiting_for_cancel_code":
+        return
+    
+    code = update.message.text.strip().upper()
+    codes = load_codes()
+    
+    if code not in codes:
+        await update.message.reply_text(
+            "<b>❌ کد وارد شده صحیح نیست!</b>",
+            parse_mode='HTML'
+        )
+        return
+    
+    # باطل کردن کد
+    if codes[code].get('used', False):
+        await update.message.reply_text(
+            "<b>❌ این کد قبلاً استفاده شده و قابل باطل کردن نیست!</b>",
+            parse_mode='HTML'
+        )
+    else:
+        del codes[code]
+        save_codes(codes)
+        await update.message.reply_text(
+            f"<b>✅ کد <code>{code}</code> با موفقیت باطل شد!</b>",
+            parse_mode='HTML'
+        )
+    
+    del user_states[user_id]
 
 async def admin_block_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -463,6 +706,10 @@ async def admin_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
+    # پاک کردن وضعیت کاربر
+    if query.from_user.id in user_states:
+        del user_states[query.from_user.id]
+    
     user_mention = f"@{query.from_user.username}" if query.from_user.username else query.from_user.first_name
     
     text = (
@@ -489,7 +736,7 @@ async def admin_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode='HTML'
     )
 
-# ==================== بقیه توابع کاربران ====================
+# ==================== بخش کاربران ====================
 
 async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -549,12 +796,78 @@ async def buy_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode='HTML'
     )
 
+async def buy_with_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    # ذخیره وضعیت برای دریافت کد
+    user_states[query.from_user.id] = "waiting_for_activation_code"
+    
+    text = (
+        "<b>◄ لطفا کد انقضای خریداری شده خود را ارسال کنید :</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(
+        text,
+        reply_markup=reply_markup,
+        parse_mode='HTML'
+    )
+
+async def handle_activation_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    
+    if user_id not in user_states or user_states[user_id] != "waiting_for_activation_code":
+        return
+    
+    code = update.message.text.strip().upper()
+    
+    # بررسی کد
+    code_data, error = validate_code(code)
+    
+    if code_data is None:
+        await update.message.reply_text(
+            f"<b>{error}</b>",
+            parse_mode='HTML'
+        )
+        return
+    
+    # استفاده از کد
+    if use_code(code, user_id):
+        days = code_data['days']
+        
+        # به‌روزرسانی انقضای کاربر در منو
+        remaining_days = get_remaining_days(user_id)
+        
+        await update.message.reply_text(
+            f"<b>✅ کد با موفقیت فعال شد!</b>\n\n"
+            f"<b>📅 {days} روز به اشتراک شما اضافه شد.</b>\n"
+            f"<b>⏳ انقضای شما : {remaining_days} روز</b>",
+            parse_mode='HTML'
+        )
+        
+        # پاک کردن وضعیت
+        del user_states[user_id]
+    else:
+        await update.message.reply_text(
+            "<b>❌ خطا در فعال‌سازی کد!</b>",
+            parse_mode='HTML'
+        )
+
 async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
     user_id = query.from_user.id
     user_mention = f"@{query.from_user.username}" if query.from_user.username else query.from_user.first_name
+    
+    # پاک کردن وضعیت کاربر
+    if user_id in user_states:
+        del user_states[user_id]
     
     if user_id == ADMIN_ID:
         text = (
@@ -582,41 +895,25 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
+    remaining_days = get_remaining_days(user_id)
+    
     text = (
         "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>\n"
         f"<b>⫸ سلام {user_mention} به ربات ریپر سلف Reaper Self خوش آمدید !</b>\n\n"
         "<b>◄ توی این ربات میتوانید از پشتیبانی ، خرید ، نصب ربات سلف بهره ببرید !</b>\n\n"
         "<b>◂ لطفا اگر سوالی دارید از بخش پشتیبانی ، با پشتیبان ها در ارتباط باشید !</b>\n"
+        f"<b>⏳ انقضا : ( {remaining_days} روز )</b>\n"
         "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯   ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>"
     )
     
     keyboard = [
         [InlineKeyboardButton("🛡️ پشتیبانی 👨‍💻", callback_data="support")],
         [InlineKeyboardButton("📢 کانال دستورات", url="https://t.me/ReaperSelfChannel"), InlineKeyboardButton("❓ سلف چیست ؟ 🤔", callback_data="what_is_self")],
-        [InlineKeyboardButton("⏳ انقضا : ( 0 روز )", callback_data="expiry")],
+        [InlineKeyboardButton("⏳ انقضا : ( {remaining_days} روز )", callback_data="expiry")],
         [InlineKeyboardButton("✔️ احراز هویت", callback_data="verify"), InlineKeyboardButton("💳 خرید اشتراک", callback_data="buy_subscription")],
         [InlineKeyboardButton("💶 خرید با کد", callback_data="buy_with_code")],
         [InlineKeyboardButton("💎 نرخ", callback_data="rate")],
         [InlineKeyboardButton("📣 کانال ما", url="https://t.me/ReaperSelfChannel")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    await query.edit_message_text(
-        text,
-        reply_markup=reply_markup,
-        parse_mode='HTML'
-    )
-
-async def buy_with_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    
-    text = (
-        "<b>◄ لطفا کد انقضای خریداری شده خود را ارسال کنید :</b>"
-    )
-    
-    keyboard = [
-        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -656,7 +953,14 @@ async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def expiry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.answer("⏳ اشتراک شما فعال نمیباشد!", show_alert=True)
+    
+    user_id = query.from_user.id
+    remaining_days = get_remaining_days(user_id)
+    
+    if remaining_days > 0:
+        await query.answer(f"⏳ {remaining_days} روز باقی مانده!", show_alert=True)
+    else:
+        await query.answer("⏳ اشتراک شما فعال نمیباشد!", show_alert=True)
 
 async def verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -727,49 +1031,57 @@ async def back_to_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode='HTML'
     )
 
+# ==================== هندلرهای پیام ====================
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     
-    if user_id not in user_states or user_states[user_id] != "waiting_for_photo":
-        return
-    
-    if update.message.photo:
-        user_states[user_id] = "waiting_for_card_number"
+    # بررسی وضعیت های مختلف
+    if user_id in user_states:
+        state = user_states[user_id]
         
-        text = (
-            "<b>◄ لطفا شماره کارت خود را به صورت اعداد انگلیسی ارسال کنید\nدر صورتی که منصرف شدید ربات را مجدد استارت کنید : [ /start ]</b>"
-        )
+        if state == "waiting_for_photo":
+            if update.message.photo:
+                user_states[user_id] = "waiting_for_card_number"
+                text = (
+                    "<b>◄ لطفا شماره کارت خود را به صورت اعداد انگلیسی ارسال کنید\nدر صورتی که منصرف شدید ربات را مجدد استارت کنید : [ /start ]</b>"
+                )
+                await update.message.reply_text(text, parse_mode='HTML')
+            else:
+                await update.message.reply_text(
+                    "<b>❌ لطفا فقط عکس ارسال کنید!</b>",
+                    parse_mode='HTML'
+                )
+            return
         
-        await update.message.reply_text(
-            text,
-            parse_mode='HTML'
-        )
-    else:
-        await update.message.reply_text(
-            "<b>❌ لطفا فقط عکس ارسال کنید!</b>",
-            parse_mode='HTML'
-        )
-
-async def handle_card_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    
-    if user_id not in user_states or user_states[user_id] != "waiting_for_card_number":
-        return
-    
-    text = update.message.text.strip()
-    card_number = ''.join(filter(str.isdigit, text))
-    
-    if len(card_number) == 16 and card_number.isdigit():
-        await update.message.reply_text(
-            "<b>درخواست احراز هویت شما برای پشتیبانی ارسال شد و در اولین فرصت تایید خواهد شد ، لطفا صبور باشید.\n\nلطفا برای تایید کارت به پشتیبانی پیام ارسال نفرمایید و درخواست احرازهویتتون رو اسپم نکنید ، در صورت مشاهده این کار یک روز با تاخیر تایید میشود.</b>",
-            parse_mode='HTML'
-        )
-        del user_states[user_id]
-    else:
-        await update.message.reply_text(
-            "<b>شماره کارت 16 رقمی است.\nلطفا شماره کارت خود را بدون هیچ کاراکتر اضافه ای وارد کنید</b>",
-            parse_mode='HTML'
-        )
+        elif state == "waiting_for_card_number":
+            text = update.message.text.strip()
+            card_number = ''.join(filter(str.isdigit, text))
+            
+            if len(card_number) == 16 and card_number.isdigit():
+                await update.message.reply_text(
+                    "<b>درخواست احراز هویت شما برای پشتیبانی ارسال شد و در اولین فرصت تایید خواهد شد ، لطفا صبور باشید.\n\nلطفا برای تایید کارت به پشتیبانی پیام ارسال نفرمایید و درخواست احرازهویتتون رو اسپم نکنید ، در صورت مشاهده این کار یک روز با تاخیر تایید میشود.</b>",
+                    parse_mode='HTML'
+                )
+                del user_states[user_id]
+            else:
+                await update.message.reply_text(
+                    "<b>شماره کارت 16 رقمی است.\nلطفا شماره کارت خود را بدون هیچ کاراکتر اضافه ای وارد کنید</b>",
+                    parse_mode='HTML'
+                )
+            return
+        
+        elif state == "waiting_for_code_days":
+            await handle_code_days(update, context)
+            return
+        
+        elif state == "waiting_for_cancel_code":
+            await handle_cancel_code(update, context)
+            return
+        
+        elif state == "waiting_for_activation_code":
+            await handle_activation_code(update, context)
+            return
 
 # ==================== خرید ماه‌ها ====================
 
@@ -831,8 +1143,8 @@ def main():
     app.add_handler(CallbackQueryHandler(support, pattern="support"))
     app.add_handler(CallbackQueryHandler(what_is_self, pattern="what_is_self"))
     app.add_handler(CallbackQueryHandler(buy_subscription, pattern="buy_subscription"))
-    app.add_handler(CallbackQueryHandler(main_menu, pattern="main_menu"))
     app.add_handler(CallbackQueryHandler(buy_with_code, pattern="buy_with_code"))
+    app.add_handler(CallbackQueryHandler(main_menu, pattern="main_menu"))
     app.add_handler(CallbackQueryHandler(rate, pattern="rate"))
     app.add_handler(CallbackQueryHandler(expiry, pattern="expiry"))
     app.add_handler(CallbackQueryHandler(verify, pattern="verify"))
@@ -846,8 +1158,8 @@ def main():
     app.add_handler(CallbackQueryHandler(buy_5_month, pattern="buy_5_month"))
     app.add_handler(CallbackQueryHandler(buy_6_month, pattern="buy_6_month"))
     
-    app.add_handler(MessageHandler(filters.PHOTO, handle_message))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_card_number))
+    # هندلرهای پیام
+    app.add_handler(MessageHandler(filters.PHOTO | filters.TEXT & ~filters.COMMAND, handle_message))
     
     print("🤖 ربات در حال اجراست...")
     app.run_polling()
