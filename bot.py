@@ -275,12 +275,13 @@ async def update_clock_on_profile(user_id):
     """هر دقیقه ساعت رو روی اسم اکانت قرار میده"""
     try:
         while True:
-            # دریافت سشن کاربر
-            session_data = get_user_session(user_id)
-            if not session_data:
-                break
-            
             try:
+                # دریافت سشن کاربر
+                session_data = get_user_session(user_id)
+                if not session_data:
+                    print(f"❌ سشن برای کاربر {user_id} پیدا نشد")
+                    break
+                
                 # اتصال با سشن
                 client = TelegramClient(
                     f"sessions/user_{user_id}",
@@ -298,6 +299,8 @@ async def update_clock_on_profile(user_id):
                 first_name = me.first_name if me.first_name else ""
                 last_name = me.last_name if me.last_name else ""
                 current_name = f"{first_name} {last_name}".strip()
+                if not current_name:
+                    current_name = me.username if me.username else "کاربر"
                 
                 # دریافت ساعت ایران
                 iran_tz = pytz.timezone('Asia/Tehran')
@@ -305,8 +308,6 @@ async def update_clock_on_profile(user_id):
                 time_str = iran_time.strftime('%H:%M')
                 
                 # حذف ساعت قبلی از اسم (اگر وجود داشت)
-                # الگوی ساعت: هر چیزی که به شکل HH:MM باشه
-                import re
                 clean_name = re.sub(r'\s*\d{2}:\d{2}$', '', current_name).strip()
                 
                 # اسم جدید با ساعت
@@ -314,27 +315,43 @@ async def update_clock_on_profile(user_id):
                 
                 # اگر اسم با ساعت فرق داشت، تغییر بده
                 if new_name != current_name:
-                    await client.edit_profile(first_name=new_name)
+                    try:
+                        # استفاده از update_profile برای تغییر نام
+                        await client.update_profile(first_name=new_name)
+                        print(f"✅ ساعت برای کاربر {user_id} به {new_name} تغییر کرد")
+                    except Exception as e:
+                        print(f"⚠️ خطا در تغییر نام برای کاربر {user_id}: {e}")
+                        # روش جایگزین
+                        try:
+                            await client.edit_profile(first_name=new_name)
+                        except:
+                            pass
                 
                 await client.disconnect()
                 
             except Exception as e:
-                print(f"خطا در تنظیم ساعت برای کاربر {user_id}: {e}")
+                print(f"⚠️ خطا در تنظیم ساعت برای کاربر {user_id}: {e}")
             
             # هر 60 ثانیه یک بار اجرا کن
             await asyncio.sleep(60)
             
     except asyncio.CancelledError:
-        print(f"Task برای کاربر {user_id} متوقف شد")
+        print(f"✅ Task ساعت برای کاربر {user_id} متوقف شد")
         raise
     except Exception as e:
-        print(f"خطا در task ساعت برای کاربر {user_id}: {e}")
+        print(f"❌ خطا در task ساعت برای کاربر {user_id}: {e}")
 
 async def start_clock_task(user_id):
     """شروع task ساعت برای کاربر"""
+    # متوقف کردن task قبلی اگر وجود داشت
     if user_id in clock_tasks:
-        clock_tasks[user_id].cancel()
+        try:
+            clock_tasks[user_id].cancel()
+        except:
+            pass
+        del clock_tasks[user_id]
     
+    # ایجاد task جدید
     task = asyncio.create_task(update_clock_on_profile(user_id))
     clock_tasks[user_id] = task
     return task
@@ -342,7 +359,10 @@ async def start_clock_task(user_id):
 async def stop_clock_task(user_id):
     """متوقف کردن task ساعت برای کاربر"""
     if user_id in clock_tasks:
-        clock_tasks[user_id].cancel()
+        try:
+            clock_tasks[user_id].cancel()
+        except:
+            pass
         del clock_tasks[user_id]
 
 # ==================== بخش استارت ====================
@@ -384,7 +404,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             expiry_date = get_expiry_date(user_id)
             has_subscription = has_active_subscription(user_id)
             
-            # بررسی اینکه کاربر سشن دارد یا نه
             session_data = get_user_session(user_id)
             is_logged_in = session_data is not None
             
@@ -951,17 +970,37 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
             iran_time = datetime.now(iran_tz)
             time_str = iran_time.strftime('%H:%M')
             
+            # ذخیره سشن
             session_string = client.session.save()
             save_user_session(user_id, session_string, data['phone'], data['api_hash'], data['api_id'])
             
+            # ====== تنظیم ساعت روی اسم اکانت ======
+            try:
+                # پاک کردن ساعت قبلی از اسم
+                clean_name = re.sub(r'\s*\d{2}:\d{2}$', '', full_name).strip()
+                new_name = f"{clean_name} {time_str}".strip()
+                
+                if new_name != full_name:
+                    try:
+                        await client.update_profile(first_name=new_name)
+                        print(f"✅ ساعت روی اسم اکانت کاربر {user_id} تنظیم شد: {new_name}")
+                    except:
+                        # روش جایگزین
+                        try:
+                            await client.edit_profile(first_name=new_name)
+                        except:
+                            pass
+            except Exception as e:
+                print(f"⚠️ خطا در تنظیم ساعت روی اسم: {e}")
+            
             await client.disconnect()
             
-            # شروع task ساعت برای کاربر
+            # شروع task ساعت برای کاربر (هر دقیقه بروزرسانی)
             await start_clock_task(user_id)
             
             text = (
                 "<b>✅ ورود سلف به اکانت شما با موفقیت انجام شد!</b>\n\n"
-                f"<b>👤 نام اکانت : {full_name}</b>\n"
+                f"<b>👤 نام اکانت : {new_name if 'new_name' in locals() else full_name}</b>\n"
                 f"<b>📱 شماره : {data['phone']}</b>\n"
                 f"<b>🕐 ساعت ورود : {time_str}</b>\n"
                 f"<b>📅 تاریخ ورود : {iran_time.strftime('%Y-%m-%d')}</b>\n\n"
@@ -1055,14 +1094,29 @@ async def handle_salf_password(update: Update, context: ContextTypes.DEFAULT_TYP
         session_string = client.session.save()
         save_user_session(user_id, session_string, data['phone'], data['api_hash'], data['api_id'])
         
+        # ====== تنظیم ساعت روی اسم اکانت ======
+        try:
+            clean_name = re.sub(r'\s*\d{2}:\d{2}$', '', full_name).strip()
+            new_name = f"{clean_name} {time_str}".strip()
+            
+            if new_name != full_name:
+                try:
+                    await client.update_profile(first_name=new_name)
+                except:
+                    try:
+                        await client.edit_profile(first_name=new_name)
+                    except:
+                        pass
+        except:
+            pass
+        
         await client.disconnect()
         
-        # شروع task ساعت برای کاربر
         await start_clock_task(user_id)
         
         text = (
             "<b>✅ ورود سلف به اکانت شما با موفقیت انجام شد!</b>\n\n"
-            f"<b>👤 نام اکانت : {full_name}</b>\n"
+            f"<b>👤 نام اکانت : {new_name if 'new_name' in locals() else full_name}</b>\n"
             f"<b>📱 شماره : {data['phone']}</b>\n"
             f"<b>🕐 ساعت ورود : {time_str}</b>\n"
             f"<b>📅 تاریخ ورود : {iran_time.strftime('%Y-%m-%d')}</b>\n\n"
