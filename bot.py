@@ -681,7 +681,7 @@ async def admin_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
-# ==================== بخش ورود سلف ====================
+# ==================== بخش ورود سلف (اصلاح شده) ====================
 
 async def salf_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -845,9 +845,36 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
             del salf_login_data[user_id]
             return
         
+        # =============== روش جدید برای ورود با کد ===============
+        # با استفاده از sign_in با phone_code_hash خودکار
+        
         # تلاش برای ورود با کد
         try:
+            # این روش بهتر کار میکنه
             await client.sign_in(data['phone'], code)
+            
+            # اگر ورود موفق بود
+            session_string = client.session.save()
+            save_user_session(user_id, session_string, data['phone'], data['api_hash'], data['api_id'])
+            
+            await client.disconnect()
+            
+            text = (
+                "<b>✅ ورود سلف به اکانت شما با موفقیت انجام شد!</b>\n\n"
+                f"<b>📱 شماره : {data['phone']}</b>"
+            )
+            
+            keyboard = [
+                [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
+            
+            del user_states[user_id]
+            del salf_login_data[user_id]
+            return
+            
         except PhoneCodeExpiredError:
             # کد منقضی شده - دوباره درخواست کد جدید
             await update.message.reply_text(
@@ -855,7 +882,7 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode='HTML'
             )
             
-            # ارسال درخواست کد جدید
+            # درخواست کد جدید با همان client
             await client.send_code_request(data['phone'])
             
             await update.message.reply_text(
@@ -867,38 +894,19 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # وضعیت رو در حالت دریافت کد نگه دار
             user_states[user_id] = "waiting_salf_code"
             return
-        
-        # اگر ورود موفق بود
-        session_string = client.session.save()
-        save_user_session(user_id, session_string, data['phone'], data['api_hash'], data['api_id'])
-        
-        await client.disconnect()
-        
-        text = (
-            "<b>✅ ورود سلف به اکانت شما با موفقیت انجام شد!</b>\n\n"
-            f"<b>📱 شماره : {data['phone']}</b>"
-        )
-        
-        keyboard = [
-            [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
-        
-        del user_states[user_id]
-        del salf_login_data[user_id]
+            
+        except PhoneCodeInvalidError:
+            await update.message.reply_text(
+                "<b>❌ کد وارد شده صحیح نیست! لطفا دوباره تلاش کنید.</b>",
+                parse_mode='HTML'
+            )
+            return
         
     except SessionPasswordNeededError:
         user_states[user_id] = "waiting_salf_password"
         await update.message.reply_text(
             "<b>🔑 این اکانت دو مرحله‌ای فعال است.</b>\n"
             "<b>◄ لطفا پسورد خود را وارد کنید:</b>",
-            parse_mode='HTML'
-        )
-    except PhoneCodeInvalidError:
-        await update.message.reply_text(
-            "<b>❌ کد وارد شده صحیح نیست! لطفا دوباره تلاش کنید.</b>",
             parse_mode='HTML'
         )
     except Exception as e:
