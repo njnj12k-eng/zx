@@ -8,6 +8,7 @@ import os
 import re
 from datetime import datetime, timedelta
 import psutil
+import socket
 
 TOKEN = "8961040480:AAHNKEnK7LZuCp9fSJ5td2_XdGFqPtwp_dY"
 CHANNEL_USERNAME = "@ReaperSelfChannel"
@@ -23,35 +24,39 @@ user_states = {}
 async def get_server_info():
     """دریافت اطلاعات واقعی سرور با psutil و دستورات سیستمی"""
     try:
-        # ===== پینگ =====
+        # ===== پینگ واقعی =====
         ping_time = None
         try:
-            # تلاش با دستور ping به گوگل
+            # روش اول: پینگ به گوگل
             process = await asyncio.create_subprocess_exec(
-                "ping", "-c", "1", "-W", "2", "8.8.8.8",
+                "ping", "-c", "3", "-W", "2", "8.8.8.8",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
-            stdout, stderr = await process.communicate(timeout=3)
+            stdout, stderr = await process.communicate(timeout=5)
             if process.returncode == 0:
                 output = stdout.decode()
-                ping_match = re.search(r'time[=<](\d+\.?\d*)\s*ms', output)
-                if ping_match:
-                    ping_time = float(ping_match.group(1))
+                # استخراج میانگین پینگ
+                avg_match = re.search(r'avg\s*=\s*(\d+\.?\d*)/(\d+\.?\d*)/(\d+\.?\d*)', output)
+                if avg_match:
+                    ping_time = float(avg_match.group(2))
                 else:
-                    ping_match = re.search(r'(\d+\.?\d*)/(\d+\.?\d*)/(\d+\.?\d*)', output)
+                    ping_match = re.search(r'time[=<](\d+\.?\d*)\s*ms', output)
                     if ping_match:
-                        ping_time = float(ping_match.group(2))
+                        ping_time = float(ping_match.group(1))
         except Exception as e:
             ping_time = None
 
-        # اگر پینگ ناموفق بود، از psutil برای بررسی وضعیت شبکه استفاده میکنیم
+        # اگر پینگ ناموفق بود، روش دوم: بررسی اتصال با socket
         if ping_time is None:
-            # بررسی اینکه آیا اینترنت وصل هست یا نه
             try:
-                import socket
-                socket.create_connection(("8.8.8.8", 53), timeout=2)
-                ping_time = 1.0  # مقدار پیشفرض برای نشان دادن اتصال
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(2)
+                start_time = time.time()
+                sock.connect(("8.8.8.8", 53))
+                end_time = time.time()
+                sock.close()
+                ping_time = (end_time - start_time) * 1000  # تبدیل به میلی‌ثانیه
             except:
                 ping_time = None
 
@@ -80,26 +85,21 @@ async def get_server_info():
         else:
             uptime = f"{minutes} دقیقه"
         
-        # ===== وضعیت هاست =====
-        # بررسی واقعی آنلاین بودن
-        status = "🟢 آنلاین"
+        # ===== وضعیت هاست (بر اساس پینگ واقعی) =====
         if ping_time is None:
-            # بررسی میکنیم آیا خود ربات به اینترنت دسترسی داره
-            try:
-                import socket
-                socket.create_connection(("api.telegram.org", 443), timeout=3)
-                status = "🟢 آنلاین"
-                ping_time = 0.5
-            except:
-                status = "🟡 هشدار"
-        elif ping_time > 100:
+            status = "🔴 قطع"
+        elif ping_time < 50:
+            status = "🟢 عالی"
+        elif ping_time < 100:
+            status = "🟢 آنلاین"
+        elif ping_time < 200:
             status = "🟡 هشدار"
         else:
-            status = "🟢 آنلاین"
+            status = "🔴 ضعیف"
         
         return {
             'status': status,
-            'ping': f"{ping_time:.1f} ms" if ping_time and ping_time > 0 else "📶 متصل",
+            'ping': f"{ping_time:.1f} ms" if ping_time else "❌ نامشخص",
             'cpu': cpu_percent,
             'memory': memory_info,
             'disk': disk_info,
@@ -107,7 +107,6 @@ async def get_server_info():
             'uptime': uptime
         }
     except Exception as e:
-        # در صورت خطا، اطلاعات پیشفرض
         return {
             'status': "🟢 آنلاین",
             'ping': "📶 متصل",
@@ -121,9 +120,8 @@ async def get_server_info():
 def get_host_expiry():
     """محاسبه اعتبار هاست بر اساس تاریخ شروع واقعی"""
     try:
-        # تاریخ شروع هاست - با توجه به اینکه گفتی 26 روز مونده
-        # و امروز 1 آگوست 2026 هست، پس تاریخ شروع = 1 آگوست - 4 روز = 28 جولای
-        start_date = datetime(2026, 7, 28)  # 28 جولای 2026
+        # تاریخ شروع هاست - 28 جولای 2026
+        start_date = datetime(2026, 7, 28)
         total_days = 30
         
         today = datetime.now()
@@ -168,12 +166,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         
         keyboard = [
-            [InlineKeyboardButton("📊 آمار کامل", callback_data="admin_stats")],
-            [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping")],
-            [InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")],
-            [InlineKeyboardButton("🔧 تنظیمات", callback_data="admin_settings")],
-            [InlineKeyboardButton("➕ ساخت کد سلف", callback_data="admin_create_code")],
-            [InlineKeyboardButton("❌ باطل کد سلف", callback_data="admin_cancel_code")]
+            [InlineKeyboardButton("⚙️ تنظیمات", callback_data="admin_settings")],
+            [InlineKeyboardButton("➕ ساخت کد سلف", callback_data="admin_create_code"), InlineKeyboardButton("❌ باطل کد سلف", callback_data="admin_cancel_code")],
+            [InlineKeyboardButton("📊 آمار کل", callback_data="admin_stats")],
+            [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping"), InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -234,7 +230,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode='HTML'
     )
 
-# ==================== بقیه توابع (همانند قبل) ====================
+# ==================== بقیه توابع ====================
 
 async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -251,12 +247,10 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         
         keyboard = [
-            [InlineKeyboardButton("📊 آمار کامل", callback_data="admin_stats")],
-            [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping")],
-            [InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")],
-            [InlineKeyboardButton("🔧 تنظیمات", callback_data="admin_settings")],
-            [InlineKeyboardButton("➕ ساخت کد سلف", callback_data="admin_create_code")],
-            [InlineKeyboardButton("❌ باطل کد سلف", callback_data="admin_cancel_code")]
+            [InlineKeyboardButton("⚙️ تنظیمات", callback_data="admin_settings")],
+            [InlineKeyboardButton("➕ ساخت کد سلف", callback_data="admin_create_code"), InlineKeyboardButton("❌ باطل کد سلف", callback_data="admin_cancel_code")],
+            [InlineKeyboardButton("📊 آمار کل", callback_data="admin_stats")],
+            [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping"), InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -322,7 +316,7 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.answer("📊 آمار کامل به زودی اضافه میشود!", show_alert=True)
+    await query.answer("📊 آمار کل به زودی اضافه میشود!", show_alert=True)
 
 async def admin_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -417,7 +411,7 @@ async def admin_host(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def admin_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.answer("🔧 تنظیمات به زودی اضافه میشود!", show_alert=True)
+    await query.answer("⚙️ تنظیمات به زودی اضافه میشود!", show_alert=True)
 
 async def admin_create_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -442,12 +436,10 @@ async def admin_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     keyboard = [
-        [InlineKeyboardButton("📊 آمار کامل", callback_data="admin_stats")],
-        [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping")],
-        [InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")],
-        [InlineKeyboardButton("🔧 تنظیمات", callback_data="admin_settings")],
-        [InlineKeyboardButton("➕ ساخت کد سلف", callback_data="admin_create_code")],
-        [InlineKeyboardButton("❌ باطل کد سلف", callback_data="admin_cancel_code")]
+        [InlineKeyboardButton("⚙️ تنظیمات", callback_data="admin_settings")],
+        [InlineKeyboardButton("➕ ساخت کد سلف", callback_data="admin_create_code"), InlineKeyboardButton("❌ باطل کد سلف", callback_data="admin_cancel_code")],
+        [InlineKeyboardButton("📊 آمار کل", callback_data="admin_stats")],
+        [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping"), InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -532,12 +524,10 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         
         keyboard = [
-            [InlineKeyboardButton("📊 آمار کامل", callback_data="admin_stats")],
-            [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping")],
-            [InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")],
-            [InlineKeyboardButton("🔧 تنظیمات", callback_data="admin_settings")],
-            [InlineKeyboardButton("➕ ساخت کد سلف", callback_data="admin_create_code")],
-            [InlineKeyboardButton("❌ باطل کد سلف", callback_data="admin_cancel_code")]
+            [InlineKeyboardButton("⚙️ تنظیمات", callback_data="admin_settings")],
+            [InlineKeyboardButton("➕ ساخت کد سلف", callback_data="admin_create_code"), InlineKeyboardButton("❌ باطل کد سلف", callback_data="admin_cancel_code")],
+            [InlineKeyboardButton("📊 آمار کل", callback_data="admin_stats")],
+            [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping"), InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
