@@ -5,6 +5,8 @@ import platform
 import subprocess
 import asyncio
 import os
+import re
+from datetime import datetime
 
 TOKEN = "8961040480:AAHNKEnK7LZuCp9fSJ5td2_XdGFqPtwp_dY"
 CHANNEL_USERNAME = "@ReaperSelfChannel"
@@ -16,54 +18,54 @@ ADMIN_ID = 7803165903
 user_states = {}
 
 async def get_server_info():
-    """دریافت اطلاعات سرور بدون psutil"""
+    """دریافت اطلاعات واقعی سرور"""
     try:
         # پینگ - زمان پاسخگویی سرور
         ping_time = None
         try:
-            # پینگ به گوگل برای تست اتصال
             process = await asyncio.create_subprocess_exec(
-                "ping", "-c", "1", "8.8.8.8",
+                "ping", "-c", "3", "8.8.8.8",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
             stdout, stderr = await process.communicate()
             if process.returncode == 0:
                 output = stdout.decode()
-                import re
-                ping_match = re.search(r'time=(\d+\.?\d*)\s*ms', output)
+                # استخراج میانگین پینگ
+                ping_match = re.search(r'avg\s*=\s*(\d+\.?\d*)/(\d+\.?\d*)/(\d+\.?\d*)', output)
                 if ping_match:
-                    ping_time = float(ping_match.group(1))
+                    ping_time = float(ping_match.group(2))
+                else:
+                    ping_match = re.search(r'time=(\d+\.?\d*)\s*ms', output)
+                    if ping_match:
+                        ping_time = float(ping_match.group(1))
         except:
             ping_time = None
         
-        # دریافت اطلاعات سیستم با دستورات لینوکس
+        # دریافت اطلاعات CPU
         cpu_percent = "نامشخص"
-        memory_info = "نامشخص"
-        disk_info = "نامشخص"
-        uptime = "نامشخص"
-        
         try:
-            # CPU
             process = await asyncio.create_subprocess_exec(
-                "top", "-bn1", "|", "grep", "Cpu",
+                "top", "-bn1",
                 stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                shell=True
+                stderr=asyncio.subprocess.PIPE
             )
             stdout, stderr = await process.communicate()
             if stdout:
                 output = stdout.decode()
-                import re
-                cpu_match = re.search(r'(\d+\.?\d*)\s*id', output)
-                if cpu_match:
-                    cpu_idle = float(cpu_match.group(1))
-                    cpu_percent = f"{100 - cpu_idle:.1f}%"
+                for line in output.split('\n'):
+                    if '%Cpu' in line:
+                        cpu_match = re.search(r'(\d+\.?\d*)\s*id', line)
+                        if cpu_match:
+                            cpu_idle = float(cpu_match.group(1))
+                            cpu_percent = f"{100 - cpu_idle:.1f}%"
+                        break
         except:
             pass
         
+        # دریافت اطلاعات RAM
+        memory_info = "نامشخص"
         try:
-            # Memory
             process = await asyncio.create_subprocess_exec(
                 "free", "-h",
                 stdout=asyncio.subprocess.PIPE,
@@ -71,20 +73,41 @@ async def get_server_info():
             )
             stdout, stderr = await process.communicate()
             if stdout:
-                lines = stdout.decode().split('\n')
-                for line in lines:
+                output = stdout.decode()
+                for line in output.split('\n'):
                     if 'Mem:' in line:
                         parts = line.split()
                         if len(parts) >= 3:
                             total = parts[1]
                             used = parts[2]
-                            memory_info = f"{used} / {total}"
+                            # محاسبه درصد
+                            try:
+                                process2 = await asyncio.create_subprocess_exec(
+                                    "free",
+                                    stdout=asyncio.subprocess.PIPE,
+                                    stderr=asyncio.subprocess.PIPE
+                                )
+                                stdout2, stderr2 = await process2.communicate()
+                                if stdout2:
+                                    output2 = stdout2.decode()
+                                    for line2 in output2.split('\n'):
+                                        if 'Mem:' in line2:
+                                            parts2 = line2.split()
+                                            if len(parts2) >= 3:
+                                                total_kb = int(parts2[1])
+                                                used_kb = int(parts2[2])
+                                                percent = (used_kb / total_kb) * 100
+                                                memory_info = f"{percent:.1f}% ({used} / {total})"
+                                            break
+                            except:
+                                memory_info = f"{used} / {total}"
                         break
         except:
             pass
         
+        # دریافت اطلاعات Disk
+        disk_info = "نامشخص"
         try:
-            # Disk
             process = await asyncio.create_subprocess_exec(
                 "df", "-h", "/",
                 stdout=asyncio.subprocess.PIPE,
@@ -92,26 +115,34 @@ async def get_server_info():
             )
             stdout, stderr = await process.communicate()
             if stdout:
-                lines = stdout.decode().split('\n')
-                for line in lines:
-                    if '/dev/' in line:
+                output = stdout.decode()
+                for line in output.split('\n'):
+                    if '/dev/' in line or '/dev/vda' in line or '/dev/sda' in line:
                         parts = line.split()
-                        if len(parts) >= 4:
-                            disk_info = f"{parts[2]} / {parts[1]}"
+                        if len(parts) >= 5:
+                            total = parts[1]
+                            used = parts[2]
+                            percent = parts[4]
+                            disk_info = f"{percent} ({used} / {total})"
                         break
         except:
             pass
         
+        # دریافت آپ‌تایم
+        uptime = "نامشخص"
         try:
-            # Uptime
             process = await asyncio.create_subprocess_exec(
-                "uptime", "-p",
+                "uptime",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
             stdout, stderr = await process.communicate()
             if stdout:
-                uptime = stdout.decode().strip().replace('up ', '')
+                output = stdout.decode()
+                # استخراج آپ‌تایم
+                uptime_match = re.search(r'up\s+([^,]+)', output)
+                if uptime_match:
+                    uptime = uptime_match.group(1).strip()
         except:
             pass
         
@@ -128,11 +159,46 @@ async def get_server_info():
             'cpu': cpu_percent,
             'memory': memory_info,
             'disk': disk_info,
-            'os': platform.system(),
+            'os': platform.system() + " " + platform.release(),
             'uptime': uptime
         }
     except Exception as e:
         return None
+
+def get_host_expiry():
+    """محاسبه اعتبار هاست بر اساس تاریخ فعلی"""
+    try:
+        # تاریخ نصب یا شروع هاست (تغییر دهید)
+        # این تاریخ رو بر اساس تاریخ شروع هاستت تنظیم کن
+        start_date = datetime(2026, 7, 1)  # مثال: 1 جولای 2026
+        
+        today = datetime.now()
+        days_passed = (today - start_date).days
+        total_days = 30  # کل روزهای اعتبار
+        days_left = total_days - days_passed
+        
+        if days_left < 0:
+            days_left = 0
+        
+        # تاریخ انقضا
+        expiry_date = start_date + timedelta(days=total_days)
+        
+        return {
+            'days_left': days_left,
+            'total_days': total_days,
+            'expiry_date': expiry_date.strftime('%Y-%m-%d'),
+            'start_date': start_date.strftime('%Y-%m-%d'),
+            'percent': (days_left / total_days) * 100 if days_left > 0 else 0
+        }
+    except:
+        # اگر خطا بود، اطلاعات پیشفرض
+        return {
+            'days_left': "نامشخص",
+            'total_days': "نامشخص",
+            'expiry_date': "نامشخص",
+            'start_date': "نامشخص",
+            'percent': 0
+        }
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -349,7 +415,43 @@ async def admin_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def admin_host(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.answer("⏳ اعتبار هاست: 28 روز باقی مانده!", show_alert=True)
+    
+    # دریافت اطلاعات اعتبار هاست
+    host_info = get_host_expiry()
+    
+    # نوار پیشرفت
+    bar_length = 10
+    filled = int((host_info['percent'] / 100) * bar_length) if host_info['percent'] > 0 else 0
+    bar = "█" * filled + "░" * (bar_length - filled)
+    
+    text = (
+        "<b>⏳ اطلاعات اعتبار هاست</b>\n\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        f"<b>📅 تاریخ شروع : {host_info['start_date']}</b>\n"
+        f"<b>📆 تاریخ انقضا : {host_info['expiry_date']}</b>\n"
+        f"<b>⏱️ روزهای باقی‌مانده : {host_info['days_left']} روز</b>\n"
+        f"<b>📊 وضعیت : {bar} {host_info['percent']:.1f}%</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+    )
+    
+    if host_info['days_left'] <= 0:
+        text += "\n<b>⚠️ هاست شما منقضی شده است! لطفا تمدید کنید.</b>"
+    elif host_info['days_left'] <= 5:
+        text += "\n<b>⚠️ هاست شما به زودی منقضی میشود! لطفا تمدید کنید.</b>"
+    else:
+        text += "\n<b>✅ هاست شما فعال است.</b>"
+    
+    keyboard = [
+        [InlineKeyboardButton("🔄 بروزرسانی", callback_data="admin_host")],
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(
+        text,
+        reply_markup=reply_markup,
+        parse_mode='HTML'
+    )
 
 async def admin_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
