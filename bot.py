@@ -163,7 +163,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("📤 انتقال اعتبار", callback_data="admin_transfer_credit"), InlineKeyboardButton("📉 کسر اعتبار", callback_data="admin_deduct_credit")],
             [InlineKeyboardButton("🔑 ورود سلف", callback_data="admin_salf_login"), InlineKeyboardButton("🚪 خروج سلف", callback_data="admin_salf_logout")],
             [InlineKeyboardButton("📊 آمار کل", callback_data="admin_stats")],
-            [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping"), InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")]
+            [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping"), InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")],
+            [InlineKeyboardButton("👥 منوی کاربران", callback_data="admin_users_menu")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -247,7 +248,8 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("📤 انتقال اعتبار", callback_data="admin_transfer_credit"), InlineKeyboardButton("📉 کسر اعتبار", callback_data="admin_deduct_credit")],
             [InlineKeyboardButton("🔑 ورود سلف", callback_data="admin_salf_login"), InlineKeyboardButton("🚪 خروج سلف", callback_data="admin_salf_logout")],
             [InlineKeyboardButton("📊 آمار کل", callback_data="admin_stats")],
-            [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping"), InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")]
+            [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping"), InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")],
+            [InlineKeyboardButton("👥 منوی کاربران", callback_data="admin_users_menu")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -405,6 +407,11 @@ async def admin_host(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await query.answer("❌ خطا در بروزرسانی!", show_alert=True)
 
+async def admin_users_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.answer("👥 منوی کاربران به زودی اضافه میشود!", show_alert=True)
+
 # ===== دکمه‌های جدید =====
 
 async def admin_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -471,7 +478,8 @@ async def admin_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("📤 انتقال اعتبار", callback_data="admin_transfer_credit"), InlineKeyboardButton("📉 کسر اعتبار", callback_data="admin_deduct_credit")],
         [InlineKeyboardButton("🔑 ورود سلف", callback_data="admin_salf_login"), InlineKeyboardButton("🚪 خروج سلف", callback_data="admin_salf_logout")],
         [InlineKeyboardButton("📊 آمار کل", callback_data="admin_stats")],
-        [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping"), InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")]
+        [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping"), InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")],
+        [InlineKeyboardButton("👥 منوی کاربران", callback_data="admin_users_menu")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -562,7 +570,8 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("📤 انتقال اعتبار", callback_data="admin_transfer_credit"), InlineKeyboardButton("📉 کسر اعتبار", callback_data="admin_deduct_credit")],
             [InlineKeyboardButton("🔑 ورود سلف", callback_data="admin_salf_login"), InlineKeyboardButton("🚪 خروج سلف", callback_data="admin_salf_logout")],
             [InlineKeyboardButton("📊 آمار کل", callback_data="admin_stats")],
-            [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping"), InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")]
+            [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping"), InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")],
+            [InlineKeyboardButton("👥 منوی کاربران", callback_data="admin_users_menu")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -806,6 +815,7 @@ def main():
     app.add_handler(CallbackQueryHandler(admin_stats, pattern="admin_stats"))
     app.add_handler(CallbackQueryHandler(admin_ping, pattern="admin_ping"))
     app.add_handler(CallbackQueryHandler(admin_host, pattern="admin_host"))
+    app.add_handler(CallbackQueryHandler(admin_users_menu, pattern="admin_users_menu"))
     app.add_handler(CallbackQueryHandler(admin_settings, pattern="admin_settings"))
     app.add_handler(CallbackQueryHandler(admin_create_code, pattern="admin_create_code"))
     app.add_handler(CallbackQueryHandler(admin_cancel_code, pattern="admin_cancel_code"))
