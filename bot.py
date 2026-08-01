@@ -30,6 +30,7 @@ user_states = {}
 CODES_FILE = "codes_data.json"
 SESSIONS_FILE = "sessions_data.json"
 salf_login_data = {}
+clock_tasks = {}
 
 if not os.path.exists("sessions"):
     os.makedirs("sessions")
@@ -268,6 +269,82 @@ def get_host_expiry():
             'percent': 86.6
         }
 
+# ==================== تابع تنظیم ساعت روی اسم اکانت ====================
+
+async def update_clock_on_profile(user_id):
+    """هر دقیقه ساعت رو روی اسم اکانت قرار میده"""
+    try:
+        while True:
+            # دریافت سشن کاربر
+            session_data = get_user_session(user_id)
+            if not session_data:
+                break
+            
+            try:
+                # اتصال با سشن
+                client = TelegramClient(
+                    f"sessions/user_{user_id}",
+                    session_data['api_id'],
+                    session_data['api_hash']
+                )
+                await client.connect()
+                
+                # اگر قبلاً وارد نشده، با سشن وارد شو
+                if not await client.is_user_authorized():
+                    await client.sign_in(session_data['phone'])
+                
+                # دریافت اطلاعات کاربر
+                me = await client.get_me()
+                first_name = me.first_name if me.first_name else ""
+                last_name = me.last_name if me.last_name else ""
+                current_name = f"{first_name} {last_name}".strip()
+                
+                # دریافت ساعت ایران
+                iran_tz = pytz.timezone('Asia/Tehran')
+                iran_time = datetime.now(iran_tz)
+                time_str = iran_time.strftime('%H:%M')
+                
+                # حذف ساعت قبلی از اسم (اگر وجود داشت)
+                # الگوی ساعت: هر چیزی که به شکل HH:MM باشه
+                import re
+                clean_name = re.sub(r'\s*\d{2}:\d{2}$', '', current_name).strip()
+                
+                # اسم جدید با ساعت
+                new_name = f"{clean_name} {time_str}".strip()
+                
+                # اگر اسم با ساعت فرق داشت، تغییر بده
+                if new_name != current_name:
+                    await client.edit_profile(first_name=new_name)
+                
+                await client.disconnect()
+                
+            except Exception as e:
+                print(f"خطا در تنظیم ساعت برای کاربر {user_id}: {e}")
+            
+            # هر 60 ثانیه یک بار اجرا کن
+            await asyncio.sleep(60)
+            
+    except asyncio.CancelledError:
+        print(f"Task برای کاربر {user_id} متوقف شد")
+        raise
+    except Exception as e:
+        print(f"خطا در task ساعت برای کاربر {user_id}: {e}")
+
+async def start_clock_task(user_id):
+    """شروع task ساعت برای کاربر"""
+    if user_id in clock_tasks:
+        clock_tasks[user_id].cancel()
+    
+    task = asyncio.create_task(update_clock_on_profile(user_id))
+    clock_tasks[user_id] = task
+    return task
+
+async def stop_clock_task(user_id):
+    """متوقف کردن task ساعت برای کاربر"""
+    if user_id in clock_tasks:
+        clock_tasks[user_id].cancel()
+        del clock_tasks[user_id]
+
 # ==================== بخش استارت ====================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -307,12 +384,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             expiry_date = get_expiry_date(user_id)
             has_subscription = has_active_subscription(user_id)
             
+            # بررسی اینکه کاربر سشن دارد یا نه
+            session_data = get_user_session(user_id)
+            is_logged_in = session_data is not None
+            
             text = (
                 "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>\n"
                 f"<b>⫸ سلام {user_mention} به ربات ریپر سلف Reaper Self خوش آمدید !</b>\n\n"
                 "<b>◄ توی این ربات میتوانید از پشتیبانی ، خرید ، نصب ربات سلف بهره ببرید !</b>\n\n"
                 "<b>◂ لطفا اگر سوالی دارید از بخش پشتیبانی ، با پشتیبان ها در ارتباط باشید !</b>\n"
                 f"<b>📅 انقضا شما : ( {remaining_days} روز )</b>\n"
+                f"<b>🔑 وضعیت ورود : {'✅ وارد شده' if is_logged_in else '❌ وارد نشده'}</b>\n"
                 "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯   ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>"
             )
             
@@ -385,12 +467,16 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
             expiry_date = get_expiry_date(user_id)
             has_subscription = has_active_subscription(user_id)
             
+            session_data = get_user_session(user_id)
+            is_logged_in = session_data is not None
+            
             text = (
                 "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>\n"
                 f"<b>⫸ سلام {user_mention} به ربات ریپر سلف Reaper Self خوش آمدید !</b>\n\n"
                 "<b>◄ توی این ربات میتوانید از پشتیبانی ، خرید ، نصب ربات سلف بهره ببرید !</b>\n\n"
                 "<b>◂ لطفا اگر سوالی دارید از بخش پشتیبانی ، با پشتیبان ها در ارتباط باشید !</b>\n"
                 f"<b>📅 انقضا شما : ( {remaining_days} روز )</b>\n"
+                f"<b>🔑 وضعیت ورود : {'✅ وارد شده' if is_logged_in else '❌ وارد نشده'}</b>\n"
                 "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯   ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>"
             )
             
@@ -831,7 +917,6 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id not in user_states or user_states[user_id] != "waiting_salf_code":
         return
     
-    # پاک کردن نقطه‌ها از کد
     code_input = update.message.text.strip() if update.message.text else ""
     code = code_input.replace('.', '').replace(' ', '').strip()
     
@@ -852,11 +937,9 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
             del salf_login_data[user_id]
             return
         
-        # تلاش برای ورود با کد
         try:
             await client.sign_in(data['phone'], code)
             
-            # دریافت اطلاعات اکانت
             me = await client.get_me()
             first_name = me.first_name if me.first_name else ""
             last_name = me.last_name if me.last_name else ""
@@ -864,22 +947,25 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not full_name:
                 full_name = me.username if me.username else "کاربر"
             
-            # دریافت ساعت ایران
             iran_tz = pytz.timezone('Asia/Tehran')
             iran_time = datetime.now(iran_tz)
             time_str = iran_time.strftime('%H:%M')
             
-            # ذخیره سشن
             session_string = client.session.save()
             save_user_session(user_id, session_string, data['phone'], data['api_hash'], data['api_id'])
             
             await client.disconnect()
             
+            # شروع task ساعت برای کاربر
+            await start_clock_task(user_id)
+            
             text = (
                 "<b>✅ ورود سلف به اکانت شما با موفقیت انجام شد!</b>\n\n"
                 f"<b>👤 نام اکانت : {full_name}</b>\n"
                 f"<b>📱 شماره : {data['phone']}</b>\n"
-                f"<b>🕐 ساعت ورود : {time_str}</b>"
+                f"<b>🕐 ساعت ورود : {time_str}</b>\n"
+                f"<b>📅 تاریخ ورود : {iran_time.strftime('%Y-%m-%d')}</b>\n\n"
+                "<b>⏰ ساعت روی اسم اکانت شما فعال شد!</b>"
             )
             
             keyboard = [
@@ -894,7 +980,6 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
             
         except PhoneCodeExpiredError:
-            # کد منقضی شده - دوباره درخواست کد جدید
             await update.message.reply_text(
                 "<b>⏳ کد منقضی شده بود، در حال ارسال کد جدید...</b>",
                 parse_mode='HTML'
@@ -956,7 +1041,6 @@ async def handle_salf_password(update: Update, context: ContextTypes.DEFAULT_TYP
         
         await client.sign_in(password=password)
         
-        # دریافت اطلاعات اکانت
         me = await client.get_me()
         first_name = me.first_name if me.first_name else ""
         last_name = me.last_name if me.last_name else ""
@@ -964,7 +1048,6 @@ async def handle_salf_password(update: Update, context: ContextTypes.DEFAULT_TYP
         if not full_name:
             full_name = me.username if me.username else "کاربر"
         
-        # دریافت ساعت ایران
         iran_tz = pytz.timezone('Asia/Tehran')
         iran_time = datetime.now(iran_tz)
         time_str = iran_time.strftime('%H:%M')
@@ -974,11 +1057,16 @@ async def handle_salf_password(update: Update, context: ContextTypes.DEFAULT_TYP
         
         await client.disconnect()
         
+        # شروع task ساعت برای کاربر
+        await start_clock_task(user_id)
+        
         text = (
             "<b>✅ ورود سلف به اکانت شما با موفقیت انجام شد!</b>\n\n"
             f"<b>👤 نام اکانت : {full_name}</b>\n"
             f"<b>📱 شماره : {data['phone']}</b>\n"
-            f"<b>🕐 ساعت ورود : {time_str}</b>"
+            f"<b>🕐 ساعت ورود : {time_str}</b>\n"
+            f"<b>📅 تاریخ ورود : {iran_time.strftime('%Y-%m-%d')}</b>\n\n"
+            "<b>⏰ ساعت روی اسم اکانت شما فعال شد!</b>"
         )
         
         keyboard = [
@@ -1140,12 +1228,16 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     expiry_date = get_expiry_date(user_id)
     has_subscription = has_active_subscription(user_id)
     
+    session_data = get_user_session(user_id)
+    is_logged_in = session_data is not None
+    
     text = (
         "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>\n"
         f"<b>⫸ سلام {user_mention} به ربات ریپر سلف Reaper Self خوش آمدید !</b>\n\n"
         "<b>◄ توی این ربات میتوانید از پشتیبانی ، خرید ، نصب ربات سلف بهره ببرید !</b>\n\n"
         "<b>◂ لطفا اگر سوالی دارید از بخش پشتیبانی ، با پشتیبان ها در ارتباط باشید !</b>\n"
         f"<b>📅 انقضا شما : ( {remaining_days} روز )</b>\n"
+        f"<b>🔑 وضعیت ورود : {'✅ وارد شده' if is_logged_in else '❌ وارد نشده'}</b>\n"
         "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯   ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>"
     )
     
