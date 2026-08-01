@@ -135,6 +135,10 @@ def get_expiry_date(user_id):
         return expiry.strftime('%Y-%m-%d')
     return "ندارد"
 
+def has_active_subscription(user_id):
+    """بررسی اینکه کاربر اشتراک فعال دارد یا نه"""
+    return get_remaining_days(user_id) > 0
+
 # ==================== توابع دریافت اطلاعات واقعی سرور ====================
 
 async def get_server_info():
@@ -294,6 +298,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if chat_member.status in ["member", "administrator", "creator"]:
             remaining_days = get_remaining_days(user_id)
             expiry_date = get_expiry_date(user_id)
+            has_subscription = has_active_subscription(user_id)
             
             text = (
                 "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>\n"
@@ -304,14 +309,31 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯   ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>"
             )
             
-            keyboard = [
-                [InlineKeyboardButton("👨‍💻 پشتیبانی", callback_data="support")],
-                [InlineKeyboardButton("🤔 سلف چیست ؟", callback_data="what_is_self")],
-                [InlineKeyboardButton("📅 انقضا : {expiry_date} ( {remaining_days} روز )", callback_data="expiry")],
-                [InlineKeyboardButton("✔️ احراز هویت", callback_data="verify"), InlineKeyboardButton("💳 خرید اشتراک", callback_data="buy_subscription")],
-                [InlineKeyboardButton("💶 خرید با کد", callback_data="buy_with_code")],
-                [InlineKeyboardButton("💎 نرخ", callback_data="rate")]
-            ]
+            # ساخت دکمه‌ها با توجه به وضعیت اشتراک
+            keyboard = []
+            
+            # ردیف اول: پشتیبانی
+            keyboard.append([InlineKeyboardButton("👨‍💻 پشتیبانی", callback_data="support")])
+            
+            # ردیف دوم: سلف چیست + کانال دستورات
+            keyboard.append([InlineKeyboardButton("🤔 سلف چیست ؟", callback_data="what_is_self"), InlineKeyboardButton("📢 کانال دستورات", url="https://t.me/ReaperSelfChannel")])
+            
+            # ردیف سوم: انقضا
+            keyboard.append([InlineKeyboardButton(f"📅 انقضا : {expiry_date} ( {remaining_days} روز )", callback_data="expiry")])
+            
+            # ردیف چهارم: احراز هویت + خرید اشتراک
+            keyboard.append([InlineKeyboardButton("✔️ احراز هویت", callback_data="verify"), InlineKeyboardButton("💳 خرید اشتراک", callback_data="buy_subscription")])
+            
+            # ردیف پنجم: خرید با کد
+            keyboard.append([InlineKeyboardButton("💶 خرید با کد", callback_data="buy_with_code")])
+            
+            # اگر کاربر اشتراک فعال دارد، دکمه ورود سلف اضافه میشود
+            if has_subscription:
+                keyboard.append([InlineKeyboardButton("🔑 ورود سلف", callback_data="salf_login")])
+            
+            # ردیف آخر: نرخ + کانال ما
+            keyboard.append([InlineKeyboardButton("💎 نرخ", callback_data="rate"), InlineKeyboardButton("📣 کانال ما", url="https://t.me/ReaperSelfChannel")])
+            
             reply_markup = InlineKeyboardMarkup(keyboard)
             
             await update.message.reply_text(
@@ -381,6 +403,7 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if chat_member.status in ["member", "administrator", "creator"]:
             remaining_days = get_remaining_days(user_id)
             expiry_date = get_expiry_date(user_id)
+            has_subscription = has_active_subscription(user_id)
             
             text = (
                 "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>\n"
@@ -391,14 +414,18 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯   ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>"
             )
             
-            keyboard = [
-                [InlineKeyboardButton("👨‍💻 پشتیبانی", callback_data="support")],
-                [InlineKeyboardButton("🤔 سلف چیست ؟", callback_data="what_is_self")],
-                [InlineKeyboardButton("📅 انقضا : {expiry_date} ( {remaining_days} روز )", callback_data="expiry")],
-                [InlineKeyboardButton("✔️ احراز هویت", callback_data="verify"), InlineKeyboardButton("💳 خرید اشتراک", callback_data="buy_subscription")],
-                [InlineKeyboardButton("💶 خرید با کد", callback_data="buy_with_code")],
-                [InlineKeyboardButton("💎 نرخ", callback_data="rate")]
-            ]
+            keyboard = []
+            keyboard.append([InlineKeyboardButton("👨‍💻 پشتیبانی", callback_data="support")])
+            keyboard.append([InlineKeyboardButton("🤔 سلف چیست ؟", callback_data="what_is_self"), InlineKeyboardButton("📢 کانال دستورات", url="https://t.me/ReaperSelfChannel")])
+            keyboard.append([InlineKeyboardButton(f"📅 انقضا : {expiry_date} ( {remaining_days} روز )", callback_data="expiry")])
+            keyboard.append([InlineKeyboardButton("✔️ احراز هویت", callback_data="verify"), InlineKeyboardButton("💳 خرید اشتراک", callback_data="buy_subscription")])
+            keyboard.append([InlineKeyboardButton("💶 خرید با کد", callback_data="buy_with_code")])
+            
+            if has_subscription:
+                keyboard.append([InlineKeyboardButton("🔑 ورود سلف", callback_data="salf_login")])
+            
+            keyboard.append([InlineKeyboardButton("💎 نرخ", callback_data="rate"), InlineKeyboardButton("📣 کانال ما", url="https://t.me/ReaperSelfChannel")])
+            
             reply_markup = InlineKeyboardMarkup(keyboard)
             
             await query.edit_message_text(
@@ -554,8 +581,7 @@ async def admin_users_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ===== دکمه‌های جدید =====
 
 async def admin_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
+    query = update.callback_query    await query.answer()
     await query.answer("⚙️ تنظیمات به زودی اضافه میشود!", show_alert=True)
 
 async def admin_create_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -844,11 +870,21 @@ async def handle_activation_code(update: Update, context: ContextTypes.DEFAULT_T
         remaining_days = get_remaining_days(user_id)
         expiry_date = get_expiry_date(user_id)
         
-        await update.message.reply_text(
+        text = (
             f"<b>✅ کد با موفقیت فعال شد!</b>\n\n"
             f"<b>📅 {days} روز به اشتراک شما اضافه شد.</b>\n"
             f"<b>📅 تاریخ انقضا : {expiry_date}</b>\n"
-            f"<b>⏳ روزهای باقی‌مانده : {remaining_days} روز</b>",
+            f"<b>⏳ روزهای باقی‌مانده : {remaining_days} روز</b>"
+        )
+        
+        keyboard = [
+            [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.message.reply_text(
+            text,
+            reply_markup=reply_markup,
             parse_mode='HTML'
         )
         
@@ -858,6 +894,11 @@ async def handle_activation_code(update: Update, context: ContextTypes.DEFAULT_T
             "<b>❌ خطا در فعال‌سازی کد!</b>",
             parse_mode='HTML'
         )
+
+async def salf_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.answer("🔑 در حال ورود به سلف...", show_alert=True)
 
 async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -897,6 +938,7 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     remaining_days = get_remaining_days(user_id)
     expiry_date = get_expiry_date(user_id)
+    has_subscription = has_active_subscription(user_id)
     
     text = (
         "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>\n"
@@ -907,14 +949,18 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯   ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>"
     )
     
-    keyboard = [
-        [InlineKeyboardButton("👨‍💻 پشتیبانی", callback_data="support")],
-        [InlineKeyboardButton("🤔 سلف چیست ؟", callback_data="what_is_self")],
-        [InlineKeyboardButton("📅 انقضا : {expiry_date} ( {remaining_days} روز )", callback_data="expiry")],
-        [InlineKeyboardButton("✔️ احراز هویت", callback_data="verify"), InlineKeyboardButton("💳 خرید اشتراک", callback_data="buy_subscription")],
-        [InlineKeyboardButton("💶 خرید با کد", callback_data="buy_with_code")],
-        [InlineKeyboardButton("💎 نرخ", callback_data="rate")]
-    ]
+    keyboard = []
+    keyboard.append([InlineKeyboardButton("👨‍💻 پشتیبانی", callback_data="support")])
+    keyboard.append([InlineKeyboardButton("🤔 سلف چیست ؟", callback_data="what_is_self"), InlineKeyboardButton("📢 کانال دستورات", url="https://t.me/ReaperSelfChannel")])
+    keyboard.append([InlineKeyboardButton(f"📅 انقضا : {expiry_date} ( {remaining_days} روز )", callback_data="expiry")])
+    keyboard.append([InlineKeyboardButton("✔️ احراز هویت", callback_data="verify"), InlineKeyboardButton("💳 خرید اشتراک", callback_data="buy_subscription")])
+    keyboard.append([InlineKeyboardButton("💶 خرید با کد", callback_data="buy_with_code")])
+    
+    if has_subscription:
+        keyboard.append([InlineKeyboardButton("🔑 ورود سلف", callback_data="salf_login")])
+    
+    keyboard.append([InlineKeyboardButton("💎 نرخ", callback_data="rate"), InlineKeyboardButton("📣 کانال ما", url="https://t.me/ReaperSelfChannel")])
+    
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await query.edit_message_text(
@@ -1144,6 +1190,7 @@ def main():
     app.add_handler(CallbackQueryHandler(what_is_self, pattern="what_is_self"))
     app.add_handler(CallbackQueryHandler(buy_subscription, pattern="buy_subscription"))
     app.add_handler(CallbackQueryHandler(buy_with_code, pattern="buy_with_code"))
+    app.add_handler(CallbackQueryHandler(salf_login, pattern="salf_login"))
     app.add_handler(CallbackQueryHandler(main_menu, pattern="main_menu"))
     app.add_handler(CallbackQueryHandler(rate, pattern="rate"))
     app.add_handler(CallbackQueryHandler(expiry, pattern="expiry"))
