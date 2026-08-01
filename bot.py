@@ -169,17 +169,11 @@ async def buy_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     
     text = (
-        "<b>◄ لطفا از منوی زیر انتخاب نمایید سلف را برای چند ماه میخواهید خریداری نمایید.</b>"
+        "<b>◂ برای خرید باید ابتدا احراز هویت کنید.</b>"
     )
     
     keyboard = [
-        [InlineKeyboardButton("( 1 ) ماه معادل 3 ترون ( trx )", callback_data="buy_1_month")],
-        [InlineKeyboardButton("( 2 ) ماه معادل 6 ترون ( trx )", callback_data="buy_2_month")],
-        [InlineKeyboardButton("( 3 ) ماه معادل 9 ترون ( trx )", callback_data="buy_3_month")],
-        [InlineKeyboardButton("( 4 ) ماه معادل 13 ترون ( trx )", callback_data="buy_4_month")],
-        [InlineKeyboardButton("( 5 ) ماه معادل 16 ترون ( trx )", callback_data="buy_5_month")],
-        [InlineKeyboardButton("( 6 ) ماه معادل 19 ترون ( trx )", callback_data="buy_6_month")],
-        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
+        [InlineKeyboardButton("احراز هویت ✔️", callback_data="verify")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
