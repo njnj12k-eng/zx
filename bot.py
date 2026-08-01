@@ -217,7 +217,21 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def buy_with_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.answer("🛒 لطفا کد خود را وارد کنید!", show_alert=True)
+    
+    text = (
+        "<b>◄ لطفا کد انقضای خریداری شده خود را ارسال کنید :</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("بازگشت به منوی اصلی", callback_data="main_menu")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(
+        text,
+        reply_markup=reply_markup,
+        parse_mode='HTML'
+    )
 
 async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
