@@ -34,6 +34,10 @@ SESSIONS_FILE = "sessions_data.json"
 # دیکشنری برای ذخیره اطلاعات موقت ورود سلف
 salf_login_data = {}
 
+# ایجاد پوشه sessions اگر وجود نداشت
+if not os.path.exists("sessions"):
+    os.makedirs("sessions")
+
 # ==================== دیتابیس سشن‌ها ====================
 
 def load_sessions():
@@ -351,14 +355,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"<b>⫸ سلام {user_mention} به ربات ریپر سلف Reaper Self خوش آمدید !</b>\n\n"
                 "<b>◄ توی این ربات میتوانید از پشتیبانی ، خرید ، نصب ربات سلف بهره ببرید !</b>\n\n"
                 "<b>◂ لطفا اگر سوالی دارید از بخش پشتیبانی ، با پشتیبان ها در ارتباط باشید !</b>\n"
-                f"<b>📅 انقضا : {expiry_date} ( {remaining_days} روز )</b>\n"
+                f"<b>📅 انقضا شما : ( {remaining_days} روز )</b>\n"
                 "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯   ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>"
             )
             
             keyboard = []
             keyboard.append([InlineKeyboardButton("👨‍💻 پشتیبانی", callback_data="support")])
             keyboard.append([InlineKeyboardButton("🤔 سلف چیست ؟", callback_data="what_is_self"), InlineKeyboardButton("📣 کانال ما", url="https://t.me/ReaperSelfChannel")])
-            keyboard.append([InlineKeyboardButton(f"📅 انقضا : {expiry_date} ( {remaining_days} روز )", callback_data="expiry")])
+            keyboard.append([InlineKeyboardButton(f"📅 انقضا شما : ( {remaining_days} روز )", callback_data="expiry")])
             keyboard.append([InlineKeyboardButton("✔️ احراز هویت", callback_data="verify"), InlineKeyboardButton("💳 خرید اشتراک", callback_data="buy_subscription")])
             keyboard.append([InlineKeyboardButton("💶 خرید با کد", callback_data="buy_with_code")])
             
@@ -443,14 +447,14 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"<b>⫸ سلام {user_mention} به ربات ریپر سلف Reaper Self خوش آمدید !</b>\n\n"
                 "<b>◄ توی این ربات میتوانید از پشتیبانی ، خرید ، نصب ربات سلف بهره ببرید !</b>\n\n"
                 "<b>◂ لطفا اگر سوالی دارید از بخش پشتیبانی ، با پشتیبان ها در ارتباط باشید !</b>\n"
-                f"<b>📅 انقضا : {expiry_date} ( {remaining_days} روز )</b>\n"
+                f"<b>📅 انقضا شما : ( {remaining_days} روز )</b>\n"
                 "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯   ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>"
             )
             
             keyboard = []
             keyboard.append([InlineKeyboardButton("👨‍💻 پشتیبانی", callback_data="support")])
             keyboard.append([InlineKeyboardButton("🤔 سلف چیست ؟", callback_data="what_is_self"), InlineKeyboardButton("📣 کانال ما", url="https://t.me/ReaperSelfChannel")])
-            keyboard.append([InlineKeyboardButton(f"📅 انقضا : {expiry_date} ( {remaining_days} روز )", callback_data="expiry")])
+            keyboard.append([InlineKeyboardButton(f"📅 انقضا شما : ( {remaining_days} روز )", callback_data="expiry")])
             keyboard.append([InlineKeyboardButton("✔️ احراز هویت", callback_data="verify"), InlineKeyboardButton("💳 خرید اشتراک", callback_data="buy_subscription")])
             keyboard.append([InlineKeyboardButton("💶 خرید با کد", callback_data="buy_with_code")])
             
@@ -810,18 +814,15 @@ async def salf_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     user_id = query.from_user.id
     
-    # بررسی اینکه کاربر اشتراک فعال دارد
     if not has_active_subscription(user_id):
         await query.answer("❌ شما اشتراک فعال ندارید!", show_alert=True)
         return
     
-    # بررسی اینکه قبلاً سشن ذخیره شده
     existing_session = get_user_session(user_id)
     if existing_session:
         await query.answer("🔑 شما قبلاً وارد سلف شده اید!", show_alert=True)
         return
     
-    # شروع فرآیند ورود
     user_states[user_id] = "waiting_salf_phone"
     salf_login_data[user_id] = {}
     
@@ -849,10 +850,9 @@ async def handle_salf_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id not in user_states or user_states[user_id] != "waiting_salf_phone":
         return
     
-    phone = update.message.text.strip()
+    phone = update.message.text.strip() if update.message.text else ""
     
-    # اعتبارسنجی شماره
-    if not re.match(r'^\+?[0-9]{10,15}$', phone):
+    if not phone or not re.match(r'^\+?[0-9]{10,15}$', phone):
         await update.message.reply_text(
             "<b>❌ شماره وارد شده صحیح نیست! لطفا با کد کشور وارد کنید.</b>\n"
             "<b>مثال : +989123456789</b>",
@@ -861,38 +861,10 @@ async def handle_salf_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     salf_login_data[user_id]['phone'] = phone
-    user_states[user_id] = "waiting_salf_api_hash"
-    
-    text = (
-        "<b>🔑 مرحله 2 از 4</b>\n\n"
-        "<b>◄ لطفا آیپی هش (API Hash) خود را وارد کنید:</b>"
-    )
-    
-    await update.message.reply_text(
-        text,
-        parse_mode='HTML'
-    )
-
-async def handle_salf_api_hash(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    
-    if user_id not in user_states or user_states[user_id] != "waiting_salf_api_hash":
-        return
-    
-    api_hash = update.message.text.strip()
-    
-    if len(api_hash) < 20:
-        await update.message.reply_text(
-            "<b>❌ آیپی هش وارد شده صحیح نیست! لطفا دوباره وارد کنید.</b>",
-            parse_mode='HTML'
-        )
-        return
-    
-    salf_login_data[user_id]['api_hash'] = api_hash
     user_states[user_id] = "waiting_salf_api_id"
     
     text = (
-        "<b>🔑 مرحله 3 از 4</b>\n\n"
+        "<b>🔑 مرحله 2 از 4</b>\n\n"
         "<b>◄ لطفا آیپی عددی (API ID) خود را وارد کنید:</b>"
     )
     
@@ -907,8 +879,17 @@ async def handle_salf_api_id(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if user_id not in user_states or user_states[user_id] != "waiting_salf_api_id":
         return
     
+    text = update.message.text.strip() if update.message.text else ""
+    
+    if not text:
+        await update.message.reply_text(
+            "<b>❌ لطفا یک عدد وارد کنید!</b>",
+            parse_mode='HTML'
+        )
+        return
+    
     try:
-        api_id = int(update.message.text.strip())
+        api_id = int(text)
     except:
         await update.message.reply_text(
             "<b>❌ آیپی عددی باید عدد باشد! لطفا دوباره وارد کنید.</b>",
@@ -917,13 +898,43 @@ async def handle_salf_api_id(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
     
     salf_login_data[user_id]['api_id'] = api_id
+    user_states[user_id] = "waiting_salf_api_hash"
+    
+    text = (
+        "<b>🔑 مرحله 3 از 4</b>\n\n"
+        "<b>◄ لطفا آیپی هش (API Hash) خود را وارد کنید:</b>"
+    )
+    
+    await update.message.reply_text(
+        text,
+        parse_mode='HTML'
+    )
+
+async def handle_salf_api_hash(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    
+    if user_id not in user_states or user_states[user_id] != "waiting_salf_api_hash":
+        return
+    
+    api_hash = update.message.text.strip() if update.message.text else ""
+    
+    if not api_hash or len(api_hash) < 20:
+        await update.message.reply_text(
+            "<b>❌ آیپی هش وارد شده صحیح نیست! لطفا دوباره وارد کنید.</b>",
+            parse_mode='HTML'
+        )
+        return
+    
+    salf_login_data[user_id]['api_hash'] = api_hash
     user_states[user_id] = "waiting_salf_code"
     
-    # ارسال کد تایید
     try:
         data = salf_login_data[user_id]
+        
+        # ایجاد کلاینت با مسیر کامل برای دیتابیس
+        session_path = f"sessions/user_{user_id}"
         client = TelegramClient(
-            f"sessions/user_{user_id}",
+            session_path,
             data['api_id'],
             data['api_hash']
         )
@@ -952,11 +963,24 @@ async def handle_salf_api_id(update: Update, context: ContextTypes.DEFAULT_TYPE)
             del user_states[user_id]
             del salf_login_data[user_id]
             
+    except PhoneNumberInvalidError:
+        await update.message.reply_text(
+            "<b>❌ شماره وارد شده معتبر نیست!</b>",
+            parse_mode='HTML'
+        )
+        del user_states[user_id]
+        del salf_login_data[user_id]
     except Exception as e:
         await update.message.reply_text(
             f"<b>❌ خطا در ارسال کد تایید: {str(e)}</b>",
             parse_mode='HTML'
         )
+        # پاک کردن کلاینت در صورت خطا
+        if 'client' in salf_login_data.get(user_id, {}):
+            try:
+                await salf_login_data[user_id]['client'].disconnect()
+            except:
+                pass
         del user_states[user_id]
         del salf_login_data[user_id]
 
@@ -966,7 +990,14 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id not in user_states or user_states[user_id] != "waiting_salf_code":
         return
     
-    code = update.message.text.strip()
+    code = update.message.text.strip() if update.message.text else ""
+    
+    if not code:
+        await update.message.reply_text(
+            "<b>❌ لطفا کد را وارد کنید!</b>",
+            parse_mode='HTML'
+        )
+        return
     
     try:
         data = salf_login_data[user_id]
@@ -983,7 +1014,6 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         await client.sign_in(data['phone'], code)
         
-        # ذخیره سشن
         session_string = client.session.save()
         save_user_session(user_id, session_string, data['phone'], data['api_hash'], data['api_id'])
         
@@ -1009,8 +1039,10 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
         del salf_login_data[user_id]
         
     except SessionPasswordNeededError:
+        user_states[user_id] = "waiting_salf_password"
         await update.message.reply_text(
-            "<b>❌ این اکانت دو مرحله‌ای فعال است! لطفا پسورد را وارد کنید.</b>",
+            "<b>🔑 این اکانت دو مرحله‌ای فعال است.</b>\n"
+            "<b>◄ لطفا پسورد خود را وارد کنید:</b>",
             parse_mode='HTML'
         )
     except PhoneCodeInvalidError:
@@ -1021,6 +1053,68 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(
             f"<b>❌ خطا در ورود: {str(e)}</b>",
+            parse_mode='HTML'
+        )
+        del user_states[user_id]
+        del salf_login_data[user_id]
+
+async def handle_salf_password(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    
+    if user_id not in user_states or user_states[user_id] != "waiting_salf_password":
+        return
+    
+    password = update.message.text.strip() if update.message.text else ""
+    
+    if not password:
+        await update.message.reply_text(
+            "<b>❌ لطفا پسورد را وارد کنید!</b>",
+            parse_mode='HTML'
+        )
+        return
+    
+    try:
+        data = salf_login_data[user_id]
+        client = data.get('client')
+        
+        if not client:
+            await update.message.reply_text(
+                "<b>❌ خطا در اتصال! لطفا دوباره تلاش کنید.</b>",
+                parse_mode='HTML'
+            )
+            del user_states[user_id]
+            del salf_login_data[user_id]
+            return
+        
+        await client.sign_in(password=password)
+        
+        session_string = client.session.save()
+        save_user_session(user_id, session_string, data['phone'], data['api_hash'], data['api_id'])
+        
+        await client.disconnect()
+        
+        text = (
+            "<b>✅ ورود سلف به اکانت شما با موفقیت انجام شد!</b>\n\n"
+            f"<b>📱 شماره : {data['phone']}</b>"
+        )
+        
+        keyboard = [
+            [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.message.reply_text(
+            text,
+            reply_markup=reply_markup,
+            parse_mode='HTML'
+        )
+        
+        del user_states[user_id]
+        del salf_login_data[user_id]
+        
+    except Exception as e:
+        await update.message.reply_text(
+            f"<b>❌ خطا در ورود با پسورد: {str(e)}</b>",
             parse_mode='HTML'
         )
         del user_states[user_id]
@@ -1114,7 +1208,14 @@ async def handle_activation_code(update: Update, context: ContextTypes.DEFAULT_T
     if user_id not in user_states or user_states[user_id] != "waiting_for_activation_code":
         return
     
-    code = update.message.text.strip().upper()
+    code = update.message.text.strip().upper() if update.message.text else ""
+    
+    if not code:
+        await update.message.reply_text(
+            "<b>❌ لطفا کد را وارد کنید!</b>",
+            parse_mode='HTML'
+        )
+        return
     
     code_data, error = validate_code(code)
     
@@ -1162,7 +1263,6 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
     user_mention = f"@{query.from_user.username}" if query.from_user.username else query.from_user.first_name
     
-    # پاک کردن وضعیت‌های مربوط به ورود سلف
     if user_id in user_states:
         del user_states[user_id]
     if user_id in salf_login_data:
@@ -1203,14 +1303,14 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"<b>⫸ سلام {user_mention} به ربات ریپر سلف Reaper Self خوش آمدید !</b>\n\n"
         "<b>◄ توی این ربات میتوانید از پشتیبانی ، خرید ، نصب ربات سلف بهره ببرید !</b>\n\n"
         "<b>◂ لطفا اگر سوالی دارید از بخش پشتیبانی ، با پشتیبان ها در ارتباط باشید !</b>\n"
-        f"<b>📅 انقضا : {expiry_date} ( {remaining_days} روز )</b>\n"
+        f"<b>📅 انقضا شما : ( {remaining_days} روز )</b>\n"
         "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯   ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>"
     )
     
     keyboard = []
     keyboard.append([InlineKeyboardButton("👨‍💻 پشتیبانی", callback_data="support")])
     keyboard.append([InlineKeyboardButton("🤔 سلف چیست ؟", callback_data="what_is_self"), InlineKeyboardButton("📣 کانال ما", url="https://t.me/ReaperSelfChannel")])
-    keyboard.append([InlineKeyboardButton(f"📅 انقضا : {expiry_date} ( {remaining_days} روز )", callback_data="expiry")])
+    keyboard.append([InlineKeyboardButton(f"📅 انقضا شما : ( {remaining_days} روز )", callback_data="expiry")])
     keyboard.append([InlineKeyboardButton("✔️ احراز هویت", callback_data="verify"), InlineKeyboardButton("💳 خرید اشتراک", callback_data="buy_subscription")])
     keyboard.append([InlineKeyboardButton("💶 خرید با کد", callback_data="buy_with_code")])
     
@@ -1263,7 +1363,7 @@ async def expiry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     expiry_date = get_expiry_date(user_id)
     
     if remaining_days > 0:
-        await query.answer(f"📅 تاریخ انقضا : {expiry_date} ( {remaining_days} روز باقی مانده )", show_alert=True)
+        await query.answer(f"📅 انقضا شما : {expiry_date} ( {remaining_days} روز باقی مانده )", show_alert=True)
     else:
         await query.answer("⏳ اشتراک شما فعال نمیباشد!", show_alert=True)
 
@@ -1359,7 +1459,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         
         elif state == "waiting_for_card_number":
-            text = update.message.text.strip()
+            text = update.message.text.strip() if update.message.text else ""
             card_number = ''.join(filter(str.isdigit, text))
             
             if len(card_number) == 16 and card_number.isdigit():
@@ -1391,16 +1491,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await handle_salf_phone(update, context)
             return
         
-        elif state == "waiting_salf_api_hash":
-            await handle_salf_api_hash(update, context)
-            return
-        
         elif state == "waiting_salf_api_id":
             await handle_salf_api_id(update, context)
             return
         
+        elif state == "waiting_salf_api_hash":
+            await handle_salf_api_hash(update, context)
+            return
+        
         elif state == "waiting_salf_code":
             await handle_salf_code(update, context)
+            return
+        
+        elif state == "waiting_salf_password":
+            await handle_salf_password(update, context)
             return
 
 # ==================== خرید ماه‌ها ====================
