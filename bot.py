@@ -1,10 +1,10 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters
 import time
-import psutil
 import platform
 import subprocess
 import asyncio
+import os
 
 TOKEN = "8961040480:AAHNKEnK7LZuCp9fSJ5td2_XdGFqPtwp_dY"
 CHANNEL_USERNAME = "@ReaperSelfChannel"
@@ -16,7 +16,7 @@ ADMIN_ID = 7803165903
 user_states = {}
 
 async def get_server_info():
-    """دریافت اطلاعات سرور"""
+    """دریافت اطلاعات سرور بدون psutil"""
     try:
         # پینگ - زمان پاسخگویی سرور
         ping_time = None
@@ -37,28 +37,101 @@ async def get_server_info():
         except:
             ping_time = None
         
-        # اطلاعات سیستم
-        cpu_percent = psutil.cpu_percent(interval=0.5)
-        memory = psutil.virtual_memory()
-        disk = psutil.disk_usage('/')
+        # دریافت اطلاعات سیستم با دستورات لینوکس
+        cpu_percent = "نامشخص"
+        memory_info = "نامشخص"
+        disk_info = "نامشخص"
+        uptime = "نامشخص"
+        
+        try:
+            # CPU
+            process = await asyncio.create_subprocess_exec(
+                "top", "-bn1", "|", "grep", "Cpu",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                shell=True
+            )
+            stdout, stderr = await process.communicate()
+            if stdout:
+                output = stdout.decode()
+                import re
+                cpu_match = re.search(r'(\d+\.?\d*)\s*id', output)
+                if cpu_match:
+                    cpu_idle = float(cpu_match.group(1))
+                    cpu_percent = f"{100 - cpu_idle:.1f}%"
+        except:
+            pass
+        
+        try:
+            # Memory
+            process = await asyncio.create_subprocess_exec(
+                "free", "-h",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await process.communicate()
+            if stdout:
+                lines = stdout.decode().split('\n')
+                for line in lines:
+                    if 'Mem:' in line:
+                        parts = line.split()
+                        if len(parts) >= 3:
+                            total = parts[1]
+                            used = parts[2]
+                            memory_info = f"{used} / {total}"
+                        break
+        except:
+            pass
+        
+        try:
+            # Disk
+            process = await asyncio.create_subprocess_exec(
+                "df", "-h", "/",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await process.communicate()
+            if stdout:
+                lines = stdout.decode().split('\n')
+                for line in lines:
+                    if '/dev/' in line:
+                        parts = line.split()
+                        if len(parts) >= 4:
+                            disk_info = f"{parts[2]} / {parts[1]}"
+                        break
+        except:
+            pass
+        
+        try:
+            # Uptime
+            process = await asyncio.create_subprocess_exec(
+                "uptime", "-p",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await process.communicate()
+            if stdout:
+                uptime = stdout.decode().strip().replace('up ', '')
+        except:
+            pass
         
         # وضعیت سرور
         status = "🟢 آنلاین"
-        if ping_time is None or cpu_percent > 90 or memory.percent > 90:
-            status = "🟡 هشدار"
         if ping_time is None:
             status = "🔴 قطع"
+        elif ping_time > 100:
+            status = "🟡 هشدار"
         
         return {
             'status': status,
             'ping': f"{ping_time:.1f} ms" if ping_time else "❌ نامشخص",
-            'cpu': f"{cpu_percent:.1f}%",
-            'memory': f"{memory.percent:.1f}% ({memory.used // (1024**3)}GB / {memory.total // (1024**3)}GB)",
-            'disk': f"{disk.percent:.1f}% ({disk.used // (1024**3)}GB / {disk.total // (1024**3)}GB)",
+            'cpu': cpu_percent,
+            'memory': memory_info,
+            'disk': disk_info,
             'os': platform.system(),
-            'uptime': "نامشخص"
+            'uptime': uptime
         }
-    except:
+    except Exception as e:
         return None
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -73,7 +146,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id == ADMIN_ID:
         # منوی ادمین
         text = (
-            "<b>⫸ درود {user_mention} به پنل ریپر سلف Reaper Self خوش آمدید.</b>\n\n"
+            f"<b>⫸ درود {user_mention} به پنل ریپر سلف Reaper Self خوش آمدید.</b>\n\n"
             "<b>◄ توی این پنل میتوانید ربات ریپر سلف Reaper Self را کنترل و مدیریت کنید.</b>\n\n"
             "<b>◂ لطفا از منوی زیر انتخاب نمایید که چه کاری را می‌خواهید انتخاب دهید.</b>"
         )
@@ -154,7 +227,7 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ادمین نیازی به بررسی عضویت ندارد
     if user_id == ADMIN_ID:
         text = (
-            "<b>⫸ درود {user_mention} به پنل ریپر سلف Reaper Self خوش آمدید.</b>\n\n"
+            f"<b>⫸ درود {user_mention} به پنل ریپر سلف Reaper Self خوش آمدید.</b>\n\n"
             "<b>◄ توی این پنل میتوانید ربات ریپر سلف Reaper Self را کنترل و مدیریت کنید.</b>\n\n"
             "<b>◂ لطفا از منوی زیر انتخاب نمایید که چه کاری را می‌خواهید انتخاب دهید.</b>"
         )
@@ -252,6 +325,7 @@ async def admin_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"<b>🧠 رم : {server_info['memory']}</b>\n"
             f"<b>💾 هارد : {server_info['disk']}</b>\n"
             f"<b>🖥️ سیستم‌عامل : {server_info['os']}</b>\n"
+            f"<b>⏱️ آپ‌تایم : {server_info['uptime']}</b>\n"
             "<b>━━━━━━━━━━━━━━━━━━━━</b>\n"
             "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯   ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>"
         )
@@ -284,7 +358,7 @@ async def admin_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_mention = f"@{query.from_user.username}" if query.from_user.username else query.from_user.first_name
     
     text = (
-        "<b>⫸ درود {user_mention} به پنل ریپر سلف Reaper Self خوش آمدید.</b>\n\n"
+        f"<b>⫸ درود {user_mention} به پنل ریپر سلف Reaper Self خوش آمدید.</b>\n\n"
         "<b>◄ توی این پنل میتوانید ربات ریپر سلف Reaper Self را کنترل و مدیریت کنید.</b>\n\n"
         "<b>◂ لطفا از منوی زیر انتخاب نمایید که چه کاری را می‌خواهید انتخاب دهید.</b>"
     )
@@ -372,7 +446,7 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ادمین
     if user_id == ADMIN_ID:
         text = (
-            "<b>⫸ درود {user_mention} به پنل ریپر سلف Reaper Self خوش آمدید.</b>\n\n"
+            f"<b>⫸ درود {user_mention} به پنل ریپر سلف Reaper Self خوش آمدید.</b>\n\n"
             "<b>◄ توی این پنل میتوانید ربات ریپر سلف Reaper Self را کنترل و مدیریت کنید.</b>\n\n"
             "<b>◂ لطفا از منوی زیر انتخاب نمایید که چه کاری را می‌خواهید انتخاب دهید.</b>"
         )
