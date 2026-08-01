@@ -12,36 +12,30 @@ import socket
 import json
 import random
 import string
-import hashlib
 from telethon import TelegramClient
-from telethon.errors import SessionPasswordNeededError, PhoneCodeInvalidError, PhoneNumberInvalidError
+from telethon.errors import (
+    SessionPasswordNeededError, 
+    PhoneCodeInvalidError, 
+    PhoneNumberInvalidError,
+    PhoneCodeExpiredError,
+    FloodWaitError
+)
 
 TOKEN = "8961040480:AAHNKEnK7LZuCp9fSJ5td2_XdGFqPtwp_dY"
 CHANNEL_USERNAME = "@ReaperSelfChannel"
 
-# آیدی عددی ادمین
 ADMIN_ID = 7803165903
-
-# ذخیره وضعیت کاربران برای مراحل مختلف
 user_states = {}
-
-# فایل دیتابیس کدها
 CODES_FILE = "codes_data.json"
-
-# فایل دیتابیس سشن‌ها
 SESSIONS_FILE = "sessions_data.json"
-
-# دیکشنری برای ذخیره اطلاعات موقت ورود سلف
 salf_login_data = {}
 
-# ایجاد پوشه sessions اگر وجود نداشت
 if not os.path.exists("sessions"):
     os.makedirs("sessions")
 
-# ==================== دیتابیس سشن‌ها ====================
+# ==================== دیتابیس‌ها ====================
 
 def load_sessions():
-    """بارگذاری سشن‌ها از فایل"""
     try:
         if os.path.exists(SESSIONS_FILE):
             with open(SESSIONS_FILE, 'r', encoding='utf-8') as f:
@@ -51,7 +45,6 @@ def load_sessions():
         return {}
 
 def save_sessions(sessions):
-    """ذخیره سشن‌ها در فایل"""
     try:
         with open(SESSIONS_FILE, 'w', encoding='utf-8') as f:
             json.dump(sessions, f, ensure_ascii=False, indent=4)
@@ -59,7 +52,6 @@ def save_sessions(sessions):
         pass
 
 def save_user_session(user_id, session_string, phone, api_hash, api_id):
-    """ذخیره سشن کاربر"""
     sessions = load_sessions()
     sessions[str(user_id)] = {
         'session': session_string,
@@ -71,14 +63,10 @@ def save_user_session(user_id, session_string, phone, api_hash, api_id):
     save_sessions(sessions)
 
 def get_user_session(user_id):
-    """دریافت سشن کاربر"""
     sessions = load_sessions()
     return sessions.get(str(user_id))
 
-# ==================== دیتابیس کدها ====================
-
 def load_codes():
-    """بارگذاری کدها از فایل"""
     try:
         if os.path.exists(CODES_FILE):
             with open(CODES_FILE, 'r', encoding='utf-8') as f:
@@ -88,7 +76,6 @@ def load_codes():
         return {}
 
 def save_codes(codes):
-    """ذخیره کدها در فایل"""
     try:
         with open(CODES_FILE, 'w', encoding='utf-8') as f:
             json.dump(codes, f, ensure_ascii=False, indent=4)
@@ -96,22 +83,16 @@ def save_codes(codes):
         pass
 
 def generate_code():
-    """تولید کد سلف با فرمت مشخص"""
     chars = string.ascii_uppercase + string.digits
-    code = ''.join(random.choices(chars, k=15))
-    return code
+    return ''.join(random.choices(chars, k=15))
 
 def create_new_code(days):
-    """ساخت کد جدید با تعداد روز مشخص"""
     codes = load_codes()
-    
     while True:
         new_code = generate_code()
         if new_code not in codes:
             break
-    
     expiry_date = datetime.now() + timedelta(days=days)
-    
     codes[new_code] = {
         'days': days,
         'expiry': expiry_date.isoformat(),
@@ -119,59 +100,44 @@ def create_new_code(days):
         'used': False,
         'used_by': None
     }
-    
     save_codes(codes)
     return new_code, expiry_date
 
 def validate_code(code):
-    """بررسی اعتبار کد"""
     codes = load_codes()
-    
     if code not in codes:
         return None, "❌ کد وارد شده صحیح نیست!"
-    
     code_data = codes[code]
-    
     expiry_date = datetime.fromisoformat(code_data['expiry'])
     if datetime.now() > expiry_date:
         return None, "⏳ کد وارد شده منقضی شده است!"
-    
     if code_data.get('used', False):
         return None, "❌ این کد قبلاً استفاده شده است!"
-    
     return code_data, None
 
 def use_code(code, user_id):
-    """استفاده از کد توسط کاربر"""
     codes = load_codes()
-    
     if code not in codes:
         return False
-    
     codes[code]['used'] = True
     codes[code]['used_by'] = str(user_id)
     codes[code]['used_at'] = datetime.now().isoformat()
-    
     save_codes(codes)
     return True
 
 def get_user_expiry(user_id):
-    """دریافت انقضای کاربر از کدهای استفاده شده"""
     codes = load_codes()
     user_expiry = None
     user_days = 0
-    
     for code, data in codes.items():
         if data.get('used_by') == str(user_id) and data.get('used', False):
             expiry = datetime.fromisoformat(data['expiry'])
             if user_expiry is None or expiry > user_expiry:
                 user_expiry = expiry
                 user_days = data.get('days', 0)
-    
     return user_expiry, user_days
 
 def get_remaining_days(user_id):
-    """دریافت روزهای باقیمانده کاربر"""
     expiry, _ = get_user_expiry(user_id)
     if expiry:
         remaining = (expiry - datetime.now()).days
@@ -179,20 +145,17 @@ def get_remaining_days(user_id):
     return 0
 
 def get_expiry_date(user_id):
-    """دریافت تاریخ انقضای کاربر"""
     expiry, _ = get_user_expiry(user_id)
     if expiry:
         return expiry.strftime('%Y-%m-%d')
     return "ندارد"
 
 def has_active_subscription(user_id):
-    """بررسی اینکه کاربر اشتراک فعال دارد یا نه"""
     return get_remaining_days(user_id) > 0
 
-# ==================== توابع دریافت اطلاعات واقعی سرور ====================
+# ==================== اطلاعات سرور ====================
 
 async def get_server_info():
-    """دریافت اطلاعات واقعی سرور با psutil و دستورات سیستمی"""
     try:
         ping_time = None
         try:
@@ -277,20 +240,15 @@ async def get_server_info():
         }
 
 def get_host_expiry():
-    """محاسبه اعتبار هاست بر اساس تاریخ شروع واقعی"""
     try:
         start_date = datetime(2026, 7, 28)
         total_days = 30
-        
         today = datetime.now()
         days_passed = (today - start_date).days
         days_left = total_days - days_passed
-        
         if days_left < 0:
             days_left = 0
-        
         expiry_date = start_date + timedelta(days=total_days)
-        
         return {
             'days_left': days_left,
             'total_days': total_days,
@@ -399,8 +357,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode='HTML'
     )
 
-# ==================== بقیه توابع ====================
-
 async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -497,7 +453,6 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    
     codes = load_codes()
     total_codes = len(codes)
     used_codes = sum(1 for c in codes.values() if c.get('used', False))
@@ -525,7 +480,6 @@ async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def admin_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    
     server_info = await get_server_info()
     
     if server_info:
@@ -555,21 +509,13 @@ async def admin_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     try:
-        await query.edit_message_text(
-            text,
-            reply_markup=reply_markup,
-            parse_mode='HTML'
-        )
-    except Exception as e:
-        if "Message is not modified" in str(e):
-            await query.answer("✅ اطلاعات به‌روز است!", show_alert=True)
-        else:
-            await query.answer("❌ خطا در بروزرسانی!", show_alert=True)
+        await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
+    except:
+        pass
 
 async def admin_host(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    
     host_info = get_host_expiry()
     
     bar_length = 10
@@ -601,23 +547,14 @@ async def admin_host(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     try:
-        await query.edit_message_text(
-            text,
-            reply_markup=reply_markup,
-            parse_mode='HTML'
-        )
-    except Exception as e:
-        if "Message is not modified" in str(e):
-            await query.answer("✅ اطلاعات به‌روز است!", show_alert=True)
-        else:
-            await query.answer("❌ خطا در بروزرسانی!", show_alert=True)
+        await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
+    except:
+        pass
 
 async def admin_users_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     await query.answer("👥 منوی کاربران به زودی اضافه میشود!", show_alert=True)
-
-# ===== دکمه‌های جدید =====
 
 async def admin_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -627,7 +564,6 @@ async def admin_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def admin_create_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    
     user_states[query.from_user.id] = "waiting_for_code_days"
     
     text = (
@@ -640,16 +576,11 @@ async def admin_create_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await query.edit_message_text(
-        text,
-        reply_markup=reply_markup,
-        parse_mode='HTML'
-    )
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
 async def admin_cancel_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    
     user_states[query.from_user.id] = "waiting_for_cancel_code"
     
     text = (
@@ -662,25 +593,17 @@ async def admin_cancel_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await query.edit_message_text(
-        text,
-        reply_markup=reply_markup,
-        parse_mode='HTML'
-    )
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
 async def handle_code_days(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    
     if user_id not in user_states or user_states[user_id] != "waiting_for_code_days":
         return
     
     try:
         days = int(update.message.text.strip())
         if days < 1 or days > 100000:
-            await update.message.reply_text(
-                "<b>❌ عدد باید بین 1 تا 100000 باشد!</b>",
-                parse_mode='HTML'
-            )
+            await update.message.reply_text("<b>❌ عدد باید بین 1 تا 100000 باشد!</b>", parse_mode='HTML')
             return
         
         new_code, expiry_date = create_new_code(days)
@@ -698,23 +621,14 @@ async def handle_code_days(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await update.message.reply_text(
-            text,
-            reply_markup=reply_markup,
-            parse_mode='HTML'
-        )
-        
+        await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
         del user_states[user_id]
         
     except ValueError:
-        await update.message.reply_text(
-            "<b>❌ لطفا یک عدد معتبر وارد کنید!</b>",
-            parse_mode='HTML'
-        )
+        await update.message.reply_text("<b>❌ لطفا یک عدد معتبر وارد کنید!</b>", parse_mode='HTML')
 
 async def handle_cancel_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    
     if user_id not in user_states or user_states[user_id] != "waiting_for_cancel_code":
         return
     
@@ -722,24 +636,15 @@ async def handle_cancel_code(update: Update, context: ContextTypes.DEFAULT_TYPE)
     codes = load_codes()
     
     if code not in codes:
-        await update.message.reply_text(
-            "<b>❌ کد وارد شده صحیح نیست!</b>",
-            parse_mode='HTML'
-        )
+        await update.message.reply_text("<b>❌ کد وارد شده صحیح نیست!</b>", parse_mode='HTML')
         return
     
     if codes[code].get('used', False):
-        await update.message.reply_text(
-            "<b>❌ این کد قبلاً استفاده شده و قابل باطل کردن نیست!</b>",
-            parse_mode='HTML'
-        )
+        await update.message.reply_text("<b>❌ این کد قبلاً استفاده شده و قابل باطل کردن نیست!</b>", parse_mode='HTML')
     else:
         del codes[code]
         save_codes(codes)
-        await update.message.reply_text(
-            f"<b>✅ کد <code>{code}</code> با موفقیت باطل شد!</b>",
-            parse_mode='HTML'
-        )
+        await update.message.reply_text(f"<b>✅ کد <code>{code}</code> با موفقیت باطل شد!</b>", parse_mode='HTML')
     
     del user_states[user_id]
 
@@ -800,11 +705,7 @@ async def admin_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await query.edit_message_text(
-        text,
-        reply_markup=reply_markup,
-        parse_mode='HTML'
-    )
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
 # ==================== بخش ورود سلف ====================
 
@@ -838,20 +739,14 @@ async def salf_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await query.edit_message_text(
-        text,
-        reply_markup=reply_markup,
-        parse_mode='HTML'
-    )
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
 async def handle_salf_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    
     if user_id not in user_states or user_states[user_id] != "waiting_salf_phone":
         return
     
     phone = update.message.text.strip() if update.message.text else ""
-    
     if not phone or not re.match(r'^\+?[0-9]{10,15}$', phone):
         await update.message.reply_text(
             "<b>❌ شماره وارد شده صحیح نیست! لطفا با کد کشور وارد کنید.</b>\n"
@@ -863,61 +758,43 @@ async def handle_salf_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     salf_login_data[user_id]['phone'] = phone
     user_states[user_id] = "waiting_salf_api_id"
     
-    text = (
-        "<b>🔑 مرحله 2 از 4</b>\n\n"
-        "<b>◄ لطفا آیپی عددی (API ID) خود را وارد کنید:</b>"
-    )
-    
     await update.message.reply_text(
-        text,
+        "<b>🔑 مرحله 2 از 4</b>\n\n"
+        "<b>◄ لطفا آیپی عددی (API ID) خود را وارد کنید:</b>",
         parse_mode='HTML'
     )
 
 async def handle_salf_api_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    
     if user_id not in user_states or user_states[user_id] != "waiting_salf_api_id":
         return
     
     text = update.message.text.strip() if update.message.text else ""
-    
     if not text:
-        await update.message.reply_text(
-            "<b>❌ لطفا یک عدد وارد کنید!</b>",
-            parse_mode='HTML'
-        )
+        await update.message.reply_text("<b>❌ لطفا یک عدد وارد کنید!</b>", parse_mode='HTML')
         return
     
     try:
         api_id = int(text)
     except:
-        await update.message.reply_text(
-            "<b>❌ آیپی عددی باید عدد باشد! لطفا دوباره وارد کنید.</b>",
-            parse_mode='HTML'
-        )
+        await update.message.reply_text("<b>❌ آیپی عددی باید عدد باشد! لطفا دوباره وارد کنید.</b>", parse_mode='HTML')
         return
     
     salf_login_data[user_id]['api_id'] = api_id
     user_states[user_id] = "waiting_salf_api_hash"
     
-    text = (
-        "<b>🔑 مرحله 3 از 4</b>\n\n"
-        "<b>◄ لطفا آیپی هش (API Hash) خود را وارد کنید:</b>"
-    )
-    
     await update.message.reply_text(
-        text,
+        "<b>🔑 مرحله 3 از 4</b>\n\n"
+        "<b>◄ لطفا آیپی هش (API Hash) خود را وارد کنید:</b>",
         parse_mode='HTML'
     )
 
 async def handle_salf_api_hash(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    
     if user_id not in user_states or user_states[user_id] != "waiting_salf_api_hash":
         return
     
     api_hash = update.message.text.strip() if update.message.text else ""
-    
     if not api_hash or len(api_hash) < 20:
         await update.message.reply_text(
             "<b>❌ آیپی هش وارد شده صحیح نیست! لطفا دوباره وارد کنید.</b>",
@@ -930,52 +807,40 @@ async def handle_salf_api_hash(update: Update, context: ContextTypes.DEFAULT_TYP
     
     try:
         data = salf_login_data[user_id]
-        
-        # ایجاد کلاینت با مسیر کامل برای دیتابیس
         session_path = f"sessions/user_{user_id}"
-        client = TelegramClient(
-            session_path,
-            data['api_id'],
-            data['api_hash']
-        )
+        client = TelegramClient(session_path, data['api_id'], data['api_hash'])
         await client.connect()
         
         if not await client.is_user_authorized():
             await client.send_code_request(data['phone'])
             salf_login_data[user_id]['client'] = client
             
-            text = (
+            await update.message.reply_text(
                 "<b>🔑 مرحله 4 از 4</b>\n\n"
                 "<b>✅ کد تایید به شماره شما ارسال شد.</b>\n"
-                "<b>◄ لطفا کد دریافتی را وارد کنید:</b>"
-            )
-            
-            await update.message.reply_text(
-                text,
+                "<b>◄ لطفا کد دریافتی را وارد کنید:</b>",
                 parse_mode='HTML'
             )
         else:
             await client.disconnect()
-            await update.message.reply_text(
-                "<b>❌ این شماره قبلاً در سلف ثبت شده است!</b>",
-                parse_mode='HTML'
-            )
+            await update.message.reply_text("<b>❌ این شماره قبلاً در سلف ثبت شده است!</b>", parse_mode='HTML')
             del user_states[user_id]
             del salf_login_data[user_id]
             
     except PhoneNumberInvalidError:
-        await update.message.reply_text(
-            "<b>❌ شماره وارد شده معتبر نیست!</b>",
-            parse_mode='HTML'
-        )
+        await update.message.reply_text("<b>❌ شماره وارد شده معتبر نیست!</b>", parse_mode='HTML')
         del user_states[user_id]
         del salf_login_data[user_id]
+    except FloodWaitError as e:
+        await update.message.reply_text(
+            f"<b>⏳ لطفا {e.seconds} ثانیه صبر کنید و دوباره تلاش کنید.</b>",
+            parse_mode='HTML'
+        )
     except Exception as e:
         await update.message.reply_text(
             f"<b>❌ خطا در ارسال کد تایید: {str(e)}</b>",
             parse_mode='HTML'
         )
-        # پاک کردن کلاینت در صورت خطا
         if 'client' in salf_login_data.get(user_id, {}):
             try:
                 await salf_login_data[user_id]['client'].disconnect()
@@ -986,17 +851,12 @@ async def handle_salf_api_hash(update: Update, context: ContextTypes.DEFAULT_TYP
 
 async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    
     if user_id not in user_states or user_states[user_id] != "waiting_salf_code":
         return
     
     code = update.message.text.strip() if update.message.text else ""
-    
     if not code:
-        await update.message.reply_text(
-            "<b>❌ لطفا کد را وارد کنید!</b>",
-            parse_mode='HTML'
-        )
+        await update.message.reply_text("<b>❌ لطفا کد را وارد کنید!</b>", parse_mode='HTML')
         return
     
     try:
@@ -1004,10 +864,7 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
         client = data.get('client')
         
         if not client:
-            await update.message.reply_text(
-                "<b>❌ خطا در اتصال! لطفا دوباره تلاش کنید.</b>",
-                parse_mode='HTML'
-            )
+            await update.message.reply_text("<b>❌ خطا در اتصال! لطفا دوباره تلاش کنید.</b>", parse_mode='HTML')
             del user_states[user_id]
             del salf_login_data[user_id]
             return
@@ -1029,11 +886,7 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await update.message.reply_text(
-            text,
-            reply_markup=reply_markup,
-            parse_mode='HTML'
-        )
+        await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
         
         del user_states[user_id]
         del salf_login_data[user_id]
@@ -1050,6 +903,23 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "<b>❌ کد وارد شده صحیح نیست! لطفا دوباره تلاش کنید.</b>",
             parse_mode='HTML'
         )
+    except PhoneCodeExpiredError:
+        # کد منقضی شده - دوباره کد بفرست
+        try:
+            await client.send_code_request(data['phone'])
+            await update.message.reply_text(
+                "<b>⏳ کد قبلی منقضی شده بود.</b>\n"
+                "<b>✅ کد جدید به شماره شما ارسال شد.</b>\n"
+                "<b>◄ لطفا کد جدید را وارد کنید:</b>",
+                parse_mode='HTML'
+            )
+        except Exception as e:
+            await update.message.reply_text(
+                f"<b>❌ خطا در ارسال کد جدید: {str(e)}</b>",
+                parse_mode='HTML'
+            )
+            del user_states[user_id]
+            del salf_login_data[user_id]
     except Exception as e:
         await update.message.reply_text(
             f"<b>❌ خطا در ورود: {str(e)}</b>",
@@ -1060,17 +930,12 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_salf_password(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    
     if user_id not in user_states or user_states[user_id] != "waiting_salf_password":
         return
     
     password = update.message.text.strip() if update.message.text else ""
-    
     if not password:
-        await update.message.reply_text(
-            "<b>❌ لطفا پسورد را وارد کنید!</b>",
-            parse_mode='HTML'
-        )
+        await update.message.reply_text("<b>❌ لطفا پسورد را وارد کنید!</b>", parse_mode='HTML')
         return
     
     try:
@@ -1078,10 +943,7 @@ async def handle_salf_password(update: Update, context: ContextTypes.DEFAULT_TYP
         client = data.get('client')
         
         if not client:
-            await update.message.reply_text(
-                "<b>❌ خطا در اتصال! لطفا دوباره تلاش کنید.</b>",
-                parse_mode='HTML'
-            )
+            await update.message.reply_text("<b>❌ خطا در اتصال! لطفا دوباره تلاش کنید.</b>", parse_mode='HTML')
             del user_states[user_id]
             del salf_login_data[user_id]
             return
@@ -1103,11 +965,7 @@ async def handle_salf_password(update: Update, context: ContextTypes.DEFAULT_TYP
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await update.message.reply_text(
-            text,
-            reply_markup=reply_markup,
-            parse_mode='HTML'
-        )
+        await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
         
         del user_states[user_id]
         del salf_login_data[user_id]
@@ -1136,11 +994,7 @@ async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await query.edit_message_text(
-        text,
-        reply_markup=reply_markup,
-        parse_mode='HTML'
-    )
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
 async def what_is_self(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1155,11 +1009,7 @@ async def what_is_self(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await query.edit_message_text(
-        text,
-        reply_markup=reply_markup,
-        parse_mode='HTML'
-    )
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
 async def buy_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1175,11 +1025,7 @@ async def buy_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await query.edit_message_text(
-        text,
-        reply_markup=reply_markup,
-        parse_mode='HTML'
-    )
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
 async def buy_with_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1196,34 +1042,21 @@ async def buy_with_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await query.edit_message_text(
-        text,
-        reply_markup=reply_markup,
-        parse_mode='HTML'
-    )
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
 async def handle_activation_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    
     if user_id not in user_states or user_states[user_id] != "waiting_for_activation_code":
         return
     
     code = update.message.text.strip().upper() if update.message.text else ""
-    
     if not code:
-        await update.message.reply_text(
-            "<b>❌ لطفا کد را وارد کنید!</b>",
-            parse_mode='HTML'
-        )
+        await update.message.reply_text("<b>❌ لطفا کد را وارد کنید!</b>", parse_mode='HTML')
         return
     
     code_data, error = validate_code(code)
-    
     if code_data is None:
-        await update.message.reply_text(
-            f"<b>{error}</b>",
-            parse_mode='HTML'
-        )
+        await update.message.reply_text(f"<b>{error}</b>", parse_mode='HTML')
         return
     
     if use_code(code, user_id):
@@ -1243,18 +1076,10 @@ async def handle_activation_code(update: Update, context: ContextTypes.DEFAULT_T
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await update.message.reply_text(
-            text,
-            reply_markup=reply_markup,
-            parse_mode='HTML'
-        )
-        
+        await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
         del user_states[user_id]
     else:
-        await update.message.reply_text(
-            "<b>❌ خطا در فعال‌سازی کد!</b>",
-            parse_mode='HTML'
-        )
+        await update.message.reply_text("<b>❌ خطا در فعال‌سازی کد!</b>", parse_mode='HTML')
 
 async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1287,11 +1112,7 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await query.edit_message_text(
-            text,
-            reply_markup=reply_markup,
-            parse_mode='HTML'
-        )
+        await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
         return
     
     remaining_days = get_remaining_days(user_id)
@@ -1321,11 +1142,7 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await query.edit_message_text(
-        text,
-        reply_markup=reply_markup,
-        parse_mode='HTML'
-    )
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
 async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1348,11 +1165,7 @@ async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await query.edit_message_text(
-        text,
-        reply_markup=reply_markup,
-        parse_mode='HTML'
-    )
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
 async def expiry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1381,11 +1194,7 @@ async def verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await query.edit_message_text(
-        text,
-        reply_markup=reply_markup,
-        parse_mode='HTML'
-    )
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
 async def delete_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1407,11 +1216,7 @@ async def new_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await query.edit_message_text(
-        text,
-        reply_markup=reply_markup,
-        parse_mode='HTML'
-    )
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
 async def back_to_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1430,11 +1235,7 @@ async def back_to_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await query.edit_message_text(
-        text,
-        reply_markup=reply_markup,
-        parse_mode='HTML'
-    )
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
 # ==================== هندلرهای پیام ====================
 
@@ -1447,15 +1248,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if state == "waiting_for_photo":
             if update.message.photo:
                 user_states[user_id] = "waiting_for_card_number"
-                text = (
-                    "<b>◄ لطفا شماره کارت خود را به صورت اعداد انگلیسی ارسال کنید\nدر صورتی که منصرف شدید ربات را مجدد استارت کنید : [ /start ]</b>"
-                )
-                await update.message.reply_text(text, parse_mode='HTML')
-            else:
                 await update.message.reply_text(
-                    "<b>❌ لطفا فقط عکس ارسال کنید!</b>",
+                    "<b>◄ لطفا شماره کارت خود را به صورت اعداد انگلیسی ارسال کنید\nدر صورتی که منصرف شدید ربات را مجدد استارت کنید : [ /start ]</b>",
                     parse_mode='HTML'
                 )
+            else:
+                await update.message.reply_text("<b>❌ لطفا فقط عکس ارسال کنید!</b>", parse_mode='HTML')
             return
         
         elif state == "waiting_for_card_number":
