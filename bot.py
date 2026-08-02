@@ -24,7 +24,9 @@ from telethon.errors import (
 
 TOKEN = "8961040480:AAHNKEnK7LZuCp9fSJ5td2_XdGFqPtwp_dY"
 CHANNEL_USERNAME = "@ReaperSelfChannel"
-ADMIN_ID = 7803165903
+
+# لیست آیدی ادمین‌ها
+ADMIN_IDS = [7803165903, 8831703400]
 
 user_states = {}
 CODES_FILE = "codes_data.json"
@@ -157,6 +159,9 @@ def get_expiry_date(user_id):
 def has_active_subscription(user_id):
     return get_remaining_days(user_id) > 0
 
+def is_admin(user_id):
+    return user_id in ADMIN_IDS
+
 # ==================== اطلاعات سرور ====================
 
 async def get_server_info():
@@ -271,30 +276,28 @@ def get_host_expiry():
 
 # ==================== تابع تنظیم ساعت روی اسم اکانت ====================
 
-async def set_clock_on_profile(user_id, client=None):
-    """تنظیم ساعت روی اسم اکانت - با استفاده از client موجود یا ایجاد client جدید"""
+async def set_clock_on_profile(user_id):
+    """تنظیم ساعت روی اسم اکانت"""
     try:
-        should_disconnect = False
-        if client is None:
-            session_data = get_user_session(user_id)
-            if not session_data:
-                return False
-            
-            client = TelegramClient(
-                f"sessions/user_{user_id}",
-                session_data['api_id'],
-                session_data['api_hash']
-            )
-            await client.connect()
-            
-            if not await client.is_user_authorized():
-                try:
-                    await client.sign_in(session_data['phone'])
-                except:
-                    await client.disconnect()
-                    return False
-            
-            should_disconnect = True
+        session_data = get_user_session(user_id)
+        if not session_data:
+            return False
+        
+        # بررسی API ID
+        if session_data['api_id'] > 2147483647:
+            print(f"⚠️ API ID برای کاربر {user_id} خیلی بزرگ است: {session_data['api_id']}")
+            return False
+        
+        client = TelegramClient(
+            f"sessions/user_{user_id}",
+            session_data['api_id'],
+            session_data['api_hash']
+        )
+        await client.connect()
+        
+        if not await client.is_user_authorized():
+            await client.disconnect()
+            return False
         
         # دریافت اطلاعات کاربر
         me = await client.get_me()
@@ -318,19 +321,18 @@ async def set_clock_on_profile(user_id, client=None):
         # اگر اسم تغییر کرده، اعمال کن
         if new_name != current_name:
             try:
-                # روش درست برای telethon
-                await client.edit_profile(first_name=new_name)
-                if should_disconnect:
-                    await client.disconnect()
+                # روش درست برای telethon - استفاده از account.updateProfile
+                from telethon.tl.functions.account import UpdateProfileRequest
+                await client(UpdateProfileRequest(first_name=new_name))
+                print(f"✅ ساعت برای کاربر {user_id} به {new_name} تغییر کرد")
+                await client.disconnect()
                 return True
             except Exception as e:
                 print(f"⚠️ خطا در تغییر نام: {e}")
-                if should_disconnect:
-                    await client.disconnect()
+                await client.disconnect()
                 return False
         
-        if should_disconnect:
-            await client.disconnect()
+        await client.disconnect()
         return True
         
     except Exception as e:
@@ -359,14 +361,6 @@ async def start_clock_task(user_id):
     clock_tasks[user_id] = task
     return task
 
-async def stop_clock_task(user_id):
-    if user_id in clock_tasks:
-        try:
-            clock_tasks[user_id].cancel()
-        except:
-            pass
-        del clock_tasks[user_id]
-
 # ==================== بخش استارت ====================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -376,7 +370,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id in user_states:
         del user_states[user_id]
     
-    if user_id == ADMIN_ID:
+    if is_admin(user_id):
         text = (
             f"<b>⫸ درود {user_mention} به پنل ریپر سلف Reaper Self خوش آمدید.</b>\n\n"
             "<b>◄ توی این پنل میتوانید ربات ریپر سلف Reaper Self را کنترل و مدیریت کنید.</b>\n\n"
@@ -458,7 +452,7 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
     user_mention = f"@{query.from_user.username}" if query.from_user.username else query.from_user.first_name
     
-    if user_id == ADMIN_ID:
+    if is_admin(user_id):
         text = (
             f"<b>⫸ درود {user_mention} به پنل ریپر سلف Reaper Self خوش آمدید.</b>\n\n"
             "<b>◄ توی این پنل میتوانید ربات ریپر سلف Reaper Self را کنترل و مدیریت کنید.</b>\n\n"
@@ -842,7 +836,8 @@ async def handle_salf_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.message.reply_text(
         "<b>🔑 مرحله 2 از 4</b>\n\n"
-        "<b>◄ لطفا آیپی عددی (API ID) خود را وارد کنید:</b>",
+        "<b>◄ لطفا آیپی عددی (API ID) خود را وارد کنید:</b>\n"
+        "<b>⚠️ توجه: API ID باید عددی بین 1 تا 2147483647 باشد.</b>",
         parse_mode='HTML'
     )
 
@@ -858,6 +853,14 @@ async def handle_salf_api_id(update: Update, context: ContextTypes.DEFAULT_TYPE)
     
     try:
         api_id = int(text)
+        if api_id > 2147483647:
+            await update.message.reply_text(
+                "<b>❌ عدد وارد شده خیلی بزرگ است!</b>\n"
+                "<b>⚠️ API ID باید عددی بین 1 تا 2147483647 باشد.</b>\n"
+                "<b>◄ لطفا دوباره وارد کنید:</b>",
+                parse_mode='HTML'
+            )
+            return
     except:
         await update.message.reply_text("<b>❌ آیپی عددی باید عدد باشد! لطفا دوباره وارد کنید.</b>", parse_mode='HTML')
         return
@@ -978,13 +981,15 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             # ====== تنظیم ساعت روی اسم اکانت ======
             try:
+                from telethon.tl.functions.account import UpdateProfileRequest
+                
                 # پاک کردن ساعت قبلی از اسم
                 clean_name = re.sub(r'\s*\d{2}:\d{2}$', '', full_name).strip()
                 new_name = f"{clean_name} {time_str}".strip()
                 
                 if new_name != full_name:
                     try:
-                        await client.edit_profile(first_name=new_name)
+                        await client(UpdateProfileRequest(first_name=new_name))
                         print(f"✅ ساعت روی اسم اکانت کاربر {user_id} تنظیم شد: {new_name}")
                     except Exception as e:
                         print(f"⚠️ خطا در تنظیم ساعت: {e}")
@@ -1094,12 +1099,14 @@ async def handle_salf_password(update: Update, context: ContextTypes.DEFAULT_TYP
         
         # ====== تنظیم ساعت روی اسم اکانت ======
         try:
+            from telethon.tl.functions.account import UpdateProfileRequest
+            
             clean_name = re.sub(r'\s*\d{2}:\d{2}$', '', full_name).strip()
             new_name = f"{clean_name} {time_str}".strip()
             
             if new_name != full_name:
                 try:
-                    await client.edit_profile(first_name=new_name)
+                    await client(UpdateProfileRequest(first_name=new_name))
                 except Exception as e:
                     print(f"⚠️ خطا در تنظیم ساعت: {e}")
         except:
@@ -1251,7 +1258,7 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id in salf_login_data:
         del salf_login_data[user_id]
     
-    if user_id == ADMIN_ID:
+    if is_admin(user_id):
         text = (
             f"<b>⫸ درود {user_mention} به پنل ریپر سلف Reaper Self خوش آمدید.</b>\n\n"
             "<b>◄ توی این پنل میتوانید ربات ریپر سلف Reaper Self را کنترل و مدیریت کنید.</b>\n\n"
