@@ -26,7 +26,6 @@ from telethon.errors import (
 TOKEN = "8961040480:AAHNKEnK7LZuCp9fSJ5td2_XdGFqPtwp_dY"
 CHANNEL_USERNAME = "@ReaperSelfChannel"
 
-# لیست آیدی ادمین‌ها
 ADMIN_IDS = [7803165903, 8831703400]
 
 user_states = {}
@@ -37,8 +36,6 @@ clock_tasks = {}
 
 if not os.path.exists("sessions"):
     os.makedirs("sessions")
-
-# ==================== دیتابیس سشن‌ها ====================
 
 def load_sessions():
     try:
@@ -70,8 +67,6 @@ def save_user_session(user_id, session_string, phone, api_hash, api_id):
 def get_user_session(user_id):
     sessions = load_sessions()
     return sessions.get(str(user_id))
-
-# ==================== دیتابیس کدها ====================
 
 def load_codes():
     try:
@@ -162,8 +157,6 @@ def has_active_subscription(user_id):
 
 def is_admin(user_id):
     return user_id in ADMIN_IDS
-
-# ==================== اطلاعات سرور ====================
 
 async def get_server_info():
     try:
@@ -275,8 +268,6 @@ def get_host_expiry():
             'percent': 86.6
         }
 
-# ==================== تابع تنظیم ساعت روی اسم اکانت ====================
-
 async def set_clock_on_profile(user_id):
     try:
         session_data = get_user_session(user_id)
@@ -346,8 +337,6 @@ async def start_clock_task(user_id):
     task = asyncio.create_task(clock_loop(user_id))
     clock_tasks[user_id] = task
     return task
-
-# ==================== بخش استارت ====================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -513,8 +502,6 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
     except Exception as e:
         await query.answer("❌ خطا در بررسی عضویت!", show_alert=True)
-
-# ==================== بخش ادمین ====================
 
 async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -768,8 +755,6 @@ async def admin_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
-
-# ==================== بخش ورود سلف ====================
 
 async def salf_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1119,8 +1104,6 @@ async def handle_salf_password(update: Update, context: ContextTypes.DEFAULT_TYP
         del user_states[user_id]
         del salf_login_data[user_id]
 
-# ==================== بخش کاربران ====================
-
 async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -1382,8 +1365,6 @@ async def back_to_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
-# ==================== هندلرهای پیام ====================
-
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     
@@ -1450,8 +1431,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await handle_salf_password(update, context)
             return
 
-# ==================== خرید ماه‌ها ====================
-
 async def buy_1_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -1482,15 +1461,12 @@ async def buy_6_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     await query.answer("💳 لطفا مبلغ 19 ترون را واریز کنید!", show_alert=True)
 
-# ==================== Main ====================
-
 def main():
     app = Application.builder().token(TOKEN).build()
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(check_membership, pattern="check_membership"))
     
-    # ادمین
     app.add_handler(CallbackQueryHandler(admin_stats, pattern="admin_stats"))
     app.add_handler(CallbackQueryHandler(admin_ping, pattern="admin_ping"))
     app.add_handler(CallbackQueryHandler(admin_host, pattern="admin_host"))
@@ -1506,7 +1482,6 @@ def main():
     app.add_handler(CallbackQueryHandler(admin_salf_logout, pattern="admin_salf_logout"))
     app.add_handler(CallbackQueryHandler(admin_back, pattern="admin_back"))
     
-    # کاربران
     app.add_handler(CallbackQueryHandler(support, pattern="support"))
     app.add_handler(CallbackQueryHandler(what_is_self, pattern="what_is_self"))
     app.add_handler(CallbackQueryHandler(buy_subscription, pattern="buy_subscription"))
