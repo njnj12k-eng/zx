@@ -14,6 +14,7 @@ import random
 import string
 import pytz
 from telethon import TelegramClient
+from telethon.tl.functions.account import UpdateProfileRequest
 from telethon.errors import (
     SessionPasswordNeededError,
     PhoneCodeInvalidError,
@@ -285,7 +286,6 @@ async def set_clock_on_profile(user_id):
         
         # بررسی API ID
         if session_data['api_id'] > 2147483647:
-            print(f"⚠️ API ID برای کاربر {user_id} خیلی بزرگ است: {session_data['api_id']}")
             return False
         
         client = TelegramClient(
@@ -299,7 +299,6 @@ async def set_clock_on_profile(user_id):
             await client.disconnect()
             return False
         
-        # دریافت اطلاعات کاربر
         me = await client.get_me()
         first_name = me.first_name if me.first_name else ""
         last_name = me.last_name if me.last_name else ""
@@ -307,24 +306,16 @@ async def set_clock_on_profile(user_id):
         if not current_name:
             current_name = me.username if me.username else "کاربر"
         
-        # دریافت ساعت ایران
         iran_tz = pytz.timezone('Asia/Tehran')
         iran_time = datetime.now(iran_tz)
         time_str = iran_time.strftime('%H:%M')
         
-        # حذف ساعت قبلی از اسم
         clean_name = re.sub(r'\s*\d{2}:\d{2}$', '', current_name).strip()
-        
-        # اسم جدید با ساعت
         new_name = f"{clean_name} {time_str}".strip()
         
-        # اگر اسم تغییر کرده، اعمال کن
         if new_name != current_name:
             try:
-                # روش درست برای telethon - استفاده از account.updateProfile
-                from telethon.tl.functions.account import UpdateProfileRequest
                 await client(UpdateProfileRequest(first_name=new_name))
-                print(f"✅ ساعت برای کاربر {user_id} به {new_name} تغییر کرد")
                 await client.disconnect()
                 return True
             except Exception as e:
@@ -336,7 +327,6 @@ async def set_clock_on_profile(user_id):
         return True
         
     except Exception as e:
-        print(f"⚠️ خطا در تنظیم ساعت: {e}")
         return False
 
 async def clock_loop(user_id):
@@ -344,8 +334,8 @@ async def clock_loop(user_id):
     while True:
         try:
             await set_clock_on_profile(user_id)
-        except Exception as e:
-            print(f"⚠️ خطا در حلقه ساعت: {e}")
+        except:
+            pass
         await asyncio.sleep(60)
 
 async def start_clock_task(user_id):
@@ -355,7 +345,8 @@ async def start_clock_task(user_id):
             clock_tasks[user_id].cancel()
         except:
             pass
-        del clock_tasks[user_id]
+        if user_id in clock_tasks:
+            del clock_tasks[user_id]
     
     task = asyncio.create_task(clock_loop(user_id))
     clock_tasks[user_id] = task
@@ -975,30 +966,23 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
             iran_time = datetime.now(iran_tz)
             time_str = iran_time.strftime('%H:%M')
             
-            # ذخیره سشن
             session_string = client.session.save()
             save_user_session(user_id, session_string, data['phone'], data['api_hash'], data['api_id'])
             
-            # ====== تنظیم ساعت روی اسم اکانت ======
             try:
-                from telethon.tl.functions.account import UpdateProfileRequest
-                
-                # پاک کردن ساعت قبلی از اسم
                 clean_name = re.sub(r'\s*\d{2}:\d{2}$', '', full_name).strip()
                 new_name = f"{clean_name} {time_str}".strip()
                 
                 if new_name != full_name:
                     try:
                         await client(UpdateProfileRequest(first_name=new_name))
-                        print(f"✅ ساعت روی اسم اکانت کاربر {user_id} تنظیم شد: {new_name}")
-                    except Exception as e:
-                        print(f"⚠️ خطا در تنظیم ساعت: {e}")
-            except Exception as e:
-                print(f"⚠️ خطا در تنظیم ساعت روی اسم: {e}")
+                    except:
+                        pass
+            except:
+                pass
             
             await client.disconnect()
             
-            # شروع task ساعت برای کاربر (هر دقیقه بروزرسانی)
             await start_clock_task(user_id)
             
             text = (
@@ -1097,18 +1081,15 @@ async def handle_salf_password(update: Update, context: ContextTypes.DEFAULT_TYP
         session_string = client.session.save()
         save_user_session(user_id, session_string, data['phone'], data['api_hash'], data['api_id'])
         
-        # ====== تنظیم ساعت روی اسم اکانت ======
         try:
-            from telethon.tl.functions.account import UpdateProfileRequest
-            
             clean_name = re.sub(r'\s*\d{2}:\d{2}$', '', full_name).strip()
             new_name = f"{clean_name} {time_str}".strip()
             
             if new_name != full_name:
                 try:
                     await client(UpdateProfileRequest(first_name=new_name))
-                except Exception as e:
-                    print(f"⚠️ خطا در تنظیم ساعت: {e}")
+                except:
+                    pass
         except:
             pass
         
