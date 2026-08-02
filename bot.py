@@ -278,13 +278,11 @@ def get_host_expiry():
 # ==================== تابع تنظیم ساعت روی اسم اکانت ====================
 
 async def set_clock_on_profile(user_id):
-    """تنظیم ساعت روی اسم اکانت"""
     try:
         session_data = get_user_session(user_id)
         if not session_data:
             return False
         
-        # بررسی API ID
         if session_data['api_id'] > 2147483647:
             return False
         
@@ -318,19 +316,17 @@ async def set_clock_on_profile(user_id):
                 await client(UpdateProfileRequest(first_name=new_name))
                 await client.disconnect()
                 return True
-            except Exception as e:
-                print(f"⚠️ خطا در تغییر نام: {e}")
+            except:
                 await client.disconnect()
                 return False
         
         await client.disconnect()
         return True
         
-    except Exception as e:
+    except:
         return False
 
 async def clock_loop(user_id):
-    """حلقه هر دقیقه برای بروزرسانی ساعت"""
     while True:
         try:
             await set_clock_on_profile(user_id)
@@ -339,7 +335,6 @@ async def clock_loop(user_id):
         await asyncio.sleep(60)
 
 async def start_clock_task(user_id):
-    """شروع task ساعت برای کاربر"""
     if user_id in clock_tasks:
         try:
             clock_tasks[user_id].cancel()
