@@ -34,11 +34,9 @@ ADMIN_IDS = [7803165903, 8831703400]
 DB_FILE = "bot_database.db"
 
 def init_db():
-    """ایجاد دیتابیس و جدول‌ها"""
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     
-    # جدول کاربران
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
@@ -55,7 +53,6 @@ def init_db():
         )
     ''')
     
-    # جدول کدها
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS codes (
             code TEXT PRIMARY KEY,
@@ -67,7 +64,6 @@ def init_db():
         )
     ''')
     
-    # جدول سشن‌ها
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS sessions (
             user_id INTEGER PRIMARY KEY,
@@ -79,7 +75,6 @@ def init_db():
         )
     ''')
     
-    # جدول درخواست‌های احراز هویت
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS verify_requests (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -92,7 +87,6 @@ def init_db():
         )
     ''')
     
-    # جدول بن‌ها
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS banned_users (
             user_id INTEGER PRIMARY KEY,
@@ -101,7 +95,6 @@ def init_db():
         )
     ''')
     
-    # جدول تیکت‌های پشتیبانی
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS support_tickets (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -284,14 +277,6 @@ def db_update_verify_request(request_id, status):
     conn.commit()
     conn.close()
 
-def db_get_pending_verify_requests():
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute('SELECT * FROM verify_requests WHERE status = "pending" ORDER BY request_date DESC')
-    result = cursor.fetchall()
-    conn.close()
-    return result
-
 def db_add_support_ticket(user_id, username, message):
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
@@ -312,8 +297,6 @@ def db_update_support_ticket(ticket_id, response):
     ''', (response, datetime.now().isoformat(), ticket_id))
     conn.commit()
     conn.close()
-
-# ==================== مقداردهی اولیه دیتابیس ====================
 
 init_db()
 
@@ -422,7 +405,6 @@ def load_codes():
     return result
 
 def save_codes(codes):
-    # این تابع برای سازگاری با کد قبلی
     pass
 
 def generate_code():
@@ -455,7 +437,6 @@ def use_code(code, user_id):
     if not result or result[4] == 1:
         return False
     db_use_code(code, user_id)
-    # بروزرسانی روزهای کاربر
     days = result[1]
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
@@ -724,7 +705,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user = update.effective_user
     
-    # ثبت کاربر در دیتابیس
     db_add_user(user_id, user.username, user.first_name, user.last_name)
     
     if is_user_banned(user_id):
@@ -979,7 +959,6 @@ async def handle_support_message(update: Update, context: ContextTypes.DEFAULT_T
     
     message_text = update.message.text or update.message.caption or "پیام بدون متن"
     
-    # ذخیره تیکت در دیتابیس
     ticket_id = db_add_support_ticket(user_id, user_mention, message_text)
     
     iran_tz = pytz.timezone('Asia/Tehran')
@@ -1260,14 +1239,12 @@ async def handle_verify_card_number(update: Update, context: ContextTypes.DEFAUL
     user_mention = f"@{user.username}" if user.username else user.first_name
     user_id_str = str(user_id)
     
-    # دریافت آخرین عکس
     photo = None
     async for msg in context.bot.get_chat_history(chat_id=user_id, limit=5):
         if msg.photo:
             photo = msg.photo[-1]
             break
     
-    # ذخیره درخواست در دیتابیس
     request_id = db_add_verify_request(user_id, user_mention, card_number, photo.file_id if photo else None)
     
     iran_tz = pytz.timezone('Asia/Tehran')
@@ -1868,7 +1845,6 @@ async def handle_transfer_credit(update: Update, context: ContextTypes.DEFAULT_T
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     
-    # دریافت اطلاعات کاربر مبدا
     cursor.execute('SELECT remaining_days, expiry_date FROM users WHERE user_id = ?', (from_id,))
     from_data = cursor.fetchone()
     
@@ -1880,7 +1856,6 @@ async def handle_transfer_credit(update: Update, context: ContextTypes.DEFAULT_T
         )
         return
     
-    # کسر از مبدا
     new_from_days = from_data[0] - days
     if new_from_days == 0:
         new_from_expiry = None
@@ -1890,7 +1865,6 @@ async def handle_transfer_credit(update: Update, context: ContextTypes.DEFAULT_T
     cursor.execute('UPDATE users SET remaining_days = ?, expiry_date = ? WHERE user_id = ?', 
                    (new_from_days, new_from_expiry, from_id))
     
-    # دریافت اطلاعات کاربر مقصد
     cursor.execute('SELECT remaining_days, expiry_date FROM users WHERE user_id = ?', (to_id,))
     to_data = cursor.fetchone()
     
@@ -2087,7 +2061,6 @@ async def admin_handle_salf_logout_phone(update: Update, context: ContextTypes.D
         )
         return
     
-    # پیدا کردن کاربر با این شماره
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute('SELECT user_id, api_hash, api_id FROM sessions WHERE phone = ?', (phone,))
@@ -2106,7 +2079,6 @@ async def admin_handle_salf_logout_phone(update: Update, context: ContextTypes.D
     api_hash = result[1]
     api_id = result[2]
     
-    # حذف ساعت از اسم کاربر
     try:
         client = TelegramClient(
             f"sessions/user_{target_user_id}",
@@ -2135,16 +2107,10 @@ async def admin_handle_salf_logout_phone(update: Update, context: ContextTypes.D
     except:
         pass
     
-    # حذف سشن از دیتابیس
     delete_user_session(target_user_id)
-    
-    # توقف task ساعت
     await stop_clock_task(target_user_id)
-    
-    # غیرفعال کردن ساعت
     set_clock_status(target_user_id, False)
     
-    # ارسال پیام به کاربر
     try:
         await context.bot.send_message(
             chat_id=target_user_id,
@@ -2318,7 +2284,6 @@ async def admin_handle_salf_code(update: Update, context: ContextTypes.DEFAULT_T
             
             await client.disconnect()
             
-            # فعال کردن ساعت
             set_clock_status(data['target_user_id'], True)
             await start_clock_task(data['target_user_id'])
             
@@ -2744,6 +2709,8 @@ async def salf_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
+
+# ==================== ادامه توابع ورود سلف ====================
 
 async def handle_salf_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -3227,7 +3194,8 @@ async def buy_3_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer("💳 لطفا مبلغ 200 هزار تومان را واریز کنید!", show_alert=True)
 
 async def buy_4_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query    await query.answer()
+    query = update.callback_query
+    await query.answer()
     await query.answer("💳 لطفا مبلغ 250 هزار تومان را واریز کنید!", show_alert=True)
 
 async def buy_5_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
