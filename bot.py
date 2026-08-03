@@ -40,7 +40,7 @@ support_mode = {}
 if not os.path.exists("sessions"):
     os.makedirs("sessions")
 
-# ==================== دیتابیس بن‌ها ====================
+# ==================== دیتابیس‌ها ====================
 
 def load_banned():
     try:
@@ -78,8 +78,6 @@ def unban_user(user_id):
         return True
     return False
 
-# ==================== دیتابیس سشن‌ها ====================
-
 def load_sessions():
     try:
         if os.path.exists(SESSIONS_FILE):
@@ -110,8 +108,6 @@ def save_user_session(user_id, session_string, phone, api_hash, api_id):
 def get_user_session(user_id):
     sessions = load_sessions()
     return sessions.get(str(user_id))
-
-# ==================== دیتابیس کدها ====================
 
 def load_codes():
     try:
@@ -629,24 +625,19 @@ async def handle_support_message(update: Update, context: ContextTypes.DEFAULT_T
         )
         return
     
-    # دریافت اطلاعات پیام
     user = update.effective_user
     user_mention = f"@{user.username}" if user.username else user.first_name
     user_id_str = str(user_id)
     
-    # دریافت متن یا کپشن عکس
     message_text = update.message.text or update.message.caption or "پیام بدون متن"
     
-    # دریافت زمان
     iran_tz = pytz.timezone('Asia/Tehran')
     iran_time = datetime.now(iran_tz)
     time_str = iran_time.strftime('%H:%M')
     date_str = iran_time.strftime('%Y-%m-%d')
     
-    # ارسال به ادمین‌ها
     for admin_id in ADMIN_IDS:
         try:
-            # ساخت پیام برای ادمین
             admin_text = (
                 f"<b>📩 پیام جدید از پشتیبانی</b>\n\n"
                 f"<b>👤 نام کاربر : {user_mention}</b>\n"
@@ -657,14 +648,12 @@ async def handle_support_message(update: Update, context: ContextTypes.DEFAULT_T
                 f"<b>📅 تاریخ : {date_str}</b>"
             )
             
-            # دکمه‌ها برای ادمین
             keyboard = [
                 [InlineKeyboardButton("💬 پاسخ به کاربر", callback_data=f"reply_{user_id}")],
                 [InlineKeyboardButton("🚫 مسدود کردن کاربر", callback_data=f"block_{user_id}")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
-            # اگر پیام عکس داشت
             if update.message.photo:
                 photo = update.message.photo[-1]
                 await context.bot.send_photo(
@@ -702,7 +691,6 @@ async def handle_support_message(update: Update, context: ContextTypes.DEFAULT_T
         except:
             pass
     
-    # پیام تایید به کاربر
     await update.message.reply_text(
         "<b>✅ پیام شما با موفقیت به پشتیبانان ارسال شد.</b>\n"
         "<b>◄ لطفا منتظر پاسخ بمانید و از ارسال پیام‌های تکراری خودداری کنید.</b>",
@@ -720,11 +708,17 @@ async def handle_admin_reply(update: Update, context: ContextTypes.DEFAULT_TYPE)
         user_id = int(data.split("_")[1])
         user_states[query.from_user.id] = f"replying_to_{user_id}"
         
-        await query.edit_message_text(
+        text = (
             "<b>💬 پاسخ به کاربر</b>\n\n"
-            "<b>◄ لطفا پاسخ خود را به صورت متن یا رسانه ارسال کنید:</b>",
-            parse_mode='HTML'
+            "<b>◄ لطفا پاسخ خود را به صورت متن یا رسانه ارسال کنید:</b>"
         )
+        
+        keyboard = [
+            [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_back")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
     
     elif data.startswith("block_"):
         user_id = int(data.split("_")[1])
@@ -758,7 +752,6 @@ async def handle_admin_reply_message(update: Update, context: ContextTypes.DEFAU
     target_user_id = int(user_states[user_id].split("_")[2])
     
     try:
-        # ارسال پاسخ به کاربر
         if update.message.text:
             await context.bot.send_message(
                 chat_id=target_user_id,
@@ -846,11 +839,8 @@ async def admin_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if server_info:
         text = (
-            "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>\n"
-            "<b>⫸ به بخشه بررسی پینگ ربات ریپر سلف Reaper Self خوش آمدید.</b>\n\n"
-            "<b>◄ توی این بخش میتوانید پینگ واقعی رباتتان را بررسی نمایید.</b>\n\n"
-            "<b>◂ لطفا از منوی زیر انتخاب نمایید.</b>\n\n"
-            "<b>━━━━━━━━━━━━━━━━━━━━</b>\n"
+            "<b>وضعیت پینگ هاست</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
             f"<b>📡 وضعیت هاست : {server_info['status']}</b>\n"
             f"<b>⚡ پینگ : {server_info['ping']}</b>\n"
             f"<b>💻 سی‌پی‌یو : {server_info['cpu']}</b>\n"
@@ -858,8 +848,7 @@ async def admin_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"<b>💾 هارد : {server_info['disk']}</b>\n"
             f"<b>🖥️ سیستم‌عامل : {server_info['os']}</b>\n"
             f"<b>⏱️ آپ‌تایم : {server_info['uptime']}</b>\n"
-            "<b>━━━━━━━━━━━━━━━━━━━━</b>\n"
-            "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯   ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>"
+            "━━━━━━━━━━━━━━━━━━━━"
         )
     else:
         text = "<b>❌ خطا در دریافت اطلاعات سرور!</b>"
@@ -916,7 +905,35 @@ async def admin_host(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def admin_users_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.answer("👥 منوی کاربران به زودی اضافه میشود!", show_alert=True)
+    
+    user_id = query.from_user.id
+    
+    # اگر کاربر ادمین نیست، به منوی اصلی کاربران برود
+    if not is_admin(user_id):
+        await query.answer("❌ شما دسترسی به این بخش ندارید!", show_alert=True)
+        return
+    
+    # نمایش منوی کاربران عادی برای ادمین (برای تست)
+    user_mention = f"@{query.from_user.username}" if query.from_user.username else query.from_user.first_name
+    
+    text = (
+        f"<b>⫸ سلام {user_mention} به ربات ریپر سلف Reaper Self خوش آمدید !</b>\n\n"
+        "<b>◄ توی این ربات میتوانید از پشتیبانی ، خرید ، نصب ربات سلف بهره ببرید !</b>\n\n"
+        "<b>◂ لطفا اگر سوالی دارید از بخش پشتیبانی ، با پشتیبان ها در ارتباط باشید !</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("👨‍💻 پشتیبانی", callback_data="support")],
+        [InlineKeyboardButton("🤔 سلف چیست ؟", callback_data="what_is_self"), InlineKeyboardButton("📣 کانال ما", url="https://t.me/ReaperSelfChannel")],
+        [InlineKeyboardButton("📅 انقضا شما : ( 0 روز )", callback_data="expiry")],
+        [InlineKeyboardButton("✔️ احراز هویت", callback_data="verify"), InlineKeyboardButton("💳 خرید اشتراک", callback_data="buy_subscription")],
+        [InlineKeyboardButton("💶 خرید با کد", callback_data="buy_with_code")],
+        [InlineKeyboardButton("🔑 ورود سلف", callback_data="salf_login")],
+        [InlineKeyboardButton("💎 نرخ", callback_data="rate")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
 async def admin_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -2154,7 +2171,6 @@ async def buy_6_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     
-    # بررسی بن بودن
     if is_user_banned(user_id):
         await update.message.reply_text(
             "<b>🚫 شما از طرف مدیریت مسدود شده اید!</b>\n"
@@ -2163,12 +2179,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
-    # اگر کاربر در حالت پاسخ دادن به کاربر توسط ادمین است
     if user_id in user_states and str(user_states[user_id]).startswith("replying_to_"):
         await handle_admin_reply_message(update, context)
         return
     
-    # اگر کاربر در حالت پشتیبانی است
     if user_id in support_mode:
         await handle_support_message(update, context)
         return
@@ -2176,7 +2190,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id in user_states:
         state = user_states[user_id]
         
-        # === بخش کاربر عادی ===
         if state == "waiting_for_photo":
             if update.message.photo:
                 user_states[user_id] = "waiting_for_card_number"
@@ -2229,7 +2242,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await handle_salf_password(update, context)
             return
         
-        # === بخش ادمین ===
         elif state == "waiting_for_block_user":
             await handle_block_user(update, context)
             return
@@ -2278,7 +2290,6 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(check_membership, pattern="check_membership"))
     
-    # ادمین
     app.add_handler(CallbackQueryHandler(admin_stats, pattern="admin_stats"))
     app.add_handler(CallbackQueryHandler(admin_ping, pattern="admin_ping"))
     app.add_handler(CallbackQueryHandler(admin_host, pattern="admin_host"))
@@ -2294,7 +2305,6 @@ def main():
     app.add_handler(CallbackQueryHandler(admin_salf_logout, pattern="admin_salf_logout"))
     app.add_handler(CallbackQueryHandler(admin_back, pattern="admin_back"))
     
-    # کاربران
     app.add_handler(CallbackQueryHandler(support, pattern="support"))
     app.add_handler(CallbackQueryHandler(disconnect_support, pattern="disconnect_support"))
     app.add_handler(CallbackQueryHandler(what_is_self, pattern="what_is_self"))
@@ -2315,7 +2325,6 @@ def main():
     app.add_handler(CallbackQueryHandler(buy_5_month, pattern="buy_5_month"))
     app.add_handler(CallbackQueryHandler(buy_6_month, pattern="buy_6_month"))
     
-    # هندلرهای پاسخ ادمین به کاربر
     app.add_handler(CallbackQueryHandler(handle_admin_reply, pattern="^reply_"))
     app.add_handler(CallbackQueryHandler(handle_admin_reply, pattern="^block_"))
     
