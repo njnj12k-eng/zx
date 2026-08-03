@@ -39,6 +39,7 @@ clock_tasks = {}
 admin_salf_data = {}
 support_mode = {}
 pending_verify = {}
+user_menu_mode = {}
 
 if not os.path.exists("sessions"):
     os.makedirs("sessions")
@@ -431,6 +432,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if user_id in user_states:
         del user_states[user_id]
+    if user_id in user_menu_mode:
+        del user_menu_mode[user_id]
     
     if is_admin(user_id):
         text = (
@@ -1224,6 +1227,9 @@ async def admin_users_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
+    user_id = query.from_user.id
+    user_menu_mode[user_id] = True
+    
     user_mention = f"@{query.from_user.username}" if query.from_user.username else query.from_user.first_name
     
     text = (
@@ -1240,7 +1246,8 @@ async def admin_users_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("💳 خرید اشتراک", callback_data="buy_subscription")],
         [InlineKeyboardButton("💶 خرید با کد", callback_data="buy_with_code")],
         [InlineKeyboardButton("🔑 ورود سلف", callback_data="salf_login")],
-        [InlineKeyboardButton("💎 نرخ", callback_data="rate")]
+        [InlineKeyboardButton("💎 نرخ", callback_data="rate")],
+        [InlineKeyboardButton("👑 پنل مدیریت", callback_data="admin_back")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -1263,7 +1270,7 @@ async def admin_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🚫 مسدود کردن کاربر", callback_data="admin_block_user"), InlineKeyboardButton("✅ آزاد کردن کاربر", callback_data="admin_unblock_user")],
         [InlineKeyboardButton("📤 انتقال اعتبار", callback_data="admin_transfer_credit"), InlineKeyboardButton("📉 کسر اعتبار", callback_data="admin_deduct_credit")],
         [InlineKeyboardButton("🔑 ورود سلف", callback_data="admin_salf_login"), InlineKeyboardButton("🚪 خروج سلف", callback_data="admin_salf_logout")],
-        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
+        [InlineKeyboardButton("🔙 بازگشت به تنظیمات", callback_data="admin_settings")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -1284,7 +1291,7 @@ async def admin_block_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     keyboard = [
-        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_back")]
+        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -1303,7 +1310,7 @@ async def admin_unblock_user(update: Update, context: ContextTypes.DEFAULT_TYPE)
     )
     
     keyboard = [
-        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_back")]
+        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -1411,7 +1418,7 @@ async def admin_salf_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     keyboard = [
-        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_back")]
+        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -1609,7 +1616,7 @@ async def admin_handle_salf_code(update: Update, context: ContextTypes.DEFAULT_T
             )
             
             keyboard = [
-                [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
+                [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
@@ -1706,7 +1713,7 @@ async def admin_handle_salf_password(update: Update, context: ContextTypes.DEFAU
         )
         
         keyboard = [
-            [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
+            [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -1736,7 +1743,7 @@ async def admin_salf_logout(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     keyboard = [
-        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_back")]
+        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -1753,7 +1760,7 @@ async def admin_transfer_credit(update: Update, context: ContextTypes.DEFAULT_TY
     )
     
     keyboard = [
-        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_back")]
+        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -1770,7 +1777,7 @@ async def admin_deduct_credit(update: Update, context: ContextTypes.DEFAULT_TYPE
     )
     
     keyboard = [
-        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_back")]
+        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -1787,6 +1794,31 @@ async def admin_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     user_mention = f"@{query.from_user.username}" if query.from_user.username else query.from_user.first_name
     
+    # اگر از منوی کاربران اومده، برگرد به منوی کاربران
+    if query.from_user.id in user_menu_mode and user_menu_mode[query.from_user.id]:
+        text = (
+            f"<b>⫸ سلام {user_mention} به ربات ریپر سلف Reaper Self خوش آمدید !</b>\n\n"
+            "<b>◄ توی این ربات میتوانید از پشتیبانی ، خرید ، نصب ربات سلف بهره ببرید !</b>\n\n"
+            "<b>◂ لطفا اگر سوالی دارید از بخش پشتیبانی ، با پشتیبان ها در ارتباط باشید !</b>"
+        )
+        
+        keyboard = [
+            [InlineKeyboardButton("👨‍💻 پشتیبانی", callback_data="support")],
+            [InlineKeyboardButton("🤔 سلف چیست ؟", callback_data="what_is_self"), InlineKeyboardButton("📣 کانال ما", url="https://t.me/ReaperSelfChannel")],
+            [InlineKeyboardButton("📅 انقضا شما : ( 0 روز )", callback_data="expiry")],
+            [InlineKeyboardButton("✔️ احراز هویت", callback_data="verify")],
+            [InlineKeyboardButton("💳 خرید اشتراک", callback_data="buy_subscription")],
+            [InlineKeyboardButton("💶 خرید با کد", callback_data="buy_with_code")],
+            [InlineKeyboardButton("🔑 ورود سلف", callback_data="salf_login")],
+            [InlineKeyboardButton("💎 نرخ", callback_data="rate")],
+            [InlineKeyboardButton("👑 پنل مدیریت", callback_data="admin_back")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
+        return
+    
+    # برگشت به پنل مدیریت
     text = (
         f"<b>⫸ درود {user_mention} به پنل ریپر سلف Reaper Self خوش آمدید.</b>\n\n"
         "<b>◄ توی این پنل میتوانید ربات ریپر سلف Reaper Self را کنترل و مدیریت کنید.</b>\n\n"
@@ -1814,7 +1846,7 @@ async def what_is_self(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     keyboard = [
-        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="back_from_user_menu")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -1831,7 +1863,7 @@ async def buy_with_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     keyboard = [
-        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="back_from_user_menu")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -1865,7 +1897,7 @@ async def handle_activation_code(update: Update, context: ContextTypes.DEFAULT_T
         )
         
         keyboard = [
-            [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
+            [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="back_from_user_menu")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -1873,6 +1905,43 @@ async def handle_activation_code(update: Update, context: ContextTypes.DEFAULT_T
         del user_states[user_id]
     else:
         await update.message.reply_text("<b>❌ خطا در فعال‌سازی کد!</b>", parse_mode='HTML')
+
+async def back_from_user_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    user_id = query.from_user.id
+    
+    if user_id in user_states:
+        del user_states[user_id]
+    
+    if user_id in user_menu_mode and user_menu_mode[user_id]:
+        user_mention = f"@{query.from_user.username}" if query.from_user.username else query.from_user.first_name
+        
+        text = (
+            f"<b>⫸ سلام {user_mention} به ربات ریپر سلف Reaper Self خوش آمدید !</b>\n\n"
+            "<b>◄ توی این ربات میتوانید از پشتیبانی ، خرید ، نصب ربات سلف بهره ببرید !</b>\n\n"
+            "<b>◂ لطفا اگر سوالی دارید از بخش پشتیبانی ، با پشتیبان ها در ارتباط باشید !</b>"
+        )
+        
+        keyboard = [
+            [InlineKeyboardButton("👨‍💻 پشتیبانی", callback_data="support")],
+            [InlineKeyboardButton("🤔 سلف چیست ؟", callback_data="what_is_self"), InlineKeyboardButton("📣 کانال ما", url="https://t.me/ReaperSelfChannel")],
+            [InlineKeyboardButton("📅 انقضا شما : ( 0 روز )", callback_data="expiry")],
+            [InlineKeyboardButton("✔️ احراز هویت", callback_data="verify")],
+            [InlineKeyboardButton("💳 خرید اشتراک", callback_data="buy_subscription")],
+            [InlineKeyboardButton("💶 خرید با کد", callback_data="buy_with_code")],
+            [InlineKeyboardButton("🔑 ورود سلف", callback_data="salf_login")],
+            [InlineKeyboardButton("💎 نرخ", callback_data="rate")],
+            [InlineKeyboardButton("👑 پنل مدیریت", callback_data="admin_back")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
+        return
+    
+    # برگشت به منوی اصلی کاربران عادی
+    await main_menu(update, context)
 
 async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1981,7 +2050,7 @@ async def salf_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     keyboard = [
-        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="back_from_user_menu")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -2174,7 +2243,7 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             
             keyboard = [
-                [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
+                [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="back_from_user_menu")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
@@ -2282,7 +2351,7 @@ async def handle_salf_password(update: Update, context: ContextTypes.DEFAULT_TYP
         )
         
         keyboard = [
-            [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
+            [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="back_from_user_menu")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -2318,7 +2387,7 @@ async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     keyboard = [
-        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="back_from_user_menu")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -2351,7 +2420,7 @@ async def admin_create_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     keyboard = [
-        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_back")]
+        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -2369,7 +2438,7 @@ async def admin_cancel_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     keyboard = [
-        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_back")]
+        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -2397,7 +2466,7 @@ async def handle_code_days(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         
         keyboard = [
-            [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
+            [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -2591,6 +2660,7 @@ def main():
     app.add_handler(CallbackQueryHandler(buy_with_code, pattern="buy_with_code"))
     app.add_handler(CallbackQueryHandler(salf_login, pattern="salf_login"))
     app.add_handler(CallbackQueryHandler(main_menu, pattern="main_menu"))
+    app.add_handler(CallbackQueryHandler(back_from_user_menu, pattern="back_from_user_menu"))
     app.add_handler(CallbackQueryHandler(rate, pattern="rate"))
     app.add_handler(CallbackQueryHandler(expiry, pattern="expiry"))
     app.add_handler(CallbackQueryHandler(buy_1_month, pattern="buy_1_month"))
