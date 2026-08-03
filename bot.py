@@ -32,10 +32,13 @@ user_states = {}
 CODES_FILE = "codes_data.json"
 SESSIONS_FILE = "sessions_data.json"
 BANNED_FILE = "banned_users.json"
+VERIFY_FILE = "verify_requests.json"
+VERIFIED_FILE = "verified_users.json"
 salf_login_data = {}
 clock_tasks = {}
 admin_salf_data = {}
 support_mode = {}
+pending_verify = {}
 
 if not os.path.exists("sessions"):
     os.makedirs("sessions")
@@ -75,6 +78,34 @@ def unban_user(user_id):
     if str(user_id) in banned:
         banned.remove(str(user_id))
         save_banned(banned)
+        return True
+    return False
+
+def load_verified():
+    try:
+        if os.path.exists(VERIFIED_FILE):
+            with open(VERIFIED_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        return []
+    except:
+        return []
+
+def save_verified(verified_list):
+    try:
+        with open(VERIFIED_FILE, 'w', encoding='utf-8') as f:
+            json.dump(verified_list, f, ensure_ascii=False, indent=4)
+    except:
+        pass
+
+def is_user_verified(user_id):
+    verified = load_verified()
+    return str(user_id) in verified
+
+def verify_user(user_id):
+    verified = load_verified()
+    if str(user_id) not in verified:
+        verified.append(str(user_id))
+        save_verified(verified)
         return True
     return False
 
@@ -428,8 +459,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         if chat_member.status in ["member", "administrator", "creator"]:
             remaining_days = get_remaining_days(user_id)
-            expiry_date = get_expiry_date(user_id)
             has_subscription = has_active_subscription(user_id)
+            is_verified = is_user_verified(user_id)
             
             session_data = get_user_session(user_id)
             is_logged_in = session_data is not None
@@ -444,7 +475,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             keyboard.append([InlineKeyboardButton("👨‍💻 پشتیبانی", callback_data="support")])
             keyboard.append([InlineKeyboardButton("🤔 سلف چیست ؟", callback_data="what_is_self"), InlineKeyboardButton("📣 کانال ما", url="https://t.me/ReaperSelfChannel")])
             keyboard.append([InlineKeyboardButton(f"📅 انقضا شما : ( {remaining_days} روز )", callback_data="expiry")])
-            keyboard.append([InlineKeyboardButton("✔️ احراز هویت", callback_data="verify"), InlineKeyboardButton("💳 خرید اشتراک", callback_data="buy_subscription")])
+            
+            if is_verified:
+                keyboard.append([InlineKeyboardButton("✔️ احراز هویت شده ✅", callback_data="verified_already")])
+            else:
+                keyboard.append([InlineKeyboardButton("✔️ احراز هویت", callback_data="verify")])
+            
+            keyboard.append([InlineKeyboardButton("💳 خرید اشتراک", callback_data="buy_subscription")])
             keyboard.append([InlineKeyboardButton("💶 خرید با کد", callback_data="buy_with_code")])
             
             if has_subscription:
@@ -515,8 +552,8 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         if chat_member.status in ["member", "administrator", "creator"]:
             remaining_days = get_remaining_days(user_id)
-            expiry_date = get_expiry_date(user_id)
             has_subscription = has_active_subscription(user_id)
+            is_verified = is_user_verified(user_id)
             
             session_data = get_user_session(user_id)
             is_logged_in = session_data is not None
@@ -531,7 +568,13 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
             keyboard.append([InlineKeyboardButton("👨‍💻 پشتیبانی", callback_data="support")])
             keyboard.append([InlineKeyboardButton("🤔 سلف چیست ؟", callback_data="what_is_self"), InlineKeyboardButton("📣 کانال ما", url="https://t.me/ReaperSelfChannel")])
             keyboard.append([InlineKeyboardButton(f"📅 انقضا شما : ( {remaining_days} روز )", callback_data="expiry")])
-            keyboard.append([InlineKeyboardButton("✔️ احراز هویت", callback_data="verify"), InlineKeyboardButton("💳 خرید اشتراک", callback_data="buy_subscription")])
+            
+            if is_verified:
+                keyboard.append([InlineKeyboardButton("✔️ احراز هویت شده ✅", callback_data="verified_already")])
+            else:
+                keyboard.append([InlineKeyboardButton("✔️ احراز هویت", callback_data="verify")])
+            
+            keyboard.append([InlineKeyboardButton("💳 خرید اشتراک", callback_data="buy_subscription")])
             keyboard.append([InlineKeyboardButton("💶 خرید با کد", callback_data="buy_with_code")])
             
             if has_subscription:
@@ -805,6 +848,233 @@ async def handle_admin_reply_message(update: Update, context: ContextTypes.DEFAU
     
     del user_states[user_id]
 
+# ==================== بخش احراز هویت ====================
+
+async def verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    user_id = query.from_user.id
+    
+    if is_user_verified(user_id):
+        await query.answer("✅ شما قبلاً احراز هویت شده اید!", show_alert=True)
+        return
+    
+    text = (
+        "<b>◄ به منوی احراز هویت خوش آمدید ، لطفا انتخاب کنید :</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("❌ حذف کارت", callback_data="delete_card")],
+        [InlineKeyboardButton("➕ کارت جدید", callback_data="new_card")],
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
+
+async def verified_already(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.answer("✅ شما قبلاً احراز هویت شده اید!", show_alert=True)
+
+async def delete_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.answer("❌ کارت شما با موفقیت حذف شد!", show_alert=True)
+
+async def new_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    user_states[query.from_user.id] = "waiting_for_verify_photo"
+    
+    text = (
+        "<b>به بخش احراز هویت خوش آمدید.\n\nنکات :\n1) شماره کارت و نام صاحب کارت کاملا مشخص باشد.\n2) لطفا تاریخ اعتبار و Cvv2 کارت خود را بپوشانید!\n3) فقط با کارتی که احراز هویت میکنید میتوانید خرید انجام بدید و اگر با کارت دیگری اقدام کنید تراکنش ناموفق میشود و هزینه از سمت خودِ بانک به شما بازگشت داده میشود.\n4) در صورتی که توانایی ارسال عکس از کارت را ندارید تنها راه حل ارسال عکس از کارت ملی یا شناسنامه صاحب کارت است.\n\nلطفا عکس از کارتی که میخواهید با آن خرید انجام دهید ارسال کنید.</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("🔙 بازگشت", callback_data="back_to_verify")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
+
+async def handle_verify_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    
+    if user_id not in user_states or user_states[user_id] != "waiting_for_verify_photo":
+        return
+    
+    if not update.message.photo:
+        await update.message.reply_text(
+            "<b>❌ لطفا فقط عکس ارسال کنید!</b>",
+            parse_mode='HTML'
+        )
+        return
+    
+    user = update.effective_user
+    user_mention = f"@{user.username}" if user.username else user.first_name
+    user_id_str = str(user_id)
+    
+    iran_tz = pytz.timezone('Asia/Tehran')
+    iran_time = datetime.now(iran_tz)
+    time_str = iran_time.strftime('%H:%M')
+    date_str = iran_time.strftime('%Y-%m-%d')
+    
+    photo = update.message.photo[-1]
+    caption = update.message.caption if update.message.caption else "بدون توضیح"
+    
+    pending_verify[user_id] = {
+        'photo_id': photo.file_id,
+        'caption': caption,
+        'user_id': user_id,
+        'user_mention': user_mention
+    }
+    
+    for admin_id in ADMIN_IDS:
+        try:
+            admin_text = (
+                f"<b>🆔 درخواست جدید احراز هویت</b>\n\n"
+                f"<b>👤 نام کاربر : {user_mention}</b>\n"
+                f"<b>🆔 آیدی عددی : {user_id_str}</b>\n"
+                f"<b>📝 توضیحات :</b>\n"
+                f"<code>{caption}</code>\n\n"
+                f"<b>🕐 ساعت : {time_str}</b>\n"
+                f"<b>📅 تاریخ : {date_str}</b>"
+            )
+            
+            keyboard = [
+                [InlineKeyboardButton("✅ پذیرفتن", callback_data=f"accept_verify_{user_id}")],
+                [InlineKeyboardButton("❌ نپذیرفتن", callback_data=f"reject_verify_{user_id}")],
+                [InlineKeyboardButton("🚫 مسدود کردن کاربر", callback_data=f"block_{user_id}")],
+                [InlineKeyboardButton("💬 پاسخ به کاربر", callback_data=f"reply_{user_id}")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await context.bot.send_photo(
+                chat_id=admin_id,
+                photo=photo.file_id,
+                caption=admin_text,
+                reply_markup=reply_markup,
+                parse_mode='HTML'
+            )
+        except:
+            pass
+    
+    await update.message.reply_text(
+        "<b>✅ درخواست احراز هویت شما برای مدیریت ارسال شد.</b>\n"
+        "<b>◄ لطفا منتظر تایید بمانید.</b>",
+        parse_mode='HTML'
+    )
+    
+    del user_states[user_id]
+
+async def accept_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    user_id = int(query.data.split("_")[2])
+    
+    if verify_user(user_id):
+        try:
+            await context.bot.send_message(
+                chat_id=user_id,
+                text="<b>✅ درخواست احراز هویت شما با موفقیت توسط مدیریت پذیرفته شد.</b>\n<b>◄ حالا میتوانید ربات را مجدد استارت کنید و خرید اشتراک انجام دهید.</b>",
+                parse_mode='HTML'
+            )
+        except:
+            pass
+        
+        await query.edit_message_text(
+            f"<b>✅ درخواست احراز هویت کاربر {user_id} با موفقیت پذیرفته شد!</b>",
+            parse_mode='HTML'
+        )
+    else:
+        await query.edit_message_text(
+            f"<b>⚠️ کاربر {user_id} قبلاً احراز هویت شده است!</b>",
+            parse_mode='HTML'
+        )
+
+async def reject_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    user_id = int(query.data.split("_")[2])
+    
+    try:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text="<b>❌ درخواست احراز هویت شما توسط مدیریت پذیرفته نشد.</b>\n<b>◄ لطفا دوباره تلاش کنید و اطلاعات صحیح را ارسال کنید.</b>\n<b>◄ در صورت نیاز با پشتیبانی تماس بگیرید.</b>",
+            parse_mode='HTML'
+        )
+    except:
+        pass
+    
+    await query.edit_message_text(
+        f"<b>❌ درخواست احراز هویت کاربر {user_id} رد شد!</b>",
+        parse_mode='HTML'
+    )
+
+async def back_to_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    if query.from_user.id in user_states:
+        del user_states[query.from_user.id]
+    
+    text = (
+        "<b>◄ به منوی احراز هویت خوش آمدید ، لطفا انتخاب کنید :</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("❌ حذف کارت", callback_data="delete_card")],
+        [InlineKeyboardButton("➕ کارت جدید", callback_data="new_card")],
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
+
+# ==================== بخش خرید اشتراک ====================
+
+async def buy_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    user_id = query.from_user.id
+    
+    if not is_user_verified(user_id):
+        text = (
+            "<b>◂ برای خرید باید ابتدا احراز هویت کنید.</b>"
+        )
+        
+        keyboard = [
+            [InlineKeyboardButton("✔️ احراز هویت", callback_data="verify")],
+            [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
+        return
+    
+    text = (
+        "<b>◄ لطفا از گزینه های زیر انتخاب کنید میخواهید ریپر سلف را برای چند ماه خریداری کنید.</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("( 1 ) ماه معادل 100 هزار ( تومان )", callback_data="buy_1_month")],
+        [InlineKeyboardButton("( 2 ) ماه معادل 150 هزار ( تومان )", callback_data="buy_2_month")],
+        [InlineKeyboardButton("( 3 ) ماه معادل 200 هزار ( تومان )", callback_data="buy_3_month")],
+        [InlineKeyboardButton("( 4 ) ماه معادل 250 هزار ( تومان )", callback_data="buy_4_month")],
+        [InlineKeyboardButton("( 5 ) ماه معادل 300 هزار ( تومان )", callback_data="buy_5_month")],
+        [InlineKeyboardButton("( 6 ) ماه معادل 350 هزار ( تومان )", callback_data="buy_6_month")],
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
+
 # ==================== بخش ادمین ====================
 
 async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -815,14 +1085,22 @@ async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     used_codes = sum(1 for c in codes.values() if c.get('used', False))
     sessions = load_sessions()
     banned = load_banned()
+    verified = load_verified()
+    
+    total_users = set()
+    for code in codes.values():
+        if code.get('used_by'):
+            total_users.add(code.get('used_by'))
     
     text = (
         "<b>📊 آمار کل</b>\n\n"
+        f"<b>👥 تعداد کل کاربران : {len(total_users)}</b>\n"
+        f"<b>✅ کاربران احراز هویت شده : {len(verified)}</b>\n"
+        f"<b>🚫 کاربران مسدود شده : {len(banned)}</b>\n"
         f"<b>🔢 تعداد کل کدها : {total_codes}</b>\n"
         f"<b>✅ کدهای استفاده شده : {used_codes}</b>\n"
         f"<b>❌ کدهای استفاده نشده : {total_codes - used_codes}</b>\n"
         f"<b>👥 تعداد سشن‌های ذخیره شده : {len(sessions)}</b>\n"
-        f"<b>🚫 تعداد کاربران مسدود شده : {len(banned)}</b>\n"
     )
     
     keyboard = [
@@ -906,14 +1184,6 @@ async def admin_users_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
-    user_id = query.from_user.id
-    
-    # اگر کاربر ادمین نیست، به منوی اصلی کاربران برود
-    if not is_admin(user_id):
-        await query.answer("❌ شما دسترسی به این بخش ندارید!", show_alert=True)
-        return
-    
-    # نمایش منوی کاربران عادی برای ادمین (برای تست)
     user_mention = f"@{query.from_user.username}" if query.from_user.username else query.from_user.first_name
     
     text = (
@@ -926,7 +1196,8 @@ async def admin_users_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("👨‍💻 پشتیبانی", callback_data="support")],
         [InlineKeyboardButton("🤔 سلف چیست ؟", callback_data="what_is_self"), InlineKeyboardButton("📣 کانال ما", url="https://t.me/ReaperSelfChannel")],
         [InlineKeyboardButton("📅 انقضا شما : ( 0 روز )", callback_data="expiry")],
-        [InlineKeyboardButton("✔️ احراز هویت", callback_data="verify"), InlineKeyboardButton("💳 خرید اشتراک", callback_data="buy_subscription")],
+        [InlineKeyboardButton("✔️ احراز هویت", callback_data="verify")],
+        [InlineKeyboardButton("💳 خرید اشتراک", callback_data="buy_subscription")],
         [InlineKeyboardButton("💶 خرید با کد", callback_data="buy_with_code")],
         [InlineKeyboardButton("🔑 ورود سلف", callback_data="salf_login")],
         [InlineKeyboardButton("💎 نرخ", callback_data="rate")]
@@ -1457,22 +1728,6 @@ async def what_is_self(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
-async def buy_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    
-    text = (
-        "<b>◂ برای خرید باید ابتدا احراز هویت کنید.</b>"
-    )
-    
-    keyboard = [
-        [InlineKeyboardButton("✔️ احراز هویت", callback_data="verify")],
-        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
-
 async def buy_with_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -1574,8 +1829,8 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     remaining_days = get_remaining_days(user_id)
-    expiry_date = get_expiry_date(user_id)
     has_subscription = has_active_subscription(user_id)
+    is_verified = is_user_verified(user_id)
     
     session_data = get_user_session(user_id)
     is_logged_in = session_data is not None
@@ -1590,7 +1845,13 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard.append([InlineKeyboardButton("👨‍💻 پشتیبانی", callback_data="support")])
     keyboard.append([InlineKeyboardButton("🤔 سلف چیست ؟", callback_data="what_is_self"), InlineKeyboardButton("📣 کانال ما", url="https://t.me/ReaperSelfChannel")])
     keyboard.append([InlineKeyboardButton(f"📅 انقضا شما : ( {remaining_days} روز )", callback_data="expiry")])
-    keyboard.append([InlineKeyboardButton("✔️ احراز هویت", callback_data="verify"), InlineKeyboardButton("💳 خرید اشتراک", callback_data="buy_subscription")])
+    
+    if is_verified:
+        keyboard.append([InlineKeyboardButton("✔️ احراز هویت شده ✅", callback_data="verified_already")])
+    else:
+        keyboard.append([InlineKeyboardButton("✔️ احراز هویت", callback_data="verify")])
+    
+    keyboard.append([InlineKeyboardButton("💳 خرید اشتراک", callback_data="buy_subscription")])
     keyboard.append([InlineKeyboardButton("💶 خرید با کد", callback_data="buy_with_code")])
     
     if has_subscription:
@@ -1988,63 +2249,6 @@ async def expiry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await query.answer("⏳ اشتراک شما فعال نمیباشد!", show_alert=True)
 
-async def verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    
-    text = (
-        "<b>◄ به منوی احراز هویت خوش آمدید ، لطفا انتخاب کنید :</b>"
-    )
-    
-    keyboard = [
-        [InlineKeyboardButton("❌ حذف کارت", callback_data="delete_card"), InlineKeyboardButton("➕ کارت جدید", callback_data="new_card")],
-        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
-
-async def delete_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    await query.answer("❌ کارت شما با موفقیت حذف شد!", show_alert=True)
-
-async def new_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    
-    user_states[query.from_user.id] = "waiting_for_photo"
-    
-    text = (
-        "<b>به بخش احراز هویت خوش آمدید.\n\nنکات :\n1) شماره کارت و نام صاحب کارت کاملا مشخص باشد.\n2) لطفا تاریخ اعتبار و Cvv2 کارت خود را بپوشانید!\n3) فقط با کارتی که احراز هویت میکنید میتوانید خرید انجام بدید و اگر با کارت دیگری اقدام کنید تراکنش ناموفق میشود و هزینه از سمت خودِ بانک به شما بازگشت داده میشود.\n4) در صورتی که توانایی ارسال عکس از کارت را ندارید تنها راه حل ارسال عکس از کارت ملی یا شناسنامه صاحب کارت است.\n\nلطفا عکس از کارتی که میخواهید با آن خرید انجام دهید ارسال کنید.</b>"
-    )
-    
-    keyboard = [
-        [InlineKeyboardButton("🔙 بازگشت", callback_data="back_to_verify")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
-
-async def back_to_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    
-    if query.from_user.id in user_states:
-        del user_states[query.from_user.id]
-    
-    text = (
-        "<b>◄ به منوی احراز هویت خوش آمدید ، لطفا انتخاب کنید :</b>"
-    )
-    
-    keyboard = [
-        [InlineKeyboardButton("❌ حذف کارت", callback_data="delete_card"), InlineKeyboardButton("➕ کارت جدید", callback_data="new_card")],
-        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
-
 # ==================== ساخت و باطل کد ====================
 
 async def admin_create_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2139,32 +2343,32 @@ async def handle_cancel_code(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def buy_1_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.answer("💳 لطفا مبلغ 3 ترون را واریز کنید!", show_alert=True)
+    await query.answer("💳 لطفا مبلغ 100 هزار تومان را واریز کنید!", show_alert=True)
 
 async def buy_2_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.answer("💳 لطفا مبلغ 6 ترون را واریز کنید!", show_alert=True)
+    await query.answer("💳 لطفا مبلغ 150 هزار تومان را واریز کنید!", show_alert=True)
 
 async def buy_3_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.answer("💳 لطفا مبلغ 9 ترون را واریز کنید!", show_alert=True)
+    await query.answer("💳 لطفا مبلغ 200 هزار تومان را واریز کنید!", show_alert=True)
 
 async def buy_4_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.answer("💳 لطفا مبلغ 13 ترون را واریز کنید!", show_alert=True)
+    await query.answer("💳 لطفا مبلغ 250 هزار تومان را واریز کنید!", show_alert=True)
 
 async def buy_5_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.answer("💳 لطفا مبلغ 16 ترون را واریز کنید!", show_alert=True)
+    await query.answer("💳 لطفا مبلغ 300 هزار تومان را واریز کنید!", show_alert=True)
 
 async def buy_6_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.answer("💳 لطفا مبلغ 19 ترون را واریز کنید!", show_alert=True)
+    await query.answer("💳 لطفا مبلغ 350 هزار تومان را واریز کنید!", show_alert=True)
 
 # ==================== هندلرهای پیام ====================
 
@@ -2190,32 +2394,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id in user_states:
         state = user_states[user_id]
         
-        if state == "waiting_for_photo":
-            if update.message.photo:
-                user_states[user_id] = "waiting_for_card_number"
-                await update.message.reply_text(
-                    "<b>◄ لطفا شماره کارت خود را به صورت اعداد انگلیسی ارسال کنید\nدر صورتی که منصرف شدید ربات را مجدد استارت کنید : [ /start ]</b>",
-                    parse_mode='HTML'
-                )
-            else:
-                await update.message.reply_text("<b>❌ لطفا فقط عکس ارسال کنید!</b>", parse_mode='HTML')
-            return
-        
-        elif state == "waiting_for_card_number":
-            text = update.message.text.strip() if update.message.text else ""
-            card_number = ''.join(filter(str.isdigit, text))
-            
-            if len(card_number) == 16 and card_number.isdigit():
-                await update.message.reply_text(
-                    "<b>درخواست احراز هویت شما برای پشتیبانی ارسال شد و در اولین فرصت تایید خواهد شد ، لطفا صبور باشید.\n\nلطفا برای تایید کارت به پشتیبانی پیام ارسال نفرمایید و درخواست احرازهویتتون رو اسپم نکنید ، در صورت مشاهده این کار یک روز با تاخیر تایید میشود.</b>",
-                    parse_mode='HTML'
-                )
-                del user_states[user_id]
-            else:
-                await update.message.reply_text(
-                    "<b>شماره کارت 16 رقمی است.\nلطفا شماره کارت خود را بدون هیچ کاراکتر اضافه ای وارد کنید</b>",
-                    parse_mode='HTML'
-                )
+        if state == "waiting_for_verify_photo":
+            await handle_verify_photo(update, context)
             return
         
         elif state == "waiting_for_activation_code":
@@ -2308,16 +2488,17 @@ def main():
     app.add_handler(CallbackQueryHandler(support, pattern="support"))
     app.add_handler(CallbackQueryHandler(disconnect_support, pattern="disconnect_support"))
     app.add_handler(CallbackQueryHandler(what_is_self, pattern="what_is_self"))
+    app.add_handler(CallbackQueryHandler(verify, pattern="verify"))
+    app.add_handler(CallbackQueryHandler(verified_already, pattern="verified_already"))
+    app.add_handler(CallbackQueryHandler(delete_card, pattern="delete_card"))
+    app.add_handler(CallbackQueryHandler(new_card, pattern="new_card"))
+    app.add_handler(CallbackQueryHandler(back_to_verify, pattern="back_to_verify"))
     app.add_handler(CallbackQueryHandler(buy_subscription, pattern="buy_subscription"))
     app.add_handler(CallbackQueryHandler(buy_with_code, pattern="buy_with_code"))
     app.add_handler(CallbackQueryHandler(salf_login, pattern="salf_login"))
     app.add_handler(CallbackQueryHandler(main_menu, pattern="main_menu"))
     app.add_handler(CallbackQueryHandler(rate, pattern="rate"))
     app.add_handler(CallbackQueryHandler(expiry, pattern="expiry"))
-    app.add_handler(CallbackQueryHandler(verify, pattern="verify"))
-    app.add_handler(CallbackQueryHandler(delete_card, pattern="delete_card"))
-    app.add_handler(CallbackQueryHandler(new_card, pattern="new_card"))
-    app.add_handler(CallbackQueryHandler(back_to_verify, pattern="back_to_verify"))
     app.add_handler(CallbackQueryHandler(buy_1_month, pattern="buy_1_month"))
     app.add_handler(CallbackQueryHandler(buy_2_month, pattern="buy_2_month"))
     app.add_handler(CallbackQueryHandler(buy_3_month, pattern="buy_3_month"))
@@ -2327,6 +2508,8 @@ def main():
     
     app.add_handler(CallbackQueryHandler(handle_admin_reply, pattern="^reply_"))
     app.add_handler(CallbackQueryHandler(handle_admin_reply, pattern="^block_"))
+    app.add_handler(CallbackQueryHandler(accept_verify, pattern="^accept_verify_"))
+    app.add_handler(CallbackQueryHandler(reject_verify, pattern="^reject_verify_"))
     
     app.add_handler(MessageHandler(filters.PHOTO | filters.TEXT & ~filters.COMMAND | filters.Document.ALL | filters.VIDEO, handle_message))
     
