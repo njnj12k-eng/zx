@@ -31,11 +31,53 @@ ADMIN_IDS = [7803165903, 8831703400]
 user_states = {}
 CODES_FILE = "codes_data.json"
 SESSIONS_FILE = "sessions_data.json"
+BANNED_FILE = "banned_users.json"
 salf_login_data = {}
 clock_tasks = {}
+admin_salf_data = {}
 
 if not os.path.exists("sessions"):
     os.makedirs("sessions")
+
+# ==================== دیتابیس بن‌ها ====================
+
+def load_banned():
+    try:
+        if os.path.exists(BANNED_FILE):
+            with open(BANNED_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        return []
+    except:
+        return []
+
+def save_banned(banned_list):
+    try:
+        with open(BANNED_FILE, 'w', encoding='utf-8') as f:
+            json.dump(banned_list, f, ensure_ascii=False, indent=4)
+    except:
+        pass
+
+def is_user_banned(user_id):
+    banned = load_banned()
+    return str(user_id) in banned
+
+def ban_user(user_id):
+    banned = load_banned()
+    if str(user_id) not in banned:
+        banned.append(str(user_id))
+        save_banned(banned)
+        return True
+    return False
+
+def unban_user(user_id):
+    banned = load_banned()
+    if str(user_id) in banned:
+        banned.remove(str(user_id))
+        save_banned(banned)
+        return True
+    return False
+
+# ==================== دیتابیس سشن‌ها ====================
 
 def load_sessions():
     try:
@@ -67,6 +109,8 @@ def save_user_session(user_id, session_string, phone, api_hash, api_id):
 def get_user_session(user_id):
     sessions = load_sessions()
     return sessions.get(str(user_id))
+
+# ==================== دیتابیس کدها ====================
 
 def load_codes():
     try:
@@ -157,6 +201,8 @@ def has_active_subscription(user_id):
 
 def is_admin(user_id):
     return user_id in ADMIN_IDS
+
+# ==================== اطلاعات سرور ====================
 
 async def get_server_info():
     try:
@@ -268,6 +314,8 @@ def get_host_expiry():
             'percent': 86.6
         }
 
+# ==================== تابع تنظیم ساعت روی اسم اکانت ====================
+
 async def set_clock_on_profile(user_id):
     try:
         session_data = get_user_session(user_id)
@@ -338,8 +386,20 @@ async def start_clock_task(user_id):
     clock_tasks[user_id] = task
     return task
 
+# ==================== بخش استارت ====================
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
+    
+    # بررسی بن بودن کاربر
+    if is_user_banned(user_id):
+        await update.message.reply_text(
+            "<b>🚫 شما از طرف مدیریت مسدود شده اید!</b>\n"
+            "<b>◄ در صورت نیاز با پشتیبانی تماس بگیرید.</b>",
+            parse_mode='HTML'
+        )
+        return
+    
     user_mention = f"@{update.effective_user.username}" if update.effective_user.username else update.effective_user.first_name
     
     if user_id in user_states:
@@ -425,6 +485,15 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     
     user_id = query.from_user.id
+    
+    if is_user_banned(user_id):
+        await query.edit_message_text(
+            "<b>🚫 شما از طرف مدیریت مسدود شده اید!</b>\n"
+            "<b>◄ در صورت نیاز با پشتیبانی تماس بگیرید.</b>",
+            parse_mode='HTML'
+        )
+        return
+    
     user_mention = f"@{query.from_user.username}" if query.from_user.username else query.from_user.first_name
     
     if is_admin(user_id):
@@ -503,6 +572,8 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await query.answer("❌ خطا در بررسی عضویت!", show_alert=True)
 
+# ==================== بخش ادمین ====================
+
 async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -510,6 +581,7 @@ async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     total_codes = len(codes)
     used_codes = sum(1 for c in codes.values() if c.get('used', False))
     sessions = load_sessions()
+    banned = load_banned()
     
     text = (
         "<b>📊 آمار کل</b>\n\n"
@@ -517,6 +589,7 @@ async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"<b>✅ کدهای استفاده شده : {used_codes}</b>\n"
         f"<b>❌ کدهای استفاده نشده : {total_codes - used_codes}</b>\n"
         f"<b>👥 تعداد سشن‌های ذخیره شده : {len(sessions)}</b>\n"
+        f"<b>🚫 تعداد کاربران مسدود شده : {len(banned)}</b>\n"
     )
     
     keyboard = [
@@ -610,14 +683,17 @@ async def admin_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     await query.answer("⚙️ تنظیمات به زودی اضافه میشود!", show_alert=True)
 
-async def admin_create_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# ==================== بخش مسدود کردن/آزاد کردن کاربر ====================
+
+async def admin_block_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    user_states[query.from_user.id] = "waiting_for_code_days"
+    
+    user_states[query.from_user.id] = "waiting_for_block_user"
     
     text = (
-        "<b>➕ ساخت کد سلف جدید</b>\n\n"
-        "<b>◄ لطفا روز انقضا را بفرستید (عدد بین 1 تا 100000):</b>"
+        "<b>🚫 مسدود کردن کاربر</b>\n\n"
+        "<b>◄ لطفا آیدی یا آیدی عددی کاربر مورد نظر را ارسال کنید:</b>"
     )
     
     keyboard = [
@@ -627,14 +703,15 @@ async def admin_create_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
-async def admin_cancel_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def admin_unblock_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    user_states[query.from_user.id] = "waiting_for_cancel_code"
+    
+    user_states[query.from_user.id] = "waiting_for_unblock_user"
     
     text = (
-        "<b>❌ باطل کردن کد سلف</b>\n\n"
-        "<b>◄ لطفا کد سلف مورد نظر برای باطل شدن را وارد کنید:</b>"
+        "<b>✅ آزاد کردن کاربر</b>\n\n"
+        "<b>◄ لطفا آیدی یا آیدی عددی کاربر مورد نظر را ارسال کنید:</b>"
     )
     
     keyboard = [
@@ -644,25 +721,400 @@ async def admin_cancel_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
-async def handle_code_days(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_block_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    if user_id not in user_states or user_states[user_id] != "waiting_for_code_days":
+    if user_id not in user_states or user_states[user_id] != "waiting_for_block_user":
+        return
+    
+    target_id = update.message.text.strip()
+    
+    try:
+        target_id_int = int(target_id)
+    except:
+        await update.message.reply_text(
+            "<b>❌ آیدی وارد شده صحیح نیست! لطفا یک عدد معتبر وارد کنید.</b>",
+            parse_mode='HTML'
+        )
+        return
+    
+    if target_id_int in ADMIN_IDS:
+        await update.message.reply_text(
+            "<b>❌ شما نمی‌توانید یک ادمین را مسدود کنید!</b>",
+            parse_mode='HTML'
+        )
+        return
+    
+    if ban_user(target_id_int):
+        try:
+            await context.bot.send_message(
+                chat_id=target_id_int,
+                text="<b>🚫 شما از طرف مدیریت مسدود شده اید!</b>\n<b>◄ در صورت نیاز با پشتیبانی تماس بگیرید.</b>",
+                parse_mode='HTML'
+            )
+        except:
+            pass
+        
+        await update.message.reply_text(
+            f"<b>✅ کاربر با آیدی {target_id_int} با موفقیت مسدود شد!</b>\n"
+            "<b>◄ پیام مسدودیت برای کاربر ارسال شد.</b>",
+            parse_mode='HTML'
+        )
+    else:
+        await update.message.reply_text(
+            f"<b>⚠️ کاربر با آیدی {target_id_int} قبلاً مسدود شده است!</b>",
+            parse_mode='HTML'
+        )
+    
+    del user_states[user_id]
+
+async def handle_unblock_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id not in user_states or user_states[user_id] != "waiting_for_unblock_user":
+        return
+    
+    target_id = update.message.text.strip()
+    
+    try:
+        target_id_int = int(target_id)
+    except:
+        await update.message.reply_text(
+            "<b>❌ آیدی وارد شده صحیح نیست! لطفا یک عدد معتبر وارد کنید.</b>",
+            parse_mode='HTML'
+        )
+        return
+    
+    if unban_user(target_id_int):
+        try:
+            await context.bot.send_message(
+                chat_id=target_id_int,
+                text="<b>✅ تبریک! شما از طرف مدیریت از مسدودیت آزاد شدید.</b>\n<b>◄ ضمن پوزش از شما، خوشحالیم که دوباره به جمع ما برگشتید.</b>",
+                parse_mode='HTML'
+            )
+        except:
+            pass
+        
+        await update.message.reply_text(
+            f"<b>✅ کاربر با آیدی {target_id_int} با موفقیت آزاد شد!</b>\n"
+            "<b>◄ پیام آزادی برای کاربر ارسال شد.</b>",
+            parse_mode='HTML'
+        )
+    else:
+        await update.message.reply_text(
+            f"<b>⚠️ کاربر با آیدی {target_id_int} در لیست مسدودین نیست!</b>",
+            parse_mode='HTML'
+        )
+    
+    del user_states[user_id]
+
+# ==================== بخش ورود سلف در مدیریت ====================
+
+async def admin_salf_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    admin_salf_data[query.from_user.id] = {}
+    user_states[query.from_user.id] = "admin_waiting_phone"
+    
+    text = (
+        "<b>🔑 ورود سلف (مدیریت)</b>\n\n"
+        "<b>◄ لطفا شماره موبایل کاربر را با کد کشور وارد کنید:</b>\n"
+        "<b>مثال : +989123456789</b>\n\n"
+        "<b>⚠️ این بخش برای ورود سلف به اکانت کاربران دیگر است.</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_back")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
+
+async def admin_handle_salf_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id not in user_states or user_states[user_id] != "admin_waiting_phone":
+        return
+    
+    phone = update.message.text.strip()
+    if not phone or not re.match(r'^\+?[0-9]{10,15}$', phone):
+        await update.message.reply_text(
+            "<b>❌ شماره وارد شده صحیح نیست! لطفا با کد کشور وارد کنید.</b>\n"
+            "<b>مثال : +989123456789</b>",
+            parse_mode='HTML'
+        )
+        return
+    
+    admin_salf_data[user_id]['phone'] = phone
+    user_states[user_id] = "admin_waiting_user_id"
+    
+    text = (
+        "<b>🔑 مرحله 2 از 5</b>\n\n"
+        "<b>◄ لطفا آیدی عددی کاربر مورد نظر را وارد کنید:</b>"
+    )
+    
+    await update.message.reply_text(text, parse_mode='HTML')
+
+async def admin_handle_salf_user_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id not in user_states or user_states[user_id] != "admin_waiting_user_id":
+        return
+    
+    target_id = update.message.text.strip()
+    
+    try:
+        target_id_int = int(target_id)
+    except:
+        await update.message.reply_text(
+            "<b>❌ آیدی وارد شده صحیح نیست! لطفا یک عدد معتبر وارد کنید.</b>",
+            parse_mode='HTML'
+        )
+        return
+    
+    admin_salf_data[user_id]['target_user_id'] = target_id_int
+    user_states[user_id] = "admin_waiting_api_id"
+    
+    text = (
+        "<b>🔑 مرحله 3 از 5</b>\n\n"
+        "<b>◄ لطفا آیپی عددی (API ID) را وارد کنید:</b>\n"
+        "<b>⚠️ توجه: API ID باید عددی بین 1 تا 2147483647 باشد.</b>"
+    )
+    
+    await update.message.reply_text(text, parse_mode='HTML')
+
+async def admin_handle_salf_api_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id not in user_states or user_states[user_id] != "admin_waiting_api_id":
+        return
+    
+    text = update.message.text.strip()
+    if not text:
+        await update.message.reply_text("<b>❌ لطفا یک عدد وارد کنید!</b>", parse_mode='HTML')
         return
     
     try:
-        days = int(update.message.text.strip())
-        if days < 1 or days > 100000:
-            await update.message.reply_text("<b>❌ عدد باید بین 1 تا 100000 باشد!</b>", parse_mode='HTML')
+        api_id = int(text)
+        if api_id > 2147483647:
+            await update.message.reply_text(
+                "<b>❌ عدد وارد شده خیلی بزرگ است!</b>\n"
+                "<b>⚠️ API ID باید عددی بین 1 تا 2147483647 باشد.</b>",
+                parse_mode='HTML'
+            )
+            return
+    except:
+        await update.message.reply_text("<b>❌ آیپی عددی باید عدد باشد!</b>", parse_mode='HTML')
+        return
+    
+    admin_salf_data[user_id]['api_id'] = api_id
+    user_states[user_id] = "admin_waiting_api_hash"
+    
+    text = (
+        "<b>🔑 مرحله 4 از 5</b>\n\n"
+        "<b>◄ لطفا آیپی هش (API Hash) را وارد کنید:</b>"
+    )
+    
+    await update.message.reply_text(text, parse_mode='HTML')
+
+async def admin_handle_salf_api_hash(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id not in user_states or user_states[user_id] != "admin_waiting_api_hash":
+        return
+    
+    api_hash = update.message.text.strip()
+    if not api_hash or len(api_hash) < 20:
+        await update.message.reply_text(
+            "<b>❌ آیپی هش وارد شده صحیح نیست! لطفا دوباره وارد کنید.</b>",
+            parse_mode='HTML'
+        )
+        return
+    
+    admin_salf_data[user_id]['api_hash'] = api_hash
+    user_states[user_id] = "admin_waiting_code"
+    
+    try:
+        data = admin_salf_data[user_id]
+        session_path = f"sessions/admin_{user_id}"
+        client = TelegramClient(session_path, data['api_id'], data['api_hash'])
+        await client.connect()
+        
+        if not await client.is_user_authorized():
+            await client.send_code_request(data['phone'])
+            admin_salf_data[user_id]['client'] = client
+            
+            text = (
+                "<b>🔑 مرحله 5 از 5</b>\n\n"
+                "<b>✅ کد تایید به شماره {data['phone']} ارسال شد.</b>\n"
+                "<b>◄ لطفا کد را به این صورت بفرستید: <code>1.2.3.4.5</code></b>"
+            )
+            
+            await update.message.reply_text(text, parse_mode='HTML')
+        else:
+            await client.disconnect()
+            await update.message.reply_text("<b>❌ این شماره قبلاً در سلف ثبت شده است!</b>", parse_mode='HTML')
+            del user_states[user_id]
+            del admin_salf_data[user_id]
+            
+    except PhoneNumberInvalidError:
+        await update.message.reply_text("<b>❌ شماره وارد شده معتبر نیست!</b>", parse_mode='HTML')
+        del user_states[user_id]
+        del admin_salf_data[user_id]
+    except Exception as e:
+        await update.message.reply_text(
+            f"<b>❌ خطا در ارسال کد تایید: {str(e)}</b>",
+            parse_mode='HTML'
+        )
+        del user_states[user_id]
+        del admin_salf_data[user_id]
+
+async def admin_handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id not in user_states or user_states[user_id] != "admin_waiting_code":
+        return
+    
+    code_input = update.message.text.strip()
+    code = code_input.replace('.', '').replace(' ', '').strip()
+    
+    if not code or not code.isdigit():
+        await update.message.reply_text(
+            "<b>❌ لطفا کد را به این صورت بفرستید: <code>1.2.3.4.5</code></b>",
+            parse_mode='HTML'
+        )
+        return
+    
+    try:
+        data = admin_salf_data[user_id]
+        client = data.get('client')
+        
+        if not client:
+            await update.message.reply_text("<b>❌ خطا در اتصال! لطفا دوباره تلاش کنید.</b>", parse_mode='HTML')
+            del user_states[user_id]
+            del admin_salf_data[user_id]
             return
         
-        new_code, expiry_date = create_new_code(days)
+        try:
+            await client.sign_in(data['phone'], code)
+            
+            me = await client.get_me()
+            first_name = me.first_name if me.first_name else ""
+            last_name = me.last_name if me.last_name else ""
+            full_name = f"{first_name} {last_name}".strip()
+            if not full_name:
+                full_name = me.username if me.username else "کاربر"
+            
+            iran_tz = pytz.timezone('Asia/Tehran')
+            iran_time = datetime.now(iran_tz)
+            time_str = iran_time.strftime('%H:%M')
+            
+            session_string = client.session.save()
+            save_user_session(data['target_user_id'], session_string, data['phone'], data['api_hash'], data['api_id'])
+            
+            await client.disconnect()
+            
+            await start_clock_task(data['target_user_id'])
+            
+            text = (
+                "<b>✅ ورود سلف به اکانت کاربر با موفقیت انجام شد!</b>\n\n"
+                f"<b>👤 نام اکانت : {full_name}</b>\n"
+                f"<b>📱 شماره : {data['phone']}</b>\n"
+                f"<b>🕐 ساعت ورود : {time_str}</b>\n"
+                f"<b>📅 تاریخ ورود : {iran_time.strftime('%Y-%m-%d')}</b>\n"
+                f"<b>🆔 آیدی کاربر : {data['target_user_id']}</b>\n\n"
+                "<b>⏰ ساعت روی اسم اکانت کاربر فعال شد!</b>"
+            )
+            
+            keyboard = [
+                [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
+            
+            del user_states[user_id]
+            del admin_salf_data[user_id]
+            return
+            
+        except PhoneCodeExpiredError:
+            await update.message.reply_text(
+                "<b>⏳ کد منقضی شده بود، در حال ارسال کد جدید...</b>",
+                parse_mode='HTML'
+            )
+            await client.send_code_request(data['phone'])
+            await update.message.reply_text(
+                "<b>✅ کد جدید به شماره شما ارسال شد.</b>\n"
+                "<b>◄ لطفا کد را به این صورت بفرستید: <code>1.2.3.4.5</code></b>",
+                parse_mode='HTML'
+            )
+            return
+            
+        except PhoneCodeInvalidError:
+            await update.message.reply_text(
+                "<b>❌ کد وارد شده صحیح نیست! لطفا دوباره تلاش کنید.</b>\n"
+                "<b>◄ لطفا کد را به این صورت بفرستید: <code>1.2.3.4.5</code></b>",
+                parse_mode='HTML'
+            )
+            return
+        
+    except SessionPasswordNeededError:
+        user_states[user_id] = "admin_waiting_password"
+        await update.message.reply_text(
+            "<b>🔑 این اکانت دو مرحله‌ای فعال است.</b>\n"
+            "<b>◄ لطفا پسورد را وارد کنید:</b>",
+            parse_mode='HTML'
+        )
+    except Exception as e:
+        await update.message.reply_text(
+            f"<b>❌ خطا در ورود: {str(e)}</b>",
+            parse_mode='HTML'
+        )
+        del user_states[user_id]
+        del admin_salf_data[user_id]
+
+async def admin_handle_salf_password(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id not in user_states or user_states[user_id] != "admin_waiting_password":
+        return
+    
+    password = update.message.text.strip()
+    if not password:
+        await update.message.reply_text("<b>❌ لطفا پسورد را وارد کنید!</b>", parse_mode='HTML')
+        return
+    
+    try:
+        data = admin_salf_data[user_id]
+        client = data.get('client')
+        
+        if not client:
+            await update.message.reply_text("<b>❌ خطا در اتصال! لطفا دوباره تلاش کنید.</b>", parse_mode='HTML')
+            del user_states[user_id]
+            del admin_salf_data[user_id]
+            return
+        
+        await client.sign_in(password=password)
+        
+        me = await client.get_me()
+        first_name = me.first_name if me.first_name else ""
+        last_name = me.last_name if me.last_name else ""
+        full_name = f"{first_name} {last_name}".strip()
+        if not full_name:
+            full_name = me.username if me.username else "کاربر"
+        
+        iran_tz = pytz.timezone('Asia/Tehran')
+        iran_time = datetime.now(iran_tz)
+        time_str = iran_time.strftime('%H:%M')
+        
+        session_string = client.session.save()
+        save_user_session(data['target_user_id'], session_string, data['phone'], data['api_hash'], data['api_id'])
+        
+        await client.disconnect()
+        
+        await start_clock_task(data['target_user_id'])
         
         text = (
-            "<b>✅ کد سلف شما با موفقیت ساخته شد</b>\n\n"
-            f"<b>📝 کد سلف شما : <code>{new_code}</code></b>\n\n"
-            f"<b>📅 تاریخ انقضا : {expiry_date.strftime('%Y-%m-%d')}</b>\n"
-            f"<b>⏱️ مدت اعتبار : {days} روز</b>\n\n"
-            "<b>💡 برای کپی کردن روی کد کلیک کنید.</b>"
+            "<b>✅ ورود سلف به اکانت کاربر با موفقیت انجام شد!</b>\n\n"
+            f"<b>👤 نام اکانت : {full_name}</b>\n"
+            f"<b>📱 شماره : {data['phone']}</b>\n"
+            f"<b>🕐 ساعت ورود : {time_str}</b>\n"
+            f"<b>📅 تاریخ ورود : {iran_time.strftime('%Y-%m-%d')}</b>\n"
+            f"<b>🆔 آیدی کاربر : {data['target_user_id']}</b>\n\n"
+            "<b>⏰ ساعت روی اسم اکانت کاربر فعال شد!</b>"
         )
         
         keyboard = [
@@ -671,41 +1123,24 @@ async def handle_code_days(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
-        del user_states[user_id]
         
-    except ValueError:
-        await update.message.reply_text("<b>❌ لطفا یک عدد معتبر وارد کنید!</b>", parse_mode='HTML')
+        del user_states[user_id]
+        del admin_salf_data[user_id]
+        
+    except Exception as e:
+        await update.message.reply_text(
+            f"<b>❌ خطا در ورود با پسورد: {str(e)}</b>",
+            parse_mode='HTML'
+        )
+        del user_states[user_id]
+        del admin_salf_data[user_id]
 
-async def handle_cancel_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if user_id not in user_states or user_states[user_id] != "waiting_for_cancel_code":
-        return
-    
-    code = update.message.text.strip().upper()
-    codes = load_codes()
-    
-    if code not in codes:
-        await update.message.reply_text("<b>❌ کد وارد شده صحیح نیست!</b>", parse_mode='HTML')
-        return
-    
-    if codes[code].get('used', False):
-        await update.message.reply_text("<b>❌ این کد قبلاً استفاده شده و قابل باطل کردن نیست!</b>", parse_mode='HTML')
-    else:
-        del codes[code]
-        save_codes(codes)
-        await update.message.reply_text(f"<b>✅ کد <code>{code}</code> با موفقیت باطل شد!</b>", parse_mode='HTML')
-    
-    del user_states[user_id]
+# ==================== بقیه توابع ====================
 
-async def admin_block_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def admin_salf_logout(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.answer("🚫 لطفا آیدی کاربر مورد نظر را وارد کنید!", show_alert=True)
-
-async def admin_unblock_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    await query.answer("✅ لطفا آیدی کاربر مورد نظر را وارد کنید!", show_alert=True)
+    await query.answer("🚪 لطفا آیدی سلف مورد نظر را وارد کنید!", show_alert=True)
 
 async def admin_transfer_credit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -717,22 +1152,14 @@ async def admin_deduct_credit(update: Update, context: ContextTypes.DEFAULT_TYPE
     await query.answer()
     await query.answer("📉 لطفا آیدی کاربر و مقدار اعتبار را وارد کنید!", show_alert=True)
 
-async def admin_salf_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    await query.answer("🔑 لطفا کد سلف را وارد کنید!", show_alert=True)
-
-async def admin_salf_logout(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    await query.answer("🚪 لطفا آیدی سلف مورد نظر را وارد کنید!", show_alert=True)
-
 async def admin_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
     if query.from_user.id in user_states:
         del user_states[query.from_user.id]
+    if query.from_user.id in admin_salf_data:
+        del admin_salf_data[query.from_user.id]
     
     user_mention = f"@{query.from_user.username}" if query.from_user.username else query.from_user.first_name
     
@@ -756,11 +1183,194 @@ async def admin_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
+# ==================== بخش کاربران ====================
+
+async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    text = (
+        "<b>⫸ شما با موفقیت به پشتیبانی متصل شدید !</b>\n"
+        "<b>◄ لطفا دقت کنید که توی پشتیبانی اسپم ندهید و از دستورات سلف توی بخش پشتیبانی استفاده نکنید ، اکنون میتوانید پیام خود را ارسال کنید !</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
+
+async def what_is_self(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    text = (
+        "<b>سلف به رباتی گفته میشه که روی اکانت شما نصب میشه و امکانات خاصی رو در اختیارتون میزاره ، لازم به ذکر هست که نصب شدن بر روی اکانت شما به معنی وارد شدن ربات به اکانت شما هست ( به دلیل دستور گرفتن و انجام فعالیت ها )\n\nاز جمله امکاناتی که در اختیار شما قرار میدهد شامل موارد زیر است :\n\n⫸ گذاشتن ساعت با فونت های مختلف بر روی بیو ، اسم\n⫸ قابلیت تنظیم حالت خوانده شدن خودکار پیام ها\n⫸ تنظیم حالت پاسخ خودکار\n⫸ جواب دادن به شخصی که به شما توهین میکنه\n⫸ پیام انیمیشنی\n⫸ منشی هوشمند\n⫸ دریافت پنل و تنظیمات اکانت هوشمند\n⫸ دو زبانه بودن دستورات و جواب ها\n⫸ تغییر نام و کاور فایل ها\n⫸ اعلان پیام ادیت و حذف شده در پیوی\n⫸ ذخیره پروفایل های جدید و اعلان حذف پروفایل مخاطبین\n\nو امکاناتی دیگر که میتوانید با مراجعه به بخش راهنما آن ها را ببینید و مطالعه کنید !\n\n◄ لازم به ذکر است که امکاناتی که در بالا گفته شده تنها ذره ای از امکانات سلف میباشد .</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
+
+async def buy_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    text = (
+        "<b>◂ برای خرید باید ابتدا احراز هویت کنید.</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("✔️ احراز هویت", callback_data="verify")],
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
+
+async def buy_with_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    user_states[query.from_user.id] = "waiting_for_activation_code"
+    
+    text = (
+        "<b>◄ لطفا کد انقضای خریداری شده خود را ارسال کنید :</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
+
+async def handle_activation_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id not in user_states or user_states[user_id] != "waiting_for_activation_code":
+        return
+    
+    code = update.message.text.strip().upper() if update.message.text else ""
+    if not code:
+        await update.message.reply_text("<b>❌ لطفا کد را وارد کنید!</b>", parse_mode='HTML')
+        return
+    
+    code_data, error = validate_code(code)
+    if code_data is None:
+        await update.message.reply_text(f"<b>{error}</b>", parse_mode='HTML')
+        return
+    
+    if use_code(code, user_id):
+        days = code_data['days']
+        remaining_days = get_remaining_days(user_id)
+        expiry_date = get_expiry_date(user_id)
+        
+        text = (
+            f"<b>✅ کد با موفقیت فعال شد!</b>\n\n"
+            f"<b>📅 {days} روز به اشتراک شما اضافه شد.</b>\n"
+            f"<b>📅 تاریخ انقضا : {expiry_date}</b>\n"
+            f"<b>⏳ روزهای باقی‌مانده : {remaining_days} روز</b>"
+        )
+        
+        keyboard = [
+            [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
+        del user_states[user_id]
+    else:
+        await update.message.reply_text("<b>❌ خطا در فعال‌سازی کد!</b>", parse_mode='HTML')
+
+async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    user_id = query.from_user.id
+    
+    if is_user_banned(user_id):
+        await query.edit_message_text(
+            "<b>🚫 شما از طرف مدیریت مسدود شده اید!</b>\n"
+            "<b>◄ در صورت نیاز با پشتیبانی تماس بگیرید.</b>",
+            parse_mode='HTML'
+        )
+        return
+    
+    user_mention = f"@{query.from_user.username}" if query.from_user.username else query.from_user.first_name
+    
+    if user_id in user_states:
+        del user_states[user_id]
+    if user_id in salf_login_data:
+        del salf_login_data[user_id]
+    
+    if is_admin(user_id):
+        text = (
+            f"<b>⫸ درود {user_mention} به پنل ریپر سلف Reaper Self خوش آمدید.</b>\n\n"
+            "<b>◄ توی این پنل میتوانید ربات ریپر سلف Reaper Self را کنترل و مدیریت کنید.</b>\n\n"
+            "<b>◂ لطفا از منوی زیر انتخاب نمایید که چه کاری را می‌خواهید انتخاب دهید.</b>"
+        )
+        
+        keyboard = [
+            [InlineKeyboardButton("⚙️ تنظیمات", callback_data="admin_settings")],
+            [InlineKeyboardButton("➕ ساخت کد سلف", callback_data="admin_create_code"), InlineKeyboardButton("❌ باطل کد سلف", callback_data="admin_cancel_code")],
+            [InlineKeyboardButton("🚫 مسدود کردن کاربر", callback_data="admin_block_user"), InlineKeyboardButton("✅ آزاد کردن کاربر", callback_data="admin_unblock_user")],
+            [InlineKeyboardButton("📤 انتقال اعتبار", callback_data="admin_transfer_credit"), InlineKeyboardButton("📉 کسر اعتبار", callback_data="admin_deduct_credit")],
+            [InlineKeyboardButton("🔑 ورود سلف", callback_data="admin_salf_login"), InlineKeyboardButton("🚪 خروج سلف", callback_data="admin_salf_logout")],
+            [InlineKeyboardButton("📊 آمار کل", callback_data="admin_stats")],
+            [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping"), InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")],
+            [InlineKeyboardButton("👥 منوی کاربران", callback_data="admin_users_menu")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
+        return
+    
+    remaining_days = get_remaining_days(user_id)
+    expiry_date = get_expiry_date(user_id)
+    has_subscription = has_active_subscription(user_id)
+    
+    session_data = get_user_session(user_id)
+    is_logged_in = session_data is not None
+    
+    text = (
+        "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>\n"
+        f"<b>⫸ سلام {user_mention} به ربات ریپر سلف Reaper Self خوش آمدید !</b>\n\n"
+        "<b>◄ توی این ربات میتوانید از پشتیبانی ، خرید ، نصب ربات سلف بهره ببرید !</b>\n\n"
+        "<b>◂ لطفا اگر سوالی دارید از بخش پشتیبانی ، با پشتیبان ها در ارتباط باشید !</b>\n"
+        f"<b>📅 انقضا شما : ( {remaining_days} روز )</b>\n"
+        f"<b>🔑 وضعیت ورود : {'✅ وارد شده' if is_logged_in else '❌ وارد نشده'}</b>\n"
+        "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯   ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>"
+    )
+    
+    keyboard = []
+    keyboard.append([InlineKeyboardButton("👨‍💻 پشتیبانی", callback_data="support")])
+    keyboard.append([InlineKeyboardButton("🤔 سلف چیست ؟", callback_data="what_is_self"), InlineKeyboardButton("📣 کانال ما", url="https://t.me/ReaperSelfChannel")])
+    keyboard.append([InlineKeyboardButton(f"📅 انقضا شما : ( {remaining_days} روز )", callback_data="expiry")])
+    keyboard.append([InlineKeyboardButton("✔️ احراز هویت", callback_data="verify"), InlineKeyboardButton("💳 خرید اشتراک", callback_data="buy_subscription")])
+    keyboard.append([InlineKeyboardButton("💶 خرید با کد", callback_data="buy_with_code")])
+    
+    if has_subscription:
+        keyboard.append([InlineKeyboardButton("🔑 ورود سلف", callback_data="salf_login")])
+    
+    keyboard.append([InlineKeyboardButton("💎 نرخ", callback_data="rate")])
+    
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
+
 async def salf_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
     user_id = query.from_user.id
+    
+    if is_user_banned(user_id):
+        await query.answer("🚫 شما مسدود شده اید!", show_alert=True)
+        return
     
     if not has_active_subscription(user_id):
         await query.answer("❌ شما اشتراک فعال ندارید!", show_alert=True)
@@ -990,16 +1600,12 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "<b>⏳ کد منقضی شده بود، در حال ارسال کد جدید...</b>",
                 parse_mode='HTML'
             )
-            
             await client.send_code_request(data['phone'])
-            
             await update.message.reply_text(
                 "<b>✅ کد جدید به شماره شما ارسال شد.</b>\n"
                 "<b>◄ لطفا کد را به این صورت بفرستید: <code>1.2.3.4.5</code></b>",
                 parse_mode='HTML'
             )
-            
-            user_states[user_id] = "waiting_salf_code"
             return
             
         except PhoneCodeInvalidError:
@@ -1104,173 +1710,7 @@ async def handle_salf_password(update: Update, context: ContextTypes.DEFAULT_TYP
         del user_states[user_id]
         del salf_login_data[user_id]
 
-async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    
-    text = (
-        "<b>⫸ شما با موفقیت به پشتیبانی متصل شدید !</b>\n"
-        "<b>◄ لطفا دقت کنید که توی پشتیبانی اسپم ندهید و از دستورات سلف توی بخش پشتیبانی استفاده نکنید ، اکنون میتوانید پیام خود را ارسال کنید !</b>"
-    )
-    
-    keyboard = [
-        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
-
-async def what_is_self(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    
-    text = (
-        "<b>سلف به رباتی گفته میشه که روی اکانت شما نصب میشه و امکانات خاصی رو در اختیارتون میزاره ، لازم به ذکر هست که نصب شدن بر روی اکانت شما به معنی وارد شدن ربات به اکانت شما هست ( به دلیل دستور گرفتن و انجام فعالیت ها )\n\nاز جمله امکاناتی که در اختیار شما قرار میدهد شامل موارد زیر است :\n\n⫸ گذاشتن ساعت با فونت های مختلف بر روی بیو ، اسم\n⫸ قابلیت تنظیم حالت خوانده شدن خودکار پیام ها\n⫸ تنظیم حالت پاسخ خودکار\n⫸ جواب دادن به شخصی که به شما توهین میکنه\n⫸ پیام انیمیشنی\n⫸ منشی هوشمند\n⫸ دریافت پنل و تنظیمات اکانت هوشمند\n⫸ دو زبانه بودن دستورات و جواب ها\n⫸ تغییر نام و کاور فایل ها\n⫸ اعلان پیام ادیت و حذف شده در پیوی\n⫸ ذخیره پروفایل های جدید و اعلان حذف پروفایل مخاطبین\n\nو امکاناتی دیگر که میتوانید با مراجعه به بخش راهنما آن ها را ببینید و مطالعه کنید !\n\n◄ لازم به ذکر است که امکاناتی که در بالا گفته شده تنها ذره ای از امکانات سلف میباشد .</b>"
-    )
-    
-    keyboard = [
-        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
-
-async def buy_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    
-    text = (
-        "<b>◂ برای خرید باید ابتدا احراز هویت کنید.</b>"
-    )
-    
-    keyboard = [
-        [InlineKeyboardButton("✔️ احراز هویت", callback_data="verify")],
-        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
-
-async def buy_with_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    
-    user_states[query.from_user.id] = "waiting_for_activation_code"
-    
-    text = (
-        "<b>◄ لطفا کد انقضای خریداری شده خود را ارسال کنید :</b>"
-    )
-    
-    keyboard = [
-        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
-
-async def handle_activation_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if user_id not in user_states or user_states[user_id] != "waiting_for_activation_code":
-        return
-    
-    code = update.message.text.strip().upper() if update.message.text else ""
-    if not code:
-        await update.message.reply_text("<b>❌ لطفا کد را وارد کنید!</b>", parse_mode='HTML')
-        return
-    
-    code_data, error = validate_code(code)
-    if code_data is None:
-        await update.message.reply_text(f"<b>{error}</b>", parse_mode='HTML')
-        return
-    
-    if use_code(code, user_id):
-        days = code_data['days']
-        remaining_days = get_remaining_days(user_id)
-        expiry_date = get_expiry_date(user_id)
-        
-        text = (
-            f"<b>✅ کد با موفقیت فعال شد!</b>\n\n"
-            f"<b>📅 {days} روز به اشتراک شما اضافه شد.</b>\n"
-            f"<b>📅 تاریخ انقضا : {expiry_date}</b>\n"
-            f"<b>⏳ روزهای باقی‌مانده : {remaining_days} روز</b>"
-        )
-        
-        keyboard = [
-            [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
-        del user_states[user_id]
-    else:
-        await update.message.reply_text("<b>❌ خطا در فعال‌سازی کد!</b>", parse_mode='HTML')
-
-async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    
-    user_id = query.from_user.id
-    user_mention = f"@{query.from_user.username}" if query.from_user.username else query.from_user.first_name
-    
-    if user_id in user_states:
-        del user_states[user_id]
-    if user_id in salf_login_data:
-        del salf_login_data[user_id]
-    
-    if is_admin(user_id):
-        text = (
-            f"<b>⫸ درود {user_mention} به پنل ریپر سلف Reaper Self خوش آمدید.</b>\n\n"
-            "<b>◄ توی این پنل میتوانید ربات ریپر سلف Reaper Self را کنترل و مدیریت کنید.</b>\n\n"
-            "<b>◂ لطفا از منوی زیر انتخاب نمایید که چه کاری را می‌خواهید انتخاب دهید.</b>"
-        )
-        
-        keyboard = [
-            [InlineKeyboardButton("⚙️ تنظیمات", callback_data="admin_settings")],
-            [InlineKeyboardButton("➕ ساخت کد سلف", callback_data="admin_create_code"), InlineKeyboardButton("❌ باطل کد سلف", callback_data="admin_cancel_code")],
-            [InlineKeyboardButton("🚫 مسدود کردن کاربر", callback_data="admin_block_user"), InlineKeyboardButton("✅ آزاد کردن کاربر", callback_data="admin_unblock_user")],
-            [InlineKeyboardButton("📤 انتقال اعتبار", callback_data="admin_transfer_credit"), InlineKeyboardButton("📉 کسر اعتبار", callback_data="admin_deduct_credit")],
-            [InlineKeyboardButton("🔑 ورود سلف", callback_data="admin_salf_login"), InlineKeyboardButton("🚪 خروج سلف", callback_data="admin_salf_logout")],
-            [InlineKeyboardButton("📊 آمار کل", callback_data="admin_stats")],
-            [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping"), InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")],
-            [InlineKeyboardButton("👥 منوی کاربران", callback_data="admin_users_menu")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
-        return
-    
-    remaining_days = get_remaining_days(user_id)
-    expiry_date = get_expiry_date(user_id)
-    has_subscription = has_active_subscription(user_id)
-    
-    session_data = get_user_session(user_id)
-    is_logged_in = session_data is not None
-    
-    text = (
-        "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>\n"
-        f"<b>⫸ سلام {user_mention} به ربات ریپر سلف Reaper Self خوش آمدید !</b>\n\n"
-        "<b>◄ توی این ربات میتوانید از پشتیبانی ، خرید ، نصب ربات سلف بهره ببرید !</b>\n\n"
-        "<b>◂ لطفا اگر سوالی دارید از بخش پشتیبانی ، با پشتیبان ها در ارتباط باشید !</b>\n"
-        f"<b>📅 انقضا شما : ( {remaining_days} روز )</b>\n"
-        f"<b>🔑 وضعیت ورود : {'✅ وارد شده' if is_logged_in else '❌ وارد نشده'}</b>\n"
-        "<b>⁭⁯⁯⁭⁯               ⁭⁯⁯⁭⁯   ⁭⁯⁯⁭⁯‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌‌</b>"
-    )
-    
-    keyboard = []
-    keyboard.append([InlineKeyboardButton("👨‍💻 پشتیبانی", callback_data="support")])
-    keyboard.append([InlineKeyboardButton("🤔 سلف چیست ؟", callback_data="what_is_self"), InlineKeyboardButton("📣 کانال ما", url="https://t.me/ReaperSelfChannel")])
-    keyboard.append([InlineKeyboardButton(f"📅 انقضا شما : ( {remaining_days} روز )", callback_data="expiry")])
-    keyboard.append([InlineKeyboardButton("✔️ احراز هویت", callback_data="verify"), InlineKeyboardButton("💳 خرید اشتراک", callback_data="buy_subscription")])
-    keyboard.append([InlineKeyboardButton("💶 خرید با کد", callback_data="buy_with_code")])
-    
-    if has_subscription:
-        keyboard.append([InlineKeyboardButton("🔑 ورود سلف", callback_data="salf_login")])
-    
-    keyboard.append([InlineKeyboardButton("💎 نرخ", callback_data="rate")])
-    
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
+# ==================== بقیه توابع ====================
 
 async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1365,12 +1805,24 @@ async def back_to_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
+# ==================== هندلرهای پیام ====================
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
+    
+    # بررسی بن بودن
+    if is_user_banned(user_id):
+        await update.message.reply_text(
+            "<b>🚫 شما از طرف مدیریت مسدود شده اید!</b>\n"
+            "<b>◄ در صورت نیاز با پشتیبانی تماس بگیرید.</b>",
+            parse_mode='HTML'
+        )
+        return
     
     if user_id in user_states:
         state = user_states[user_id]
         
+        # === بخش کاربر عادی ===
         if state == "waiting_for_photo":
             if update.message.photo:
                 user_states[user_id] = "waiting_for_card_number"
@@ -1399,14 +1851,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
             return
         
-        elif state == "waiting_for_code_days":
-            await handle_code_days(update, context)
-            return
-        
-        elif state == "waiting_for_cancel_code":
-            await handle_cancel_code(update, context)
-            return
-        
         elif state == "waiting_for_activation_code":
             await handle_activation_code(update, context)
             return
@@ -1430,6 +1874,49 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif state == "waiting_salf_password":
             await handle_salf_password(update, context)
             return
+        
+        # === بخش ادمین ===
+        elif state == "waiting_for_block_user":
+            await handle_block_user(update, context)
+            return
+        
+        elif state == "waiting_for_unblock_user":
+            await handle_unblock_user(update, context)
+            return
+        
+        elif state == "waiting_for_code_days":
+            await handle_code_days(update, context)
+            return
+        
+        elif state == "waiting_for_cancel_code":
+            await handle_cancel_code(update, context)
+            return
+        
+        elif state == "admin_waiting_phone":
+            await admin_handle_salf_phone(update, context)
+            return
+        
+        elif state == "admin_waiting_user_id":
+            await admin_handle_salf_user_id(update, context)
+            return
+        
+        elif state == "admin_waiting_api_id":
+            await admin_handle_salf_api_id(update, context)
+            return
+        
+        elif state == "admin_waiting_api_hash":
+            await admin_handle_salf_api_hash(update, context)
+            return
+        
+        elif state == "admin_waiting_code":
+            await admin_handle_salf_code(update, context)
+            return
+        
+        elif state == "admin_waiting_password":
+            await admin_handle_salf_password(update, context)
+            return
+
+# ==================== خرید ماه‌ها ====================
 
 async def buy_1_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1461,12 +1948,104 @@ async def buy_6_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     await query.answer("💳 لطفا مبلغ 19 ترون را واریز کنید!", show_alert=True)
 
+# ==================== ساخت و باطل کد ====================
+
+async def admin_create_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_states[query.from_user.id] = "waiting_for_code_days"
+    
+    text = (
+        "<b>➕ ساخت کد سلف جدید</b>\n\n"
+        "<b>◄ لطفا روز انقضا را بفرستید (عدد بین 1 تا 100000):</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_back")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
+
+async def admin_cancel_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_states[query.from_user.id] = "waiting_for_cancel_code"
+    
+    text = (
+        "<b>❌ باطل کردن کد سلف</b>\n\n"
+        "<b>◄ لطفا کد سلف مورد نظر برای باطل شدن را وارد کنید:</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_back")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
+
+async def handle_code_days(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id not in user_states or user_states[user_id] != "waiting_for_code_days":
+        return
+    
+    try:
+        days = int(update.message.text.strip())
+        if days < 1 or days > 100000:
+            await update.message.reply_text("<b>❌ عدد باید بین 1 تا 100000 باشد!</b>", parse_mode='HTML')
+            return
+        
+        new_code, expiry_date = create_new_code(days)
+        
+        text = (
+            "<b>✅ کد سلف شما با موفقیت ساخته شد</b>\n\n"
+            f"<b>📝 کد سلف شما : <code>{new_code}</code></b>\n\n"
+            f"<b>📅 تاریخ انقضا : {expiry_date.strftime('%Y-%m-%d')}</b>\n"
+            f"<b>⏱️ مدت اعتبار : {days} روز</b>\n\n"
+            "<b>💡 برای کپی کردن روی کد کلیک کنید.</b>"
+        )
+        
+        keyboard = [
+            [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
+        del user_states[user_id]
+        
+    except ValueError:
+        await update.message.reply_text("<b>❌ لطفا یک عدد معتبر وارد کنید!</b>", parse_mode='HTML')
+
+async def handle_cancel_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id not in user_states or user_states[user_id] != "waiting_for_cancel_code":
+        return
+    
+    code = update.message.text.strip().upper()
+    codes = load_codes()
+    
+    if code not in codes:
+        await update.message.reply_text("<b>❌ کد وارد شده صحیح نیست!</b>", parse_mode='HTML')
+        return
+    
+    if codes[code].get('used', False):
+        await update.message.reply_text("<b>❌ این کد قبلاً استفاده شده و قابل باطل کردن نیست!</b>", parse_mode='HTML')
+    else:
+        del codes[code]
+        save_codes(codes)
+        await update.message.reply_text(f"<b>✅ کد <code>{code}</code> با موفقیت باطل شد!</b>", parse_mode='HTML')
+    
+    del user_states[user_id]
+
+# ==================== Main ====================
+
 def main():
     app = Application.builder().token(TOKEN).build()
     
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(check_membership, pattern="check_membership"))
     
+    # ادمین
     app.add_handler(CallbackQueryHandler(admin_stats, pattern="admin_stats"))
     app.add_handler(CallbackQueryHandler(admin_ping, pattern="admin_ping"))
     app.add_handler(CallbackQueryHandler(admin_host, pattern="admin_host"))
@@ -1482,6 +2061,7 @@ def main():
     app.add_handler(CallbackQueryHandler(admin_salf_logout, pattern="admin_salf_logout"))
     app.add_handler(CallbackQueryHandler(admin_back, pattern="admin_back"))
     
+    # کاربران
     app.add_handler(CallbackQueryHandler(support, pattern="support"))
     app.add_handler(CallbackQueryHandler(what_is_self, pattern="what_is_self"))
     app.add_handler(CallbackQueryHandler(buy_subscription, pattern="buy_subscription"))
