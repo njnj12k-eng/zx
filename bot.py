@@ -13,6 +13,7 @@ import json
 import random
 import string
 import pytz
+import sqlite3
 from telethon import TelegramClient
 from telethon.tl.functions.account import UpdateProfileRequest
 from telethon.errors import (
@@ -28,12 +29,295 @@ CHANNEL_USERNAME = "@ReaperSelfChannel"
 
 ADMIN_IDS = [7803165903, 8831703400]
 
+# ==================== دیتابیس ====================
+
+DB_FILE = "bot_database.db"
+
+def init_db():
+    """ایجاد دیتابیس و جدول‌ها"""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    
+    # جدول کاربران
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            user_id INTEGER PRIMARY KEY,
+            username TEXT,
+            first_name TEXT,
+            last_name TEXT,
+            phone TEXT,
+            joined_date TEXT,
+            is_banned INTEGER DEFAULT 0,
+            is_verified INTEGER DEFAULT 0,
+            remaining_days INTEGER DEFAULT 0,
+            expiry_date TEXT,
+            clock_active INTEGER DEFAULT 1
+        )
+    ''')
+    
+    # جدول کدها
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS codes (
+            code TEXT PRIMARY KEY,
+            days INTEGER,
+            expiry_date TEXT,
+            created_date TEXT,
+            used INTEGER DEFAULT 0,
+            used_by TEXT
+        )
+    ''')
+    
+    # جدول سشن‌ها
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS sessions (
+            user_id INTEGER PRIMARY KEY,
+            session_string TEXT,
+            phone TEXT,
+            api_hash TEXT,
+            api_id INTEGER,
+            created_date TEXT
+        )
+    ''')
+    
+    # جدول درخواست‌های احراز هویت
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS verify_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            username TEXT,
+            card_number TEXT,
+            photo_id TEXT,
+            status TEXT DEFAULT 'pending',
+            request_date TEXT
+        )
+    ''')
+    
+    # جدول بن‌ها
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS banned_users (
+            user_id INTEGER PRIMARY KEY,
+            banned_date TEXT,
+            reason TEXT
+        )
+    ''')
+    
+    # جدول تیکت‌های پشتیبانی
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS support_tickets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            username TEXT,
+            message TEXT,
+            status TEXT DEFAULT 'open',
+            created_date TEXT,
+            admin_response TEXT,
+            response_date TEXT
+        )
+    ''')
+    
+    conn.commit()
+    conn.close()
+
+# ==================== توابع دیتابیس ====================
+
+def db_add_user(user_id, username, first_name, last_name, phone=None):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT OR REPLACE INTO users (user_id, username, first_name, last_name, phone, joined_date)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (user_id, username, first_name, last_name, phone, datetime.now().isoformat()))
+    conn.commit()
+    conn.close()
+
+def db_get_user(user_id):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM users WHERE user_id = ?', (user_id,))
+    result = cursor.fetchone()
+    conn.close()
+    return result
+
+def db_update_user(user_id, **kwargs):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    for key, value in kwargs.items():
+        cursor.execute(f'UPDATE users SET {key} = ? WHERE user_id = ?', (value, user_id))
+    conn.commit()
+    conn.close()
+
+def db_is_banned(user_id):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('SELECT is_banned FROM users WHERE user_id = ?', (user_id,))
+    result = cursor.fetchone()
+    conn.close()
+    return result and result[0] == 1
+
+def db_ban_user(user_id):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('UPDATE users SET is_banned = 1 WHERE user_id = ?', (user_id,))
+    cursor.execute('INSERT OR REPLACE INTO banned_users (user_id, banned_date) VALUES (?, ?)', (user_id, datetime.now().isoformat()))
+    conn.commit()
+    conn.close()
+
+def db_unban_user(user_id):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('UPDATE users SET is_banned = 0 WHERE user_id = ?', (user_id,))
+    cursor.execute('DELETE FROM banned_users WHERE user_id = ?', (user_id,))
+    conn.commit()
+    conn.close()
+
+def db_is_verified(user_id):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('SELECT is_verified FROM users WHERE user_id = ?', (user_id,))
+    result = cursor.fetchone()
+    conn.close()
+    return result and result[0] == 1
+
+def db_verify_user(user_id):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('UPDATE users SET is_verified = 1 WHERE user_id = ?', (user_id,))
+    conn.commit()
+    conn.close()
+
+def db_add_code(code, days, expiry_date):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO codes (code, days, expiry_date, created_date)
+        VALUES (?, ?, ?, ?)
+    ''', (code, days, expiry_date.isoformat(), datetime.now().isoformat()))
+    conn.commit()
+    conn.close()
+
+def db_get_code(code):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM codes WHERE code = ?', (code,))
+    result = cursor.fetchone()
+    conn.close()
+    return result
+
+def db_use_code(code, user_id):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('UPDATE codes SET used = 1, used_by = ? WHERE code = ?', (str(user_id), code))
+    conn.commit()
+    conn.close()
+
+def db_delete_code(code):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM codes WHERE code = ?', (code,))
+    conn.commit()
+    conn.close()
+
+def db_get_all_codes():
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM codes')
+    result = cursor.fetchall()
+    conn.close()
+    return result
+
+def db_get_all_users():
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM users')
+    result = cursor.fetchall()
+    conn.close()
+    return result
+
+def db_save_session(user_id, session_string, phone, api_hash, api_id):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT OR REPLACE INTO sessions (user_id, session_string, phone, api_hash, api_id, created_date)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (user_id, session_string, phone, api_hash, api_id, datetime.now().isoformat()))
+    conn.commit()
+    conn.close()
+
+def db_get_session(user_id):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM sessions WHERE user_id = ?', (user_id,))
+    result = cursor.fetchone()
+    conn.close()
+    return result
+
+def db_delete_session(user_id):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM sessions WHERE user_id = ?', (user_id,))
+    conn.commit()
+    conn.close()
+
+def db_get_all_sessions():
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM sessions')
+    result = cursor.fetchall()
+    conn.close()
+    return result
+
+def db_add_verify_request(user_id, username, card_number, photo_id):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO verify_requests (user_id, username, card_number, photo_id, request_date)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (user_id, username, card_number, photo_id, datetime.now().isoformat()))
+    conn.commit()
+    conn.close()
+    return cursor.lastrowid
+
+def db_update_verify_request(request_id, status):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('UPDATE verify_requests SET status = ? WHERE id = ?', (status, request_id))
+    conn.commit()
+    conn.close()
+
+def db_get_pending_verify_requests():
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM verify_requests WHERE status = "pending" ORDER BY request_date DESC')
+    result = cursor.fetchall()
+    conn.close()
+    return result
+
+def db_add_support_ticket(user_id, username, message):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO support_tickets (user_id, username, message, created_date)
+        VALUES (?, ?, ?, ?)
+    ''', (user_id, username, message, datetime.now().isoformat()))
+    conn.commit()
+    conn.close()
+    return cursor.lastrowid
+
+def db_update_support_ticket(ticket_id, response):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('''
+        UPDATE support_tickets SET admin_response = ?, response_date = ?, status = "closed"
+        WHERE id = ?
+    ''', (response, datetime.now().isoformat(), ticket_id))
+    conn.commit()
+    conn.close()
+
+# ==================== مقداردهی اولیه دیتابیس ====================
+
+init_db()
+
 user_states = {}
-CODES_FILE = "codes_data.json"
-SESSIONS_FILE = "sessions_data.json"
-BANNED_FILE = "banned_users.json"
-VERIFY_FILE = "verify_requests.json"
-VERIFIED_FILE = "verified_users.json"
 salf_login_data = {}
 clock_tasks = {}
 admin_salf_data = {}
@@ -45,206 +329,154 @@ clock_status = {}
 if not os.path.exists("sessions"):
     os.makedirs("sessions")
 
-# ==================== دیتابیس‌ها ====================
+# ==================== توابع کمکی ====================
 
-def load_banned():
-    try:
-        if os.path.exists(BANNED_FILE):
-            with open(BANNED_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        return []
-    except:
-        return []
+def is_admin(user_id):
+    return user_id in ADMIN_IDS
 
-def save_banned(banned_list):
-    try:
-        with open(BANNED_FILE, 'w', encoding='utf-8') as f:
-            json.dump(banned_list, f, ensure_ascii=False, indent=4)
-    except:
-        pass
+def get_remaining_days(user_id):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('SELECT remaining_days, expiry_date FROM users WHERE user_id = ?', (user_id,))
+    result = cursor.fetchone()
+    conn.close()
+    if result and result[0] > 0:
+        return result[0]
+    return 0
+
+def get_expiry_date(user_id):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('SELECT expiry_date FROM users WHERE user_id = ?', (user_id,))
+    result = cursor.fetchone()
+    conn.close()
+    if result and result[0]:
+        return result[0]
+    return "ندارد"
+
+def has_active_subscription(user_id):
+    return get_remaining_days(user_id) > 0
+
+def get_clock_status(user_id):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('SELECT clock_active FROM users WHERE user_id = ?', (user_id,))
+    result = cursor.fetchone()
+    conn.close()
+    if result:
+        return result[0] == 1
+    return True
+
+def set_clock_status(user_id, status):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('UPDATE users SET clock_active = ? WHERE user_id = ?', (1 if status else 0, user_id))
+    conn.commit()
+    conn.close()
 
 def is_user_banned(user_id):
-    banned = load_banned()
-    return str(user_id) in banned
+    return db_is_banned(user_id)
 
 def ban_user(user_id):
-    banned = load_banned()
-    if str(user_id) not in banned:
-        banned.append(str(user_id))
-        save_banned(banned)
-        return True
-    return False
+    db_ban_user(user_id)
 
 def unban_user(user_id):
-    banned = load_banned()
-    if str(user_id) in banned:
-        banned.remove(str(user_id))
-        save_banned(banned)
-        return True
-    return False
-
-def load_verified():
-    try:
-        if os.path.exists(VERIFIED_FILE):
-            with open(VERIFIED_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        return []
-    except:
-        return []
-
-def save_verified(verified_list):
-    try:
-        with open(VERIFIED_FILE, 'w', encoding='utf-8') as f:
-            json.dump(verified_list, f, ensure_ascii=False, indent=4)
-    except:
-        pass
+    db_unban_user(user_id)
 
 def is_user_verified(user_id):
-    verified = load_verified()
-    return str(user_id) in verified
+    return db_is_verified(user_id)
 
 def verify_user(user_id):
-    verified = load_verified()
-    if str(user_id) not in verified:
-        verified.append(str(user_id))
-        save_verified(verified)
-        return True
-    return False
-
-def load_sessions():
-    try:
-        if os.path.exists(SESSIONS_FILE):
-            with open(SESSIONS_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        return {}
-    except:
-        return {}
-
-def save_sessions(sessions):
-    try:
-        with open(SESSIONS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(sessions, f, ensure_ascii=False, indent=4)
-    except:
-        pass
+    db_verify_user(user_id)
 
 def save_user_session(user_id, session_string, phone, api_hash, api_id):
-    sessions = load_sessions()
-    sessions[str(user_id)] = {
-        'session': session_string,
-        'phone': phone,
-        'api_hash': api_hash,
-        'api_id': api_id,
-        'created': datetime.now().isoformat()
-    }
-    save_sessions(sessions)
+    db_save_session(user_id, session_string, phone, api_hash, api_id)
 
 def get_user_session(user_id):
-    sessions = load_sessions()
-    return sessions.get(str(user_id))
+    result = db_get_session(user_id)
+    if result:
+        return {
+            'user_id': result[0],
+            'session': result[1],
+            'phone': result[2],
+            'api_hash': result[3],
+            'api_id': result[4],
+            'created': result[5]
+        }
+    return None
 
 def delete_user_session(user_id):
-    sessions = load_sessions()
-    if str(user_id) in sessions:
-        del sessions[str(user_id)]
-        save_sessions(sessions)
-        return True
-    return False
+    db_delete_session(user_id)
 
 def load_codes():
-    try:
-        if os.path.exists(CODES_FILE):
-            with open(CODES_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        return {}
-    except:
-        return {}
+    codes = db_get_all_codes()
+    result = {}
+    for code in codes:
+        result[code[0]] = {
+            'days': code[1],
+            'expiry': code[2],
+            'created': code[3],
+            'used': code[4] == 1,
+            'used_by': code[5]
+        }
+    return result
 
 def save_codes(codes):
-    try:
-        with open(CODES_FILE, 'w', encoding='utf-8') as f:
-            json.dump(codes, f, ensure_ascii=False, indent=4)
-    except:
-        pass
+    # این تابع برای سازگاری با کد قبلی
+    pass
 
 def generate_code():
     chars = string.ascii_uppercase + string.digits
     return ''.join(random.choices(chars, k=15))
 
 def create_new_code(days):
-    codes = load_codes()
     while True:
         new_code = generate_code()
-        if new_code not in codes:
+        existing = db_get_code(new_code)
+        if not existing:
             break
     expiry_date = datetime.now() + timedelta(days=days)
-    codes[new_code] = {
-        'days': days,
-        'expiry': expiry_date.isoformat(),
-        'created': datetime.now().isoformat(),
-        'used': False,
-        'used_by': None
-    }
-    save_codes(codes)
+    db_add_code(new_code, days, expiry_date)
     return new_code, expiry_date
 
 def validate_code(code):
-    codes = load_codes()
-    if code not in codes:
+    result = db_get_code(code)
+    if not result:
         return None, "❌ کد وارد شده صحیح نیست!"
-    code_data = codes[code]
-    expiry_date = datetime.fromisoformat(code_data['expiry'])
+    if result[4] == 1:
+        return None, "❌ این کد قبلاً استفاده شده است!"
+    expiry_date = datetime.fromisoformat(result[2])
     if datetime.now() > expiry_date:
         return None, "⏳ کد وارد شده منقضی شده است!"
-    if code_data.get('used', False):
-        return None, "❌ این کد قبلاً استفاده شده است!"
-    return code_data, None
+    return {'days': result[1], 'expiry': result[2]}, None
 
 def use_code(code, user_id):
-    codes = load_codes()
-    if code not in codes:
+    result = db_get_code(code)
+    if not result or result[4] == 1:
         return False
-    codes[code]['used'] = True
-    codes[code]['used_by'] = str(user_id)
-    codes[code]['used_at'] = datetime.now().isoformat()
-    save_codes(codes)
+    db_use_code(code, user_id)
+    # بروزرسانی روزهای کاربر
+    days = result[1]
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('SELECT remaining_days, expiry_date FROM users WHERE user_id = ?', (user_id,))
+    user_data = cursor.fetchone()
+    if user_data:
+        remaining = user_data[0] or 0
+        new_remaining = remaining + days
+        expiry = datetime.now() + timedelta(days=new_remaining)
+        cursor.execute('UPDATE users SET remaining_days = ?, expiry_date = ? WHERE user_id = ?', (new_remaining, expiry.isoformat(), user_id))
+    else:
+        expiry = datetime.now() + timedelta(days=days)
+        cursor.execute('INSERT INTO users (user_id, remaining_days, expiry_date) VALUES (?, ?, ?)', (user_id, days, expiry.isoformat()))
+    conn.commit()
+    conn.close()
     return True
 
 def get_user_expiry(user_id):
-    codes = load_codes()
-    user_expiry = None
-    user_days = 0
-    for code, data in codes.items():
-        if data.get('used_by') == str(user_id) and data.get('used', False):
-            expiry = datetime.fromisoformat(data['expiry'])
-            if user_expiry is None or expiry > user_expiry:
-                user_expiry = expiry
-                user_days = data.get('days', 0)
-    return user_expiry, user_days
-
-def get_remaining_days(user_id):
-    expiry, _ = get_user_expiry(user_id)
-    if expiry:
-        remaining = (expiry - datetime.now()).days
-        return max(0, remaining)
-    return 0
-
-def get_expiry_date(user_id):
-    expiry, _ = get_user_expiry(user_id)
-    if expiry:
-        return expiry.strftime('%Y-%m-%d')
-    return "ندارد"
-
-def has_active_subscription(user_id):
-    return get_remaining_days(user_id) > 0
-
-def is_admin(user_id):
-    return user_id in ADMIN_IDS
-
-def get_clock_status(user_id):
-    return clock_status.get(str(user_id), True)
-
-def set_clock_status(user_id, status):
-    clock_status[str(user_id)] = status
+    expiry = get_expiry_date(user_id)
+    days = get_remaining_days(user_id)
+    return expiry, days
 
 # ==================== اطلاعات سرور ====================
 
@@ -362,7 +594,6 @@ def get_host_expiry():
 
 async def set_clock_on_profile(user_id):
     try:
-        # بررسی وضعیت ساعت
         if not get_clock_status(user_id):
             return False
         
@@ -491,6 +722,10 @@ async def stop_clock_task(user_id):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
+    user = update.effective_user
+    
+    # ثبت کاربر در دیتابیس
+    db_add_user(user_id, user.username, user.first_name, user.last_name)
     
     if is_user_banned(user_id):
         await update.message.reply_text(
@@ -500,7 +735,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
-    user_mention = f"@{update.effective_user.username}" if update.effective_user.username else update.effective_user.first_name
+    user_mention = f"@{user.username}" if user.username else user.first_name
     
     if user_id in user_states:
         del user_states[user_id]
@@ -585,6 +820,7 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     
     user_id = query.from_user.id
+    user = query.from_user
     
     if is_user_banned(user_id):
         await query.edit_message_text(
@@ -594,7 +830,7 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
-    user_mention = f"@{query.from_user.username}" if query.from_user.username else query.from_user.first_name
+    user_mention = f"@{user.username}" if user.username else user.first_name
     
     if is_admin(user_id):
         text = (
@@ -743,6 +979,9 @@ async def handle_support_message(update: Update, context: ContextTypes.DEFAULT_T
     
     message_text = update.message.text or update.message.caption or "پیام بدون متن"
     
+    # ذخیره تیکت در دیتابیس
+    ticket_id = db_add_support_ticket(user_id, user_mention, message_text)
+    
     iran_tz = pytz.timezone('Asia/Tehran')
     iran_time = datetime.now(iran_tz)
     time_str = iran_time.strftime('%H:%M')
@@ -752,6 +991,7 @@ async def handle_support_message(update: Update, context: ContextTypes.DEFAULT_T
         try:
             admin_text = (
                 f"<b>📩 پیام جدید از بخش پشتیبانی</b>\n\n"
+                f"<b>🆔 شماره تیکت : {ticket_id}</b>\n"
                 f"<b>👤 نام کاربر : {user_mention}</b>\n"
                 f"<b>🆔 آیدی عددی : {user_id_str}</b>\n"
                 f"<b>📝 متن پیام :</b>\n"
@@ -836,7 +1076,8 @@ async def handle_admin_reply(update: Update, context: ContextTypes.DEFAULT_TYPE)
     elif data.startswith("block_"):
         user_id = int(data.split("_")[1])
         
-        if ban_user(user_id):
+        if not is_user_banned(user_id):
+            ban_user(user_id)
             try:
                 await context.bot.send_message(
                     chat_id=user_id,
@@ -1019,28 +1260,26 @@ async def handle_verify_card_number(update: Update, context: ContextTypes.DEFAUL
     user_mention = f"@{user.username}" if user.username else user.first_name
     user_id_str = str(user_id)
     
-    iran_tz = pytz.timezone('Asia/Tehran')
-    iran_time = datetime.now(iran_tz)
-    time_str = iran_time.strftime('%H:%M')
-    date_str = iran_time.strftime('%Y-%m-%d')
-    
+    # دریافت آخرین عکس
     photo = None
     async for msg in context.bot.get_chat_history(chat_id=user_id, limit=5):
         if msg.photo:
             photo = msg.photo[-1]
             break
     
-    pending_verify[user_id] = {
-        'photo_id': photo.file_id if photo else None,
-        'card_number': card_number,
-        'user_id': user_id,
-        'user_mention': user_mention
-    }
+    # ذخیره درخواست در دیتابیس
+    request_id = db_add_verify_request(user_id, user_mention, card_number, photo.file_id if photo else None)
+    
+    iran_tz = pytz.timezone('Asia/Tehran')
+    iran_time = datetime.now(iran_tz)
+    time_str = iran_time.strftime('%H:%M')
+    date_str = iran_time.strftime('%Y-%m-%d')
     
     for admin_id in ADMIN_IDS:
         try:
             admin_text = (
                 f"<b>🆔 درخواست جدید احراز هویت</b>\n\n"
+                f"<b>🆔 شماره درخواست : {request_id}</b>\n"
                 f"<b>👤 نام کاربر : {user_mention}</b>\n"
                 f"<b>🆔 آیدی عددی : {user_id_str}</b>\n"
                 f"<b>💳 شماره کارت : <code>{card_number}</code></b>\n\n"
@@ -1049,8 +1288,8 @@ async def handle_verify_card_number(update: Update, context: ContextTypes.DEFAUL
             )
             
             keyboard = [
-                [InlineKeyboardButton("✅ پذیرفتن", callback_data=f"accept_verify_{user_id}")],
-                [InlineKeyboardButton("❌ نپذیرفتن", callback_data=f"reject_verify_{user_id}")],
+                [InlineKeyboardButton("✅ پذیرفتن", callback_data=f"accept_verify_{request_id}")],
+                [InlineKeyboardButton("❌ نپذیرفتن", callback_data=f"reject_verify_{request_id}")],
                 [InlineKeyboardButton("🚫 مسدود کردن کاربر", callback_data=f"block_{user_id}")],
                 [InlineKeyboardButton("💬 پاسخ به کاربر", callback_data=f"reply_{user_id}")]
             ]
@@ -1087,25 +1326,41 @@ async def accept_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
-    user_id = int(query.data.split("_")[2])
+    request_id = int(query.data.split("_")[2])
     
-    if verify_user(user_id):
-        try:
-            await context.bot.send_message(
-                chat_id=user_id,
-                text="<b>✅ درخواست احراز هویت شما با موفقیت توسط مدیریت پذیرفته شد.</b>\n\n<b>◄ تبریک میگوییم! شما اکنون احراز هویت شده اید.</b>\n<b>◄ میتوانید ربات را مجدد استارت کنید و از بخش خرید اشتراک استفاده نمایید.</b>",
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('SELECT user_id FROM verify_requests WHERE id = ?', (request_id,))
+    result = cursor.fetchone()
+    conn.close()
+    
+    if result:
+        user_id = result[0]
+        if not is_user_verified(user_id):
+            verify_user(user_id)
+            db_update_verify_request(request_id, 'accepted')
+            
+            try:
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text="<b>✅ درخواست احراز هویت شما با موفقیت توسط مدیریت پذیرفته شد.</b>\n\n<b>◄ تبریک میگوییم! شما اکنون احراز هویت شده اید.</b>\n<b>◄ میتوانید ربات را مجدد استارت کنید و از بخش خرید اشتراک استفاده نمایید.</b>",
+                    parse_mode='HTML'
+                )
+            except:
+                pass
+            
+            await query.edit_message_text(
+                f"<b>✅ درخواست احراز هویت شماره {request_id} با موفقیت پذیرفته شد.</b>",
                 parse_mode='HTML'
             )
-        except:
-            pass
-        
-        await query.edit_message_text(
-            f"<b>✅ درخواست احراز هویت کاربر با آیدی {user_id} با موفقیت پذیرفته شد.</b>",
-            parse_mode='HTML'
-        )
+        else:
+            await query.edit_message_text(
+                f"<b>⚠️ کاربر قبلاً احراز هویت شده است!</b>",
+                parse_mode='HTML'
+            )
     else:
         await query.edit_message_text(
-            f"<b>⚠️ کاربر با آیدی {user_id} قبلاً احراز هویت شده است!</b>",
+            "<b>❌ درخواست یافت نشد!</b>",
             parse_mode='HTML'
         )
 
@@ -1113,21 +1368,36 @@ async def reject_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
-    user_id = int(query.data.split("_")[2])
+    request_id = int(query.data.split("_")[2])
     
-    try:
-        await context.bot.send_message(
-            chat_id=user_id,
-            text="<b>❌ درخواست احراز هویت شما توسط مدیریت پذیرفته نشد.</b>\n\n<b>◄ لطفا دوباره تلاش کنید و اطلاعات صحیح و کامل را ارسال نمایید.</b>\n<b>◄ در صورت نیاز میتوانید با تیم پشتیبانی تماس بگیرید.</b>",
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('SELECT user_id FROM verify_requests WHERE id = ?', (request_id,))
+    result = cursor.fetchone()
+    conn.close()
+    
+    if result:
+        user_id = result[0]
+        db_update_verify_request(request_id, 'rejected')
+        
+        try:
+            await context.bot.send_message(
+                chat_id=user_id,
+                text="<b>❌ درخواست احراز هویت شما توسط مدیریت پذیرفته نشد.</b>\n\n<b>◄ لطفا دوباره تلاش کنید و اطلاعات صحیح و کامل را ارسال نمایید.</b>\n<b>◄ در صورت نیاز میتوانید با تیم پشتیبانی تماس بگیرید.</b>",
+                parse_mode='HTML'
+            )
+        except:
+            pass
+        
+        await query.edit_message_text(
+            f"<b>❌ درخواست احراز هویت شماره {request_id} رد شد.</b>",
             parse_mode='HTML'
         )
-    except:
-        pass
-    
-    await query.edit_message_text(
-        f"<b>❌ درخواست احراز هویت کاربر با آیدی {user_id} رد شد.</b>",
-        parse_mode='HTML'
-    )
+    else:
+        await query.edit_message_text(
+            "<b>❌ درخواست یافت نشد!</b>",
+            parse_mode='HTML'
+        )
 
 async def back_to_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1194,27 +1464,43 @@ async def buy_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    codes = load_codes()
-    total_codes = len(codes)
-    used_codes = sum(1 for c in codes.values() if c.get('used', False))
-    sessions = load_sessions()
-    banned = load_banned()
-    verified = load_verified()
     
-    total_users = set()
-    for code in codes.values():
-        if code.get('used_by'):
-            total_users.add(code.get('used_by'))
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT COUNT(*) FROM users')
+    total_users = cursor.fetchone()[0]
+    
+    cursor.execute('SELECT COUNT(*) FROM users WHERE is_verified = 1')
+    verified_users = cursor.fetchone()[0]
+    
+    cursor.execute('SELECT COUNT(*) FROM users WHERE is_banned = 1')
+    banned_users = cursor.fetchone()[0]
+    
+    cursor.execute('SELECT COUNT(*) FROM codes')
+    total_codes = cursor.fetchone()[0]
+    
+    cursor.execute('SELECT COUNT(*) FROM codes WHERE used = 1')
+    used_codes = cursor.fetchone()[0]
+    
+    cursor.execute('SELECT COUNT(*) FROM sessions')
+    total_sessions = cursor.fetchone()[0]
+    
+    cursor.execute('SELECT COUNT(*) FROM support_tickets WHERE status = "open"')
+    open_tickets = cursor.fetchone()[0]
+    
+    conn.close()
     
     text = (
         "<b>📊 آمار کل ربات ریپر سلف</b>\n\n"
-        f"<b>👥 تعداد کل کاربران : {len(total_users)}</b>\n"
-        f"<b>✅ کاربران احراز هویت شده : {len(verified)}</b>\n"
-        f"<b>🚫 کاربران مسدود شده : {len(banned)}</b>\n"
+        f"<b>👥 تعداد کل کاربران : {total_users}</b>\n"
+        f"<b>✅ کاربران احراز هویت شده : {verified_users}</b>\n"
+        f"<b>🚫 کاربران مسدود شده : {banned_users}</b>\n"
         f"<b>🔢 تعداد کل کدهای سلف : {total_codes}</b>\n"
         f"<b>✅ کدهای استفاده شده : {used_codes}</b>\n"
         f"<b>❌ کدهای استفاده نشده : {total_codes - used_codes}</b>\n"
-        f"<b>👥 تعداد سشن‌های ذخیره شده : {len(sessions)}</b>\n"
+        f"<b>👥 تعداد سشن‌های ذخیره شده : {total_sessions}</b>\n"
+        f"<b>🎫 تیکت‌های باز پشتیبانی : {open_tickets}</b>\n"
     )
     
     keyboard = [
@@ -1323,6 +1609,8 @@ async def admin_users_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
+
+# ==================== بخش تنظیمات ====================
 
 async def admin_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1437,7 +1725,8 @@ async def handle_block_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
-    if ban_user(target_id_int):
+    if not is_user_banned(target_id_int):
+        ban_user(target_id_int)
         try:
             await context.bot.send_message(
                 chat_id=target_id_int,
@@ -1476,7 +1765,8 @@ async def handle_unblock_user(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
         return
     
-    if unban_user(target_id_int):
+    if is_user_banned(target_id_int):
+        unban_user(target_id_int)
         try:
             await context.bot.send_message(
                 chat_id=target_id_int,
@@ -1575,62 +1865,53 @@ async def handle_transfer_credit(update: Update, context: ContextTypes.DEFAULT_T
         )
         return
     
-    codes = load_codes()
-    from_expiry = None
-    from_code = None
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
     
-    for code, data in codes.items():
-        if data.get('used_by') == str(from_id) and data.get('used', False):
-            from_expiry = datetime.fromisoformat(data['expiry'])
-            from_code = code
-            break
+    # دریافت اطلاعات کاربر مبدا
+    cursor.execute('SELECT remaining_days, expiry_date FROM users WHERE user_id = ?', (from_id,))
+    from_data = cursor.fetchone()
     
-    if not from_expiry or not from_code:
+    if not from_data or from_data[0] is None or from_data[0] < days:
+        conn.close()
         await update.message.reply_text(
-            f"<b>⚠️ کاربر با آیدی {from_id} اشتراک فعالی ندارد!</b>",
+            f"<b>⚠️ کاربر با آیدی {from_id} به اندازه {days} روز اشتراک فعال ندارد!</b>",
             parse_mode='HTML'
         )
         return
     
-    to_expiry = None
-    to_code = None
-    
-    for code, data in codes.items():
-        if data.get('used_by') == str(to_id) and data.get('used', False):
-            to_expiry = datetime.fromisoformat(data['expiry'])
-            to_code = code
-            break
-    
-    # انتقال روز
-    new_from_expiry = from_expiry - timedelta(days=days)
-    new_to_expiry = (to_expiry + timedelta(days=days)) if to_expiry else (datetime.now() + timedelta(days=days))
-    
-    # بروزرسانی کد مبدا
-    codes[from_code]['expiry'] = new_from_expiry.isoformat()
-    codes[from_code]['days'] = max(0, codes[from_code]['days'] - days)
-    
-    if to_code:
-        codes[to_code]['expiry'] = new_to_expiry.isoformat()
-        codes[to_code]['days'] = codes[to_code]['days'] + days
+    # کسر از مبدا
+    new_from_days = from_data[0] - days
+    if new_from_days == 0:
+        new_from_expiry = None
     else:
-        # ساخت کد جدید برای کاربر مقصد
-        new_code = generate_code()
-        codes[new_code] = {
-            'days': days,
-            'expiry': new_to_expiry.isoformat(),
-            'created': datetime.now().isoformat(),
-            'used': True,
-            'used_by': str(to_id),
-            'used_at': datetime.now().isoformat()
-        }
+        new_from_expiry = (datetime.now() + timedelta(days=new_from_days)).isoformat()
     
-    save_codes(codes)
+    cursor.execute('UPDATE users SET remaining_days = ?, expiry_date = ? WHERE user_id = ?', 
+                   (new_from_days, new_from_expiry, from_id))
     
-    # ارسال پیام به کاربران
+    # دریافت اطلاعات کاربر مقصد
+    cursor.execute('SELECT remaining_days, expiry_date FROM users WHERE user_id = ?', (to_id,))
+    to_data = cursor.fetchone()
+    
+    if to_data and to_data[0] is not None:
+        new_to_days = to_data[0] + days
+        new_to_expiry = (datetime.now() + timedelta(days=new_to_days)).isoformat()
+        cursor.execute('UPDATE users SET remaining_days = ?, expiry_date = ? WHERE user_id = ?',
+                       (new_to_days, new_to_expiry, to_id))
+    else:
+        new_to_days = days
+        new_to_expiry = (datetime.now() + timedelta(days=days)).isoformat()
+        cursor.execute('INSERT INTO users (user_id, remaining_days, expiry_date) VALUES (?, ?, ?)',
+                       (to_id, new_to_days, new_to_expiry))
+    
+    conn.commit()
+    conn.close()
+    
     try:
         await context.bot.send_message(
             chat_id=from_id,
-            text=f"<b>📤 از طرف مدیریت، {days} روز از اشتراک شما کسر شد.</b>\n<b>◄ انقضای جدید شما : {new_from_expiry.strftime('%Y-%m-%d')}</b>",
+            text=f"<b>📤 از طرف مدیریت، {days} روز از اشتراک شما کسر شد.</b>\n<b>◄ انقضای جدید شما : {new_from_expiry if new_from_expiry else 'اشتراک شما به پایان رسید'}</b>",
             parse_mode='HTML'
         )
     except:
@@ -1639,7 +1920,7 @@ async def handle_transfer_credit(update: Update, context: ContextTypes.DEFAULT_T
     try:
         await context.bot.send_message(
             chat_id=to_id,
-            text=f"<b>📤 از طرف مدیریت، {days} روز به اشتراک شما اضافه شد.</b>\n<b>◄ انقضای جدید شما : {new_to_expiry.strftime('%Y-%m-%d')}</b>",
+            text=f"<b>📤 از طرف مدیریت، {days} روز به اشتراک شما اضافه شد.</b>\n<b>◄ انقضای جدید شما : {new_to_expiry}</b>",
             parse_mode='HTML'
         )
     except:
@@ -1683,35 +1964,35 @@ async def handle_deduct_credit(update: Update, context: ContextTypes.DEFAULT_TYP
         )
         return
     
-    codes = load_codes()
-    target_expiry = None
-    target_code = None
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
     
-    for code, data in codes.items():
-        if data.get('used_by') == str(target_id) and data.get('used', False):
-            target_expiry = datetime.fromisoformat(data['expiry'])
-            target_code = code
-            break
+    cursor.execute('SELECT remaining_days, expiry_date FROM users WHERE user_id = ?', (target_id,))
+    target_data = cursor.fetchone()
     
-    if not target_expiry or not target_code:
+    if not target_data or target_data[0] is None or target_data[0] == 0:
+        conn.close()
         await update.message.reply_text(
             f"<b>⚠️ کاربر با آیدی {target_id} اشتراک فعالی ندارد!</b>",
             parse_mode='HTML'
         )
         return
     
-    new_expiry = target_expiry - timedelta(days=days)
-    if new_expiry < datetime.now():
-        new_expiry = datetime.now()
+    new_days = max(0, target_data[0] - days)
+    if new_days == 0:
+        new_expiry = None
+    else:
+        new_expiry = (datetime.now() + timedelta(days=new_days)).isoformat()
     
-    codes[target_code]['expiry'] = new_expiry.isoformat()
-    codes[target_code]['days'] = max(0, codes[target_code]['days'] - days)
-    save_codes(codes)
+    cursor.execute('UPDATE users SET remaining_days = ?, expiry_date = ? WHERE user_id = ?',
+                   (new_days, new_expiry, target_id))
+    conn.commit()
+    conn.close()
     
     try:
         await context.bot.send_message(
             chat_id=target_id,
-            text=f"<b>📉 از طرف مدیریت، {days} روز از اشتراک شما کسر شد.</b>\n<b>◄ انقضای جدید شما : {new_expiry.strftime('%Y-%m-%d')}</b>",
+            text=f"<b>📉 از طرف مدیریت، {days} روز از اشتراک شما کسر شد.</b>\n<b>◄ انقضای جدید شما : {new_expiry if new_expiry else 'اشتراک شما به پایان رسید'}</b>",
             parse_mode='HTML'
         )
     except:
@@ -1724,7 +2005,7 @@ async def handle_deduct_credit(update: Update, context: ContextTypes.DEFAULT_TYP
     
     del user_states[user_id]
 
-# ==================== بخش ورود سلف در مدیریت ====================
+# ==================== بخش ورود و خروج سلف در مدیریت ====================
 
 async def admin_salf_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1807,17 +2088,13 @@ async def admin_handle_salf_logout_phone(update: Update, context: ContextTypes.D
         return
     
     # پیدا کردن کاربر با این شماره
-    sessions = load_sessions()
-    target_user_id = None
-    target_session = None
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('SELECT user_id, api_hash, api_id FROM sessions WHERE phone = ?', (phone,))
+    result = cursor.fetchone()
+    conn.close()
     
-    for uid, data in sessions.items():
-        if data.get('phone') == phone:
-            target_user_id = int(uid)
-            target_session = data
-            break
-    
-    if not target_user_id or not target_session:
+    if not result:
         await update.message.reply_text(
             "<b>❌ هیچ کاربری با این شماره در سلف یافت نشد!</b>",
             parse_mode='HTML'
@@ -1825,12 +2102,16 @@ async def admin_handle_salf_logout_phone(update: Update, context: ContextTypes.D
         del user_states[user_id]
         return
     
+    target_user_id = result[0]
+    api_hash = result[1]
+    api_id = result[2]
+    
     # حذف ساعت از اسم کاربر
     try:
         client = TelegramClient(
             f"sessions/user_{target_user_id}",
-            target_session['api_id'],
-            target_session['api_hash']
+            api_id,
+            api_hash
         )
         await client.connect()
         
@@ -1854,7 +2135,7 @@ async def admin_handle_salf_logout_phone(update: Update, context: ContextTypes.D
     except:
         pass
     
-    # حذف سشن
+    # حذف سشن از دیتابیس
     delete_user_session(target_user_id)
     
     # توقف task ساعت
@@ -2182,7 +2463,6 @@ async def admin_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     user_mention = f"@{query.from_user.username}" if query.from_user.username else query.from_user.first_name
     
-    # اگر از منوی کاربران اومده، برگرد به منوی کاربران
     if query.from_user.id in user_menu_mode and user_menu_mode[query.from_user.id]:
         text = (
             f"<b>⫸ سلام {user_mention} به ربات ریپر سلف Reaper Self خوش آمدید !</b>\n\n"
@@ -2206,7 +2486,6 @@ async def admin_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
         return
     
-    # برگشت به پنل مدیریت
     text = (
         f"<b>⫸ درود {user_mention} به پنل ریپر سلف Reaper Self خوش آمدید.</b>\n\n"
         "<b>◄ توی این پنل میتوانید ربات ریپر سلف Reaper Self را کنترل و مدیریت کنید.</b>\n\n"
@@ -2224,6 +2503,29 @@ async def admin_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
 # ==================== بقیه توابع کاربران ====================
+
+async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    text = (
+        "<b>⫸ نرخ سلف عبارت است از :</b>\n\n"
+        "<b>◄ ماهانه : 100,000 هزار تومان</b>\n\n"
+        "<b>◄ دو ماهه : 150,000 هزار تومان</b>\n\n"
+        "<b>◄ سه ماهه : 200,000 هزار تومان</b>\n\n"
+        "<b>◄ چهار ماهه : 250,000 هزار تومان</b>\n\n"
+        "<b>◄ پنج ماهه : 300,000 هزار تومان</b>\n\n"
+        "<b>◄ شش ماهه : 350,000 هزار تومان</b>\n\n"
+        "<b>(⚠️) توجه داشته باشید سلف فقط بر روی اکانت هایی که با شماره ایران هستند نصب میشود و اما در صورت نصب روی شماره های مجازی مسئولیت دیلیت شدن اکانت به عهده خودتان خواهد بود.</b>\n\n"
+        "<b>֍ @ReaperSelfChannel</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="back_from_user_menu")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
 async def what_is_self(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -2328,7 +2630,6 @@ async def back_from_user_menu(update: Update, context: ContextTypes.DEFAULT_TYPE
         await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
         return
     
-    # برگشت به منوی اصلی کاربران عادی
     await main_menu(update, context)
 
 async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2779,20 +3080,16 @@ async def toggle_clock(update: Update, context: ContextTypes.DEFAULT_TYPE):
     new_status = not current_status
     
     if new_status:
-        # فعال کردن ساعت
         set_clock_status(user_id, True)
         await start_clock_task(user_id)
-        # تنظیم فوری ساعت
         await set_clock_on_profile(user_id)
         
         text = (
             "<b>◄ ساعت اکانت شما فعال شد !</b>"
         )
     else:
-        # غیرفعال کردن ساعت
         set_clock_status(user_id, False)
         await stop_clock_task(user_id)
-        # حذف ساعت از اسم
         await remove_clock_from_profile(user_id)
         
         text = (
@@ -2805,6 +3102,19 @@ async def toggle_clock(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
+
+async def expiry(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    user_id = query.from_user.id
+    remaining_days = get_remaining_days(user_id)
+    expiry_date = get_expiry_date(user_id)
+    
+    if remaining_days > 0:
+        await query.answer(f"📅 انقضا شما : {expiry_date} ( {remaining_days} روز باقی مانده )", show_alert=True)
+    else:
+        await query.answer("⏳ اشتراک شما فعال نمیباشد!", show_alert=True)
 
 # ==================== ساخت و باطل کد ====================
 
@@ -2885,17 +3195,16 @@ async def handle_cancel_code(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
     
     code = update.message.text.strip().upper()
-    codes = load_codes()
+    existing = db_get_code(code)
     
-    if code not in codes:
+    if not existing:
         await update.message.reply_text("<b>❌ کد وارد شده صحیح نیست!</b>", parse_mode='HTML')
         return
     
-    if codes[code].get('used', False):
+    if existing[4] == 1:
         await update.message.reply_text("<b>❌ این کد قبلاً استفاده شده و قابل باطل کردن نیست!</b>", parse_mode='HTML')
     else:
-        del codes[code]
-        save_codes(codes)
+        db_delete_code(code)
         await update.message.reply_text(f"<b>✅ کد <code>{code}</code> با موفقیت باطل شد!</b>", parse_mode='HTML')
     
     del user_states[user_id]
@@ -2918,8 +3227,7 @@ async def buy_3_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer("💳 لطفا مبلغ 200 هزار تومان را واریز کنید!", show_alert=True)
 
 async def buy_4_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
+    query = update.callback_query    await query.answer()
     await query.answer("💳 لطفا مبلغ 250 هزار تومان را واریز کنید!", show_alert=True)
 
 async def buy_5_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2953,7 +3261,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await handle_support_message(update, context)
         return
     
-    # بررسی پیام پنل
     if update.message.text and update.message.text.lower() == "پنل":
         await handle_self_panel(update, context)
         return
