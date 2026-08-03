@@ -952,7 +952,6 @@ async def handle_verify_card_number(update: Update, context: ContextTypes.DEFAUL
     time_str = iran_time.strftime('%H:%M')
     date_str = iran_time.strftime('%Y-%m-%d')
     
-    # دریافت آخرین عکس ارسال شده
     photo = None
     async for msg in context.bot.get_chat_history(chat_id=user_id, limit=5):
         if msg.photo:
@@ -1004,8 +1003,8 @@ async def handle_verify_card_number(update: Update, context: ContextTypes.DEFAUL
             pass
     
     await update.message.reply_text(
-        "<b>✅ درخواست احراز هویت شما با موفقیت برای مدیریت ارسال شد.</b>\n"
-        "<b>◄ لطفا منتظر تایید از سوی مدیریت باشید.</b>\n"
+        "<b>✅ درخواست احراز هویت شما با موفقیت به پشتیبانی ارسال شد.</b>\n"
+        "<b>◄ لطفا صبور باشید و منتظر تایید از سوی تیم پشتیبانی بمانید.</b>\n"
         "<b>◄ از ارسال درخواست‌های تکراری خودداری فرمایید.</b>",
         parse_mode='HTML'
     )
@@ -1247,7 +1246,7 @@ async def admin_users_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("💶 خرید با کد", callback_data="buy_with_code")],
         [InlineKeyboardButton("🔑 ورود سلف", callback_data="salf_login")],
         [InlineKeyboardButton("💎 نرخ", callback_data="rate")],
-        [InlineKeyboardButton("👑 پنل مدیریت", callback_data="admin_back")]
+        [InlineKeyboardButton("🎈 پنل مدیریت", callback_data="admin_back")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -1270,7 +1269,7 @@ async def admin_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🚫 مسدود کردن کاربر", callback_data="admin_block_user"), InlineKeyboardButton("✅ آزاد کردن کاربر", callback_data="admin_unblock_user")],
         [InlineKeyboardButton("📤 انتقال اعتبار", callback_data="admin_transfer_credit"), InlineKeyboardButton("📉 کسر اعتبار", callback_data="admin_deduct_credit")],
         [InlineKeyboardButton("🔑 ورود سلف", callback_data="admin_salf_login"), InlineKeyboardButton("🚪 خروج سلف", callback_data="admin_salf_logout")],
-        [InlineKeyboardButton("🔙 بازگشت به تنظیمات", callback_data="admin_settings")]
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -1291,7 +1290,7 @@ async def admin_block_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     keyboard = [
-        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings")]
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -1310,7 +1309,7 @@ async def admin_unblock_user(update: Update, context: ContextTypes.DEFAULT_TYPE)
     )
     
     keyboard = [
-        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings")]
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -1418,7 +1417,7 @@ async def admin_salf_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     keyboard = [
-        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings")]
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -1616,7 +1615,7 @@ async def admin_handle_salf_code(update: Update, context: ContextTypes.DEFAULT_T
             )
             
             keyboard = [
-                [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings")]
+                [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
@@ -1713,7 +1712,7 @@ async def admin_handle_salf_password(update: Update, context: ContextTypes.DEFAU
         )
         
         keyboard = [
-            [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings")]
+            [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -1743,7 +1742,7 @@ async def admin_salf_logout(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     keyboard = [
-        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings")]
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -1760,7 +1759,7 @@ async def admin_transfer_credit(update: Update, context: ContextTypes.DEFAULT_TY
     )
     
     keyboard = [
-        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings")]
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -1777,7 +1776,7 @@ async def admin_deduct_credit(update: Update, context: ContextTypes.DEFAULT_TYPE
     )
     
     keyboard = [
-        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings")]
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -1811,7 +1810,7 @@ async def admin_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("💶 خرید با کد", callback_data="buy_with_code")],
             [InlineKeyboardButton("🔑 ورود سلف", callback_data="salf_login")],
             [InlineKeyboardButton("💎 نرخ", callback_data="rate")],
-            [InlineKeyboardButton("👑 پنل مدیریت", callback_data="admin_back")]
+            [InlineKeyboardButton("🎈 پنل مدیریت", callback_data="admin_back")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -1933,7 +1932,7 @@ async def back_from_user_menu(update: Update, context: ContextTypes.DEFAULT_TYPE
             [InlineKeyboardButton("💶 خرید با کد", callback_data="buy_with_code")],
             [InlineKeyboardButton("🔑 ورود سلف", callback_data="salf_login")],
             [InlineKeyboardButton("💎 نرخ", callback_data="rate")],
-            [InlineKeyboardButton("👑 پنل مدیریت", callback_data="admin_back")]
+            [InlineKeyboardButton("🎈 پنل مدیریت", callback_data="admin_back")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -2217,6 +2216,7 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
             session_string = client.session.save()
             save_user_session(user_id, session_string, data['phone'], data['api_hash'], data['api_id'])
             
+            # تنظیم ساعت روی اسم اکانت
             try:
                 clean_name = re.sub(r'\s*\d{2}:\d{2}$', '', full_name).strip()
                 new_name = f"{clean_name} {time_str}".strip()
@@ -2234,12 +2234,10 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await start_clock_task(user_id)
             
             text = (
-                "<b>✅ ورود سلف به اکانت شما با موفقیت انجام شد!</b>\n\n"
-                f"<b>👤 نام اکانت : {new_name if 'new_name' in locals() else full_name}</b>\n"
-                f"<b>📱 شماره : {data['phone']}</b>\n"
-                f"<b>🕐 ساعت ورود : {time_str}</b>\n"
-                f"<b>📅 تاریخ ورود : {iran_time.strftime('%Y-%m-%d')}</b>\n\n"
-                "<b>⏰ ساعت روی اسم اکانت شما فعال شد!</b>"
+                "<b>✅ ورود سلف به اکانت شما با موفقیت انجام شد.</b>\n\n"
+                "<b>◄ سلف برای شما نصب شد.</b>\n"
+                "<b>◄ برای استفاده از سلف، دستور پنل یا راهنما را بزنید.</b>\n"
+                "<b>◄ در صورت بروز مشکل با پشتیبانی تماس بگیرید.</b>"
             )
             
             keyboard = [
@@ -2342,12 +2340,10 @@ async def handle_salf_password(update: Update, context: ContextTypes.DEFAULT_TYP
         await start_clock_task(user_id)
         
         text = (
-            "<b>✅ ورود سلف به اکانت شما با موفقیت انجام شد!</b>\n\n"
-            f"<b>👤 نام اکانت : {new_name if 'new_name' in locals() else full_name}</b>\n"
-            f"<b>📱 شماره : {data['phone']}</b>\n"
-            f"<b>🕐 ساعت ورود : {time_str}</b>\n"
-            f"<b>📅 تاریخ ورود : {iran_time.strftime('%Y-%m-%d')}</b>\n\n"
-            "<b>⏰ ساعت روی اسم اکانت شما فعال شد!</b>"
+            "<b>✅ ورود سلف به اکانت شما با موفقیت انجام شد.</b>\n\n"
+            "<b>◄ سلف برای شما نصب شد.</b>\n"
+            "<b>◄ برای استفاده از سلف، دستور پنل یا راهنما را بزنید.</b>\n"
+            "<b>◄ در صورت بروز مشکل با پشتیبانی تماس بگیرید.</b>"
         )
         
         keyboard = [
@@ -2420,7 +2416,7 @@ async def admin_create_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     keyboard = [
-        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings")]
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -2438,7 +2434,7 @@ async def admin_cancel_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     keyboard = [
-        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings")]
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -2466,7 +2462,7 @@ async def handle_code_days(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         
         keyboard = [
-            [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings")]
+            [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
