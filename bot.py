@@ -441,10 +441,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         keyboard = [
             [InlineKeyboardButton("⚙️ تنظیمات", callback_data="admin_settings")],
-            [InlineKeyboardButton("➕ ساخت کد سلف", callback_data="admin_create_code"), InlineKeyboardButton("❌ باطل کد سلف", callback_data="admin_cancel_code")],
-            [InlineKeyboardButton("🚫 مسدود کردن کاربر", callback_data="admin_block_user"), InlineKeyboardButton("✅ آزاد کردن کاربر", callback_data="admin_unblock_user")],
-            [InlineKeyboardButton("📤 انتقال اعتبار", callback_data="admin_transfer_credit"), InlineKeyboardButton("📉 کسر اعتبار", callback_data="admin_deduct_credit")],
-            [InlineKeyboardButton("🔑 ورود سلف", callback_data="admin_salf_login"), InlineKeyboardButton("🚪 خروج سلف", callback_data="admin_salf_logout")],
             [InlineKeyboardButton("📊 آمار کل", callback_data="admin_stats")],
             [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping"), InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")],
             [InlineKeyboardButton("👥 منوی کاربران", callback_data="admin_users_menu")]
@@ -534,10 +530,6 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         keyboard = [
             [InlineKeyboardButton("⚙️ تنظیمات", callback_data="admin_settings")],
-            [InlineKeyboardButton("➕ ساخت کد سلف", callback_data="admin_create_code"), InlineKeyboardButton("❌ باطل کد سلف", callback_data="admin_cancel_code")],
-            [InlineKeyboardButton("🚫 مسدود کردن کاربر", callback_data="admin_block_user"), InlineKeyboardButton("✅ آزاد کردن کاربر", callback_data="admin_unblock_user")],
-            [InlineKeyboardButton("📤 انتقال اعتبار", callback_data="admin_transfer_credit"), InlineKeyboardButton("📉 کسر اعتبار", callback_data="admin_deduct_credit")],
-            [InlineKeyboardButton("🔑 ورود سلف", callback_data="admin_salf_login"), InlineKeyboardButton("🚪 خروج سلف", callback_data="admin_salf_logout")],
             [InlineKeyboardButton("📊 آمار کل", callback_data="admin_stats")],
             [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping"), InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")],
             [InlineKeyboardButton("👥 منوی کاربران", callback_data="admin_users_menu")]
@@ -622,8 +614,10 @@ async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
     support_mode[user_id] = True
     
     text = (
-        "<b>⫸ شما با موفقیت به پشتیبانی متصل شدید !</b>\n"
-        "<b>◄ لطفا دقت کنید که توی پشتیبانی اسپم ندهید و از دستورات سلف توی بخش پشتیبانی استفاده نکنید ، اکنون میتوانید پیام خود را ارسال کنید !</b>"
+        "<b>⫸ شما با موفقیت به بخش پشتیبانی ربات ریپر سلف متصل شدید.</b>\n\n"
+        "<b>◄ لطفا دقت داشته باشید که در این بخش از ارسال پیام‌های اسپم و تکراری خودداری کنید.</b>\n"
+        "<b>◄ همچنین استفاده از دستورات مربوط به سلف در این بخش ممنوع بوده و باعث مسدود شدن شما خواهد شد.</b>\n\n"
+        "<b>◂ اکنون میتوانید پیام یا سوال خود را برای تیم پشتیبانی ارسال کنید.</b>"
     )
     
     keyboard = [
@@ -644,8 +638,8 @@ async def disconnect_support(update: Update, context: ContextTypes.DEFAULT_TYPE)
         del support_mode[user_id]
     
     text = (
-        "<b>⫸ لغو اتصال با پشتیبانان با موفقیت انجام شد !</b>\n"
-        "<b>◄ با دکمه‌ زیر میتوانید به منوی اصلی برگردید !</b>"
+        "<b>⫸ اتصال شما با تیم پشتیبانی با موفقیت قطع شد.</b>\n"
+        "<b>◄ با استفاده از دکمه زیر میتوانید به منوی اصلی بازگردید.</b>"
     )
     
     keyboard = [
@@ -682,7 +676,7 @@ async def handle_support_message(update: Update, context: ContextTypes.DEFAULT_T
     for admin_id in ADMIN_IDS:
         try:
             admin_text = (
-                f"<b>📩 پیام جدید از پشتیبانی</b>\n\n"
+                f"<b>📩 پیام جدید از بخش پشتیبانی</b>\n\n"
                 f"<b>👤 نام کاربر : {user_mention}</b>\n"
                 f"<b>🆔 آیدی عددی : {user_id_str}</b>\n"
                 f"<b>📝 متن پیام :</b>\n"
@@ -735,8 +729,9 @@ async def handle_support_message(update: Update, context: ContextTypes.DEFAULT_T
             pass
     
     await update.message.reply_text(
-        "<b>✅ پیام شما با موفقیت به پشتیبانان ارسال شد.</b>\n"
-        "<b>◄ لطفا منتظر پاسخ بمانید و از ارسال پیام‌های تکراری خودداری کنید.</b>",
+        "<b>✅ پیام شما با موفقیت به تیم پشتیبانی ارسال شد.</b>\n"
+        "<b>◄ لطفا صبور باشید و منتظر پاسخ از سوی تیم پشتیبانی بمانید.</b>\n"
+        "<b>◄ از ارسال پیام‌های تکراری و اسپم خودداری فرمایید.</b>",
         parse_mode='HTML'
     )
 
@@ -753,7 +748,7 @@ async def handle_admin_reply(update: Update, context: ContextTypes.DEFAULT_TYPE)
         
         text = (
             "<b>💬 پاسخ به کاربر</b>\n\n"
-            "<b>◄ لطفا پاسخ خود را به صورت متن یا رسانه ارسال کنید:</b>"
+            "<b>◄ لطفا پاسخ خود را به صورت متن یا رسانه ارسال کنید.</b>"
         )
         
         keyboard = [
@@ -798,12 +793,12 @@ async def handle_admin_reply_message(update: Update, context: ContextTypes.DEFAU
         if update.message.text:
             await context.bot.send_message(
                 chat_id=target_user_id,
-                text=f"<b>📩 پاسخ از پشتیبانی :</b>\n\n{update.message.text}",
+                text=f"<b>📩 پاسخ از تیم پشتیبانی :</b>\n\n{update.message.text}",
                 parse_mode='HTML'
             )
         elif update.message.photo:
             photo = update.message.photo[-1]
-            caption = f"<b>📩 پاسخ از پشتیبانی :</b>\n\n{update.message.caption if update.message.caption else ''}"
+            caption = f"<b>📩 پاسخ از تیم پشتیبانی :</b>\n\n{update.message.caption if update.message.caption else ''}"
             await context.bot.send_photo(
                 chat_id=target_user_id,
                 photo=photo.file_id,
@@ -812,7 +807,7 @@ async def handle_admin_reply_message(update: Update, context: ContextTypes.DEFAU
             )
         elif update.message.document:
             doc = update.message.document
-            caption = f"<b>📩 پاسخ از پشتیبانی :</b>\n\n{update.message.caption if update.message.caption else ''}"
+            caption = f"<b>📩 پاسخ از تیم پشتیبانی :</b>\n\n{update.message.caption if update.message.caption else ''}"
             await context.bot.send_document(
                 chat_id=target_user_id,
                 document=doc.file_id,
@@ -821,7 +816,7 @@ async def handle_admin_reply_message(update: Update, context: ContextTypes.DEFAU
             )
         elif update.message.video:
             video = update.message.video
-            caption = f"<b>📩 پاسخ از پشتیبانی :</b>\n\n{update.message.caption if update.message.caption else ''}"
+            caption = f"<b>📩 پاسخ از تیم پشتیبانی :</b>\n\n{update.message.caption if update.message.caption else ''}"
             await context.bot.send_video(
                 chat_id=target_user_id,
                 video=video.file_id,
@@ -836,7 +831,7 @@ async def handle_admin_reply_message(update: Update, context: ContextTypes.DEFAU
             return
         
         await update.message.reply_text(
-            f"<b>✅ پاسخ شما به کاربر {target_user_id} ارسال شد!</b>",
+            f"<b>✅ پاسخ شما با موفقیت برای کاربر {target_user_id} ارسال شد.</b>",
             parse_mode='HTML'
         )
         
@@ -861,7 +856,8 @@ async def verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     text = (
-        "<b>◄ به منوی احراز هویت خوش آمدید ، لطفا انتخاب کنید :</b>"
+        "<b>◄ به منوی احراز هویت خوش آمدید.</b>\n\n"
+        "<b>◄ لطفا یکی از گزینه‌های زیر را انتخاب نمایید :</b>"
     )
     
     keyboard = [
@@ -890,7 +886,13 @@ async def new_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_states[query.from_user.id] = "waiting_for_verify_photo"
     
     text = (
-        "<b>به بخش احراز هویت خوش آمدید.\n\nنکات :\n1) شماره کارت و نام صاحب کارت کاملا مشخص باشد.\n2) لطفا تاریخ اعتبار و Cvv2 کارت خود را بپوشانید!\n3) فقط با کارتی که احراز هویت میکنید میتوانید خرید انجام بدید و اگر با کارت دیگری اقدام کنید تراکنش ناموفق میشود و هزینه از سمت خودِ بانک به شما بازگشت داده میشود.\n4) در صورتی که توانایی ارسال عکس از کارت را ندارید تنها راه حل ارسال عکس از کارت ملی یا شناسنامه صاحب کارت است.\n\nلطفا عکس از کارتی که میخواهید با آن خرید انجام دهید ارسال کنید.</b>"
+        "<b>به بخش احراز هویت خوش آمدید.</b>\n\n"
+        "<b>نکات مهم :</b>\n"
+        "<b>1) شماره کارت و نام صاحب کارت باید کاملا مشخص و خوانا باشد.</b>\n"
+        "<b>2) لطفا تاریخ اعتبار و Cvv2 کارت خود را بپوشانید.</b>\n"
+        "<b>3) فقط با کارتی که احراز هویت میکنید میتوانید خرید انجام دهید.</b>\n"
+        "<b>4) در صورتی که توانایی ارسال عکس از کارت را ندارید، تنها راه حل ارسال عکس از کارت ملی یا شناسنامه صاحب کارت است.</b>\n\n"
+        "<b>◄ لطفا عکس از کارتی که میخواهید با آن خرید انجام دهید ارسال کنید.</b>"
     )
     
     keyboard = [
@@ -913,6 +915,31 @@ async def handle_verify_photo(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
         return
     
+    user_states[user_id] = "waiting_for_card_number"
+    
+    await update.message.reply_text(
+        "<b>✅ عکس شما با موفقیت دریافت شد.</b>\n"
+        "<b>◄ لطفا شماره کارت خود را به صورت اعداد انگلیسی وارد کنید.</b>",
+        parse_mode='HTML'
+    )
+
+async def handle_verify_card_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    
+    if user_id not in user_states or user_states[user_id] != "waiting_for_card_number":
+        return
+    
+    card_number = update.message.text.strip()
+    card_number = re.sub(r'[^0-9]', '', card_number)
+    
+    if len(card_number) != 16:
+        await update.message.reply_text(
+            "<b>❌ شماره کارت باید 16 رقم باشد.</b>\n"
+            "<b>◄ لطفا شماره کارت خود را بدون فاصله و کاراکتر اضافی وارد کنید.</b>",
+            parse_mode='HTML'
+        )
+        return
+    
     user = update.effective_user
     user_mention = f"@{user.username}" if user.username else user.first_name
     user_id_str = str(user_id)
@@ -922,12 +949,16 @@ async def handle_verify_photo(update: Update, context: ContextTypes.DEFAULT_TYPE
     time_str = iran_time.strftime('%H:%M')
     date_str = iran_time.strftime('%Y-%m-%d')
     
-    photo = update.message.photo[-1]
-    caption = update.message.caption if update.message.caption else "بدون توضیح"
+    # دریافت آخرین عکس ارسال شده
+    photo = None
+    async for msg in context.bot.get_chat_history(chat_id=user_id, limit=5):
+        if msg.photo:
+            photo = msg.photo[-1]
+            break
     
     pending_verify[user_id] = {
-        'photo_id': photo.file_id,
-        'caption': caption,
+        'photo_id': photo.file_id if photo else None,
+        'card_number': card_number,
         'user_id': user_id,
         'user_mention': user_mention
     }
@@ -938,8 +969,7 @@ async def handle_verify_photo(update: Update, context: ContextTypes.DEFAULT_TYPE
                 f"<b>🆔 درخواست جدید احراز هویت</b>\n\n"
                 f"<b>👤 نام کاربر : {user_mention}</b>\n"
                 f"<b>🆔 آیدی عددی : {user_id_str}</b>\n"
-                f"<b>📝 توضیحات :</b>\n"
-                f"<code>{caption}</code>\n\n"
+                f"<b>💳 شماره کارت : <code>{card_number}</code></b>\n\n"
                 f"<b>🕐 ساعت : {time_str}</b>\n"
                 f"<b>📅 تاریخ : {date_str}</b>"
             )
@@ -952,19 +982,28 @@ async def handle_verify_photo(update: Update, context: ContextTypes.DEFAULT_TYPE
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
-            await context.bot.send_photo(
-                chat_id=admin_id,
-                photo=photo.file_id,
-                caption=admin_text,
-                reply_markup=reply_markup,
-                parse_mode='HTML'
-            )
+            if photo:
+                await context.bot.send_photo(
+                    chat_id=admin_id,
+                    photo=photo.file_id,
+                    caption=admin_text,
+                    reply_markup=reply_markup,
+                    parse_mode='HTML'
+                )
+            else:
+                await context.bot.send_message(
+                    chat_id=admin_id,
+                    text=admin_text,
+                    reply_markup=reply_markup,
+                    parse_mode='HTML'
+                )
         except:
             pass
     
     await update.message.reply_text(
-        "<b>✅ درخواست احراز هویت شما برای مدیریت ارسال شد.</b>\n"
-        "<b>◄ لطفا منتظر تایید بمانید.</b>",
+        "<b>✅ درخواست احراز هویت شما با موفقیت برای مدیریت ارسال شد.</b>\n"
+        "<b>◄ لطفا منتظر تایید از سوی مدیریت باشید.</b>\n"
+        "<b>◄ از ارسال درخواست‌های تکراری خودداری فرمایید.</b>",
         parse_mode='HTML'
     )
     
@@ -980,19 +1019,19 @@ async def accept_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             await context.bot.send_message(
                 chat_id=user_id,
-                text="<b>✅ درخواست احراز هویت شما با موفقیت توسط مدیریت پذیرفته شد.</b>\n<b>◄ حالا میتوانید ربات را مجدد استارت کنید و خرید اشتراک انجام دهید.</b>",
+                text="<b>✅ درخواست احراز هویت شما با موفقیت توسط مدیریت پذیرفته شد.</b>\n\n<b>◄ تبریک میگوییم! شما اکنون احراز هویت شده اید.</b>\n<b>◄ میتوانید ربات را مجدد استارت کنید و از بخش خرید اشتراک استفاده نمایید.</b>",
                 parse_mode='HTML'
             )
         except:
             pass
         
         await query.edit_message_text(
-            f"<b>✅ درخواست احراز هویت کاربر {user_id} با موفقیت پذیرفته شد!</b>",
+            f"<b>✅ درخواست احراز هویت کاربر با آیدی {user_id} با موفقیت پذیرفته شد.</b>",
             parse_mode='HTML'
         )
     else:
         await query.edit_message_text(
-            f"<b>⚠️ کاربر {user_id} قبلاً احراز هویت شده است!</b>",
+            f"<b>⚠️ کاربر با آیدی {user_id} قبلاً احراز هویت شده است!</b>",
             parse_mode='HTML'
         )
 
@@ -1005,14 +1044,14 @@ async def reject_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await context.bot.send_message(
             chat_id=user_id,
-            text="<b>❌ درخواست احراز هویت شما توسط مدیریت پذیرفته نشد.</b>\n<b>◄ لطفا دوباره تلاش کنید و اطلاعات صحیح را ارسال کنید.</b>\n<b>◄ در صورت نیاز با پشتیبانی تماس بگیرید.</b>",
+            text="<b>❌ درخواست احراز هویت شما توسط مدیریت پذیرفته نشد.</b>\n\n<b>◄ لطفا دوباره تلاش کنید و اطلاعات صحیح و کامل را ارسال نمایید.</b>\n<b>◄ در صورت نیاز میتوانید با تیم پشتیبانی تماس بگیرید.</b>",
             parse_mode='HTML'
         )
     except:
         pass
     
     await query.edit_message_text(
-        f"<b>❌ درخواست احراز هویت کاربر {user_id} رد شد!</b>",
+        f"<b>❌ درخواست احراز هویت کاربر با آیدی {user_id} رد شد.</b>",
         parse_mode='HTML'
     )
 
@@ -1024,7 +1063,8 @@ async def back_to_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
         del user_states[query.from_user.id]
     
     text = (
-        "<b>◄ به منوی احراز هویت خوش آمدید ، لطفا انتخاب کنید :</b>"
+        "<b>◄ به منوی احراز هویت خوش آمدید.</b>\n\n"
+        "<b>◄ لطفا یکی از گزینه‌های زیر را انتخاب نمایید :</b>"
     )
     
     keyboard = [
@@ -1046,7 +1086,7 @@ async def buy_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if not is_user_verified(user_id):
         text = (
-            "<b>◂ برای خرید باید ابتدا احراز هویت کنید.</b>"
+            "<b>◂ برای خرید اشتراک سلف، ابتدا باید احراز هویت کنید.</b>"
         )
         
         keyboard = [
@@ -1059,7 +1099,7 @@ async def buy_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     text = (
-        "<b>◄ لطفا از گزینه های زیر انتخاب کنید میخواهید ریپر سلف را برای چند ماه خریداری کنید.</b>"
+        "<b>◄ لطفا از گزینه های زیر انتخاب نمایید که میخواهید ریپر سلف را برای چند ماه خریداری کنید.</b>"
     )
     
     keyboard = [
@@ -1093,11 +1133,11 @@ async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
             total_users.add(code.get('used_by'))
     
     text = (
-        "<b>📊 آمار کل</b>\n\n"
+        "<b>📊 آمار کل ربات ریپر سلف</b>\n\n"
         f"<b>👥 تعداد کل کاربران : {len(total_users)}</b>\n"
         f"<b>✅ کاربران احراز هویت شده : {len(verified)}</b>\n"
         f"<b>🚫 کاربران مسدود شده : {len(banned)}</b>\n"
-        f"<b>🔢 تعداد کل کدها : {total_codes}</b>\n"
+        f"<b>🔢 تعداد کل کدهای سلف : {total_codes}</b>\n"
         f"<b>✅ کدهای استفاده شده : {used_codes}</b>\n"
         f"<b>❌ کدهای استفاده نشده : {total_codes - used_codes}</b>\n"
         f"<b>👥 تعداد سشن‌های ذخیره شده : {len(sessions)}</b>\n"
@@ -1209,7 +1249,25 @@ async def admin_users_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def admin_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.answer("⚙️ تنظیمات به زودی اضافه میشود!", show_alert=True)
+    
+    user_mention = f"@{query.from_user.username}" if query.from_user.username else query.from_user.first_name
+    
+    text = (
+        f"<b>⫸ درود {user_mention} به بخش تنظیمات پنل مدیریت ریپر سلف خوش آمدید.</b>\n\n"
+        "<b>◄ در این بخش میتوانید تمامی تنظیمات و مدیریت ربات را انجام دهید.</b>\n\n"
+        "<b>◂ لطفا از منوی زیر یکی از گزینه‌های مورد نظر خود را انتخاب نمایید.</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("➕ ساخت کد سلف", callback_data="admin_create_code"), InlineKeyboardButton("❌ باطل کد سلف", callback_data="admin_cancel_code")],
+        [InlineKeyboardButton("🚫 مسدود کردن کاربر", callback_data="admin_block_user"), InlineKeyboardButton("✅ آزاد کردن کاربر", callback_data="admin_unblock_user")],
+        [InlineKeyboardButton("📤 انتقال اعتبار", callback_data="admin_transfer_credit"), InlineKeyboardButton("📉 کسر اعتبار", callback_data="admin_deduct_credit")],
+        [InlineKeyboardButton("🔑 ورود سلف", callback_data="admin_salf_login"), InlineKeyboardButton("🚪 خروج سلف", callback_data="admin_salf_logout")],
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
 # ==================== بخش مسدود کردن/آزاد کردن کاربر ====================
 
@@ -1221,7 +1279,8 @@ async def admin_block_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     text = (
         "<b>🚫 مسدود کردن کاربر</b>\n\n"
-        "<b>◄ لطفا آیدی یا آیدی عددی کاربر مورد نظر را ارسال کنید:</b>"
+        "<b>◄ لطفا آیدی عددی کاربر مورد نظر برای مسدود سازی را وارد کنید.</b>\n"
+        "<b>⚠️ توجه : پس از مسدود شدن، کاربر قادر به استفاده از ربات نخواهد بود.</b>"
     )
     
     keyboard = [
@@ -1239,7 +1298,8 @@ async def admin_unblock_user(update: Update, context: ContextTypes.DEFAULT_TYPE)
     
     text = (
         "<b>✅ آزاد کردن کاربر</b>\n\n"
-        "<b>◄ لطفا آیدی یا آیدی عددی کاربر مورد نظر را ارسال کنید:</b>"
+        "<b>◄ لطفا آیدی عددی کاربر مورد نظر برای آزاد سازی از مسدودیت را وارد کنید.</b>\n"
+        "<b>⚠️ توجه : پس از آزاد سازی، کاربر دوباره میتواند از ربات استفاده کند.</b>"
     )
     
     keyboard = [
@@ -1283,13 +1343,13 @@ async def handle_block_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pass
         
         await update.message.reply_text(
-            f"<b>✅ کاربر با آیدی {target_id_int} با موفقیت مسدود شد!</b>\n"
+            f"<b>✅ کاربر با آیدی {target_id_int} با موفقیت مسدود شد.</b>\n"
             "<b>◄ پیام مسدودیت برای کاربر ارسال شد.</b>",
             parse_mode='HTML'
         )
     else:
         await update.message.reply_text(
-            f"<b>⚠️ کاربر با آیدی {target_id_int} قبلاً مسدود شده است!</b>",
+            f"<b>⚠️ کاربر با آیدی {target_id_int} قبلاً در لیست مسدودین قرار دارد.</b>",
             parse_mode='HTML'
         )
     
@@ -1322,13 +1382,13 @@ async def handle_unblock_user(update: Update, context: ContextTypes.DEFAULT_TYPE
             pass
         
         await update.message.reply_text(
-            f"<b>✅ کاربر با آیدی {target_id_int} با موفقیت آزاد شد!</b>\n"
+            f"<b>✅ کاربر با آیدی {target_id_int} با موفقیت از مسدودیت آزاد شد.</b>\n"
             "<b>◄ پیام آزادی برای کاربر ارسال شد.</b>",
             parse_mode='HTML'
         )
     else:
         await update.message.reply_text(
-            f"<b>⚠️ کاربر با آیدی {target_id_int} در لیست مسدودین نیست!</b>",
+            f"<b>⚠️ کاربر با آیدی {target_id_int} در لیست مسدودین وجود ندارد.</b>",
             parse_mode='HTML'
         )
     
@@ -1345,9 +1405,9 @@ async def admin_salf_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     text = (
         "<b>🔑 ورود سلف (مدیریت)</b>\n\n"
-        "<b>◄ لطفا شماره موبایل کاربر را با کد کشور وارد کنید:</b>\n"
+        "<b>◄ لطفا شماره موبایل کاربر را با کد کشور وارد کنید.</b>\n"
         "<b>مثال : +989123456789</b>\n\n"
-        "<b>⚠️ این بخش برای ورود سلف به اکانت کاربران دیگر است.</b>"
+        "<b>⚠️ این بخش مخصوص ورود سلف به اکانت کاربران دیگر توسط مدیریت است.</b>"
     )
     
     keyboard = [
@@ -1376,7 +1436,7 @@ async def admin_handle_salf_phone(update: Update, context: ContextTypes.DEFAULT_
     
     text = (
         "<b>🔑 مرحله 2 از 5</b>\n\n"
-        "<b>◄ لطفا آیدی عددی کاربر مورد نظر را وارد کنید:</b>"
+        "<b>◄ لطفا آیدی عددی کاربر مورد نظر را وارد کنید.</b>"
     )
     
     await update.message.reply_text(text, parse_mode='HTML')
@@ -1402,7 +1462,7 @@ async def admin_handle_salf_user_id(update: Update, context: ContextTypes.DEFAUL
     
     text = (
         "<b>🔑 مرحله 3 از 5</b>\n\n"
-        "<b>◄ لطفا آیپی عددی (API ID) را وارد کنید:</b>\n"
+        "<b>◄ لطفا آیپی عددی (API ID) را وارد کنید.</b>\n"
         "<b>⚠️ توجه: API ID باید عددی بین 1 تا 2147483647 باشد.</b>"
     )
     
@@ -1436,7 +1496,7 @@ async def admin_handle_salf_api_id(update: Update, context: ContextTypes.DEFAULT
     
     text = (
         "<b>🔑 مرحله 4 از 5</b>\n\n"
-        "<b>◄ لطفا آیپی هش (API Hash) را وارد کنید:</b>"
+        "<b>◄ لطفا آیپی هش (API Hash) را وارد کنید.</b>"
     )
     
     await update.message.reply_text(text, parse_mode='HTML')
@@ -1668,17 +1728,53 @@ async def admin_handle_salf_password(update: Update, context: ContextTypes.DEFAU
 async def admin_salf_logout(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.answer("🚪 لطفا آیدی سلف مورد نظر را وارد کنید!", show_alert=True)
+    
+    text = (
+        "<b>🚪 خروج سلف</b>\n\n"
+        "<b>◄ لطفا آیدی عددی سلف مورد نظر برای خروج را وارد کنید.</b>\n"
+        "<b>⚠️ توجه : پس از خروج، سلف از اکانت کاربر خارج خواهد شد.</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_back")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
 async def admin_transfer_credit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.answer("📤 لطفا آیدی کاربر و مقدار اعتبار را وارد کنید!", show_alert=True)
+    
+    text = (
+        "<b>📤 انتقال اعتبار</b>\n\n"
+        "<b>◄ لطفا آیدی کاربر مبدا، آیدی کاربر مقصد و مقدار اعتبار را وارد کنید.</b>\n"
+        "<b>⚠️ توجه : این عملیات غیرقابل بازگشت است.</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_back")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
 async def admin_deduct_credit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.answer("📉 لطفا آیدی کاربر و مقدار اعتبار را وارد کنید!", show_alert=True)
+    
+    text = (
+        "<b>📉 کسر اعتبار</b>\n\n"
+        "<b>◄ لطفا آیدی کاربر و مقدار اعتبار مورد نظر برای کسر را وارد کنید.</b>\n"
+        "<b>⚠️ توجه : این عملیات غیرقابل بازگشت است.</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_back")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
 async def admin_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1699,10 +1795,6 @@ async def admin_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     keyboard = [
         [InlineKeyboardButton("⚙️ تنظیمات", callback_data="admin_settings")],
-        [InlineKeyboardButton("➕ ساخت کد سلف", callback_data="admin_create_code"), InlineKeyboardButton("❌ باطل کد سلف", callback_data="admin_cancel_code")],
-        [InlineKeyboardButton("🚫 مسدود کردن کاربر", callback_data="admin_block_user"), InlineKeyboardButton("✅ آزاد کردن کاربر", callback_data="admin_unblock_user")],
-        [InlineKeyboardButton("📤 انتقال اعتبار", callback_data="admin_transfer_credit"), InlineKeyboardButton("📉 کسر اعتبار", callback_data="admin_deduct_credit")],
-        [InlineKeyboardButton("🔑 ورود سلف", callback_data="admin_salf_login"), InlineKeyboardButton("🚪 خروج سلف", callback_data="admin_salf_logout")],
         [InlineKeyboardButton("📊 آمار کل", callback_data="admin_stats")],
         [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping"), InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")],
         [InlineKeyboardButton("👥 منوی کاربران", callback_data="admin_users_menu")]
@@ -1735,7 +1827,7 @@ async def buy_with_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_states[query.from_user.id] = "waiting_for_activation_code"
     
     text = (
-        "<b>◄ لطفا کد انقضای خریداری شده خود را ارسال کنید :</b>"
+        "<b>◄ لطفا کد انقضای خریداری شده خود را ارسال کنید.</b>"
     )
     
     keyboard = [
@@ -1815,10 +1907,6 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         keyboard = [
             [InlineKeyboardButton("⚙️ تنظیمات", callback_data="admin_settings")],
-            [InlineKeyboardButton("➕ ساخت کد سلف", callback_data="admin_create_code"), InlineKeyboardButton("❌ باطل کد سلف", callback_data="admin_cancel_code")],
-            [InlineKeyboardButton("🚫 مسدود کردن کاربر", callback_data="admin_block_user"), InlineKeyboardButton("✅ آزاد کردن کاربر", callback_data="admin_unblock_user")],
-            [InlineKeyboardButton("📤 انتقال اعتبار", callback_data="admin_transfer_credit"), InlineKeyboardButton("📉 کسر اعتبار", callback_data="admin_deduct_credit")],
-            [InlineKeyboardButton("🔑 ورود سلف", callback_data="admin_salf_login"), InlineKeyboardButton("🚪 خروج سلف", callback_data="admin_salf_logout")],
             [InlineKeyboardButton("📊 آمار کل", callback_data="admin_stats")],
             [InlineKeyboardButton("📡 بررسی پینگ", callback_data="admin_ping"), InlineKeyboardButton("⏳ اعتبار هاست", callback_data="admin_host")],
             [InlineKeyboardButton("👥 منوی کاربران", callback_data="admin_users_menu")]
@@ -1887,7 +1975,7 @@ async def salf_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     text = (
         "<b>🔑 ورود به سلف</b>\n\n"
-        "<b>◄ لطفا شماره موبایل خود را با کد کشور وارد کنید:</b>\n"
+        "<b>◄ لطفا شماره موبایل خود را با کد کشور وارد کنید.</b>\n"
         "<b>مثال : +989123456789</b>\n\n"
         "<b>در صورتی که منصرف شده‌اید دکمه زیر را کلیک کنید.</b>"
     )
@@ -1918,7 +2006,7 @@ async def handle_salf_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.message.reply_text(
         "<b>🔑 مرحله 2 از 4</b>\n\n"
-        "<b>◄ لطفا آیپی عددی (API ID) خود را وارد کنید:</b>\n"
+        "<b>◄ لطفا آیپی عددی (API ID) خود را وارد کنید.</b>\n"
         "<b>⚠️ توجه: API ID باید عددی بین 1 تا 2147483647 باشد.</b>",
         parse_mode='HTML'
     )
@@ -1952,7 +2040,7 @@ async def handle_salf_api_id(update: Update, context: ContextTypes.DEFAULT_TYPE)
     
     await update.message.reply_text(
         "<b>🔑 مرحله 3 از 4</b>\n\n"
-        "<b>◄ لطفا آیپی هش (API Hash) خود را وارد کنید:</b>",
+        "<b>◄ لطفا آیپی هش (API Hash) خود را وارد کنید.</b>",
         parse_mode='HTML'
     )
 
@@ -2258,7 +2346,8 @@ async def admin_create_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     text = (
         "<b>➕ ساخت کد سلف جدید</b>\n\n"
-        "<b>◄ لطفا روز انقضا را بفرستید (عدد بین 1 تا 100000):</b>"
+        "<b>◄ لطفا تعداد روز انقضا را به صورت عدد وارد کنید.</b>\n"
+        "<b>⚠️ توجه : عدد وارد شده باید بین 1 تا 100000 باشد.</b>"
     )
     
     keyboard = [
@@ -2275,7 +2364,8 @@ async def admin_cancel_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     text = (
         "<b>❌ باطل کردن کد سلف</b>\n\n"
-        "<b>◄ لطفا کد سلف مورد نظر برای باطل شدن را وارد کنید:</b>"
+        "<b>◄ لطفا کد سلف مورد نظر برای باطل شدن را وارد کنید.</b>\n"
+        "<b>⚠️ توجه : کدهایی که قبلاً استفاده شده اند قابل باطل کردن نیستند.</b>"
     )
     
     keyboard = [
@@ -2396,6 +2486,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         if state == "waiting_for_verify_photo":
             await handle_verify_photo(update, context)
+            return
+        
+        elif state == "waiting_for_card_number":
+            await handle_verify_card_number(update, context)
             return
         
         elif state == "waiting_for_activation_code":
