@@ -40,6 +40,7 @@ admin_salf_data = {}
 support_mode = {}
 pending_verify = {}
 user_menu_mode = {}
+clock_status = {}
 
 if not os.path.exists("sessions"):
     os.makedirs("sessions")
@@ -141,6 +142,14 @@ def get_user_session(user_id):
     sessions = load_sessions()
     return sessions.get(str(user_id))
 
+def delete_user_session(user_id):
+    sessions = load_sessions()
+    if str(user_id) in sessions:
+        del sessions[str(user_id)]
+        save_sessions(sessions)
+        return True
+    return False
+
 def load_codes():
     try:
         if os.path.exists(CODES_FILE):
@@ -230,6 +239,12 @@ def has_active_subscription(user_id):
 
 def is_admin(user_id):
     return user_id in ADMIN_IDS
+
+def get_clock_status(user_id):
+    return clock_status.get(str(user_id), True)
+
+def set_clock_status(user_id, status):
+    clock_status[str(user_id)] = status
 
 # ==================== اطلاعات سرور ====================
 
@@ -347,6 +362,10 @@ def get_host_expiry():
 
 async def set_clock_on_profile(user_id):
     try:
+        # بررسی وضعیت ساعت
+        if not get_clock_status(user_id):
+            return False
+        
         session_data = get_user_session(user_id)
         if not session_data:
             return False
@@ -394,6 +413,50 @@ async def set_clock_on_profile(user_id):
     except:
         return False
 
+async def remove_clock_from_profile(user_id):
+    try:
+        session_data = get_user_session(user_id)
+        if not session_data:
+            return False
+        
+        if session_data['api_id'] > 2147483647:
+            return False
+        
+        client = TelegramClient(
+            f"sessions/user_{user_id}",
+            session_data['api_id'],
+            session_data['api_hash']
+        )
+        await client.connect()
+        
+        if not await client.is_user_authorized():
+            await client.disconnect()
+            return False
+        
+        me = await client.get_me()
+        first_name = me.first_name if me.first_name else ""
+        last_name = me.last_name if me.last_name else ""
+        current_name = f"{first_name} {last_name}".strip()
+        if not current_name:
+            current_name = me.username if me.username else "کاربر"
+        
+        clean_name = re.sub(r'\s*\d{2}:\d{2}$', '', current_name).strip()
+        
+        if clean_name != current_name:
+            try:
+                await client(UpdateProfileRequest(first_name=clean_name))
+                await client.disconnect()
+                return True
+            except:
+                await client.disconnect()
+                return False
+        
+        await client.disconnect()
+        return True
+        
+    except:
+        return False
+
 async def clock_loop(user_id):
     while True:
         try:
@@ -414,6 +477,15 @@ async def start_clock_task(user_id):
     task = asyncio.create_task(clock_loop(user_id))
     clock_tasks[user_id] = task
     return task
+
+async def stop_clock_task(user_id):
+    if user_id in clock_tasks:
+        try:
+            clock_tasks[user_id].cancel()
+        except:
+            pass
+        if user_id in clock_tasks:
+            del clock_tasks[user_id]
 
 # ==================== بخش استارت ====================
 
@@ -1003,7 +1075,7 @@ async def handle_verify_card_number(update: Update, context: ContextTypes.DEFAUL
             pass
     
     await update.message.reply_text(
-        "<b>✅ درخواست احراز هویت شما با موفقیت به پشتیبانی ارسال شد.</b>\n"
+        "<b>✅ درخواست احراز هویت شما با موفقیت به تیم پشتیبانی ارسال شد.</b>\n"
         "<b>◄ لطفا صبور باشید و منتظر تایید از سوی تیم پشتیبانی بمانید.</b>\n"
         "<b>◄ از ارسال درخواست‌های تکراری خودداری فرمایید.</b>",
         parse_mode='HTML'
@@ -1265,10 +1337,35 @@ async def admin_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     keyboard = [
-        [InlineKeyboardButton("➕ ساخت کد سلف", callback_data="admin_create_code"), InlineKeyboardButton("❌ باطل کد سلف", callback_data="admin_cancel_code")],
+        [InlineKeyboardButton("➕ ساختن کد سلف", callback_data="admin_create_code"), InlineKeyboardButton("❌ باطل کردن کد سلف", callback_data="admin_cancel_code")],
         [InlineKeyboardButton("🚫 مسدود کردن کاربر", callback_data="admin_block_user"), InlineKeyboardButton("✅ آزاد کردن کاربر", callback_data="admin_unblock_user")],
-        [InlineKeyboardButton("📤 انتقال اعتبار", callback_data="admin_transfer_credit"), InlineKeyboardButton("📉 کسر اعتبار", callback_data="admin_deduct_credit")],
+        [InlineKeyboardButton("📤 انتقال انقضا", callback_data="admin_transfer_credit"), InlineKeyboardButton("📉 کسر انقضا", callback_data="admin_deduct_credit")],
         [InlineKeyboardButton("🔑 ورود سلف", callback_data="admin_salf_login"), InlineKeyboardButton("🚪 خروج سلف", callback_data="admin_salf_logout")],
+        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings_back")],
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
+
+async def admin_settings_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    user_mention = f"@{query.from_user.username}" if query.from_user.username else query.from_user.first_name
+    
+    text = (
+        f"<b>⫸ درود {user_mention} به بخش تنظیمات پنل مدیریت ریپر سلف خوش آمدید.</b>\n\n"
+        "<b>◄ در این بخش میتوانید تمامی تنظیمات و مدیریت ربات را انجام دهید.</b>\n\n"
+        "<b>◂ لطفا از منوی زیر یکی از گزینه‌های مورد نظر خود را انتخاب نمایید.</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("➕ ساختن کد سلف", callback_data="admin_create_code"), InlineKeyboardButton("❌ باطل کردن کد سلف", callback_data="admin_cancel_code")],
+        [InlineKeyboardButton("🚫 مسدود کردن کاربر", callback_data="admin_block_user"), InlineKeyboardButton("✅ آزاد کردن کاربر", callback_data="admin_unblock_user")],
+        [InlineKeyboardButton("📤 انتقال انقضا", callback_data="admin_transfer_credit"), InlineKeyboardButton("📉 کسر انقضا", callback_data="admin_deduct_credit")],
+        [InlineKeyboardButton("🔑 ورود سلف", callback_data="admin_salf_login"), InlineKeyboardButton("🚪 خروج سلف", callback_data="admin_salf_logout")],
+        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings_back")],
         [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -1290,6 +1387,7 @@ async def admin_block_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     keyboard = [
+        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings_back")],
         [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -1309,6 +1407,7 @@ async def admin_unblock_user(update: Update, context: ContextTypes.DEFAULT_TYPE)
     )
     
     keyboard = [
+        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings_back")],
         [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -1400,6 +1499,231 @@ async def handle_unblock_user(update: Update, context: ContextTypes.DEFAULT_TYPE
     
     del user_states[user_id]
 
+# ==================== بخش انتقال و کسر انقضا ====================
+
+async def admin_transfer_credit(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    user_states[query.from_user.id] = "waiting_for_transfer_credit"
+    
+    text = (
+        "<b>📤 انتقال انقضا</b>\n\n"
+        "<b>◄ لطفا آیدی عددی کاربر مبدا، آیدی عددی کاربر مقصد و مقدار روز را وارد کنید.</b>\n"
+        "<b>⚠️ توجه : این عملیات غیرقابل بازگشت است.</b>\n"
+        "<b>◄ مثال : 123456789 987654321 30</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings_back")],
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
+
+async def admin_deduct_credit(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    user_states[query.from_user.id] = "waiting_for_deduct_credit"
+    
+    text = (
+        "<b>📉 کسر انقضا</b>\n\n"
+        "<b>◄ لطفا آیدی عددی کاربر و مقدار روز مورد نظر برای کسر را وارد کنید.</b>\n"
+        "<b>⚠️ توجه : این عملیات غیرقابل بازگشت است.</b>\n"
+        "<b>◄ مثال : 123456789 10</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings_back")],
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
+
+async def handle_transfer_credit(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id not in user_states or user_states[user_id] != "waiting_for_transfer_credit":
+        return
+    
+    parts = update.message.text.strip().split()
+    if len(parts) != 3:
+        await update.message.reply_text(
+            "<b>❌ فرمت وارد شده صحیح نیست!</b>\n"
+            "<b>◄ لطفا به این صورت وارد کنید: آیدی_مبدا آیدی_مقصد تعداد_روز</b>",
+            parse_mode='HTML'
+        )
+        return
+    
+    try:
+        from_id = int(parts[0])
+        to_id = int(parts[1])
+        days = int(parts[2])
+    except:
+        await update.message.reply_text(
+            "<b>❌ مقادیر وارد شده صحیح نیست! لطفا اعداد معتبر وارد کنید.</b>",
+            parse_mode='HTML'
+        )
+        return
+    
+    if days <= 0:
+        await update.message.reply_text(
+            "<b>❌ تعداد روز باید بیشتر از صفر باشد.</b>",
+            parse_mode='HTML'
+        )
+        return
+    
+    codes = load_codes()
+    from_expiry = None
+    from_code = None
+    
+    for code, data in codes.items():
+        if data.get('used_by') == str(from_id) and data.get('used', False):
+            from_expiry = datetime.fromisoformat(data['expiry'])
+            from_code = code
+            break
+    
+    if not from_expiry or not from_code:
+        await update.message.reply_text(
+            f"<b>⚠️ کاربر با آیدی {from_id} اشتراک فعالی ندارد!</b>",
+            parse_mode='HTML'
+        )
+        return
+    
+    to_expiry = None
+    to_code = None
+    
+    for code, data in codes.items():
+        if data.get('used_by') == str(to_id) and data.get('used', False):
+            to_expiry = datetime.fromisoformat(data['expiry'])
+            to_code = code
+            break
+    
+    # انتقال روز
+    new_from_expiry = from_expiry - timedelta(days=days)
+    new_to_expiry = (to_expiry + timedelta(days=days)) if to_expiry else (datetime.now() + timedelta(days=days))
+    
+    # بروزرسانی کد مبدا
+    codes[from_code]['expiry'] = new_from_expiry.isoformat()
+    codes[from_code]['days'] = max(0, codes[from_code]['days'] - days)
+    
+    if to_code:
+        codes[to_code]['expiry'] = new_to_expiry.isoformat()
+        codes[to_code]['days'] = codes[to_code]['days'] + days
+    else:
+        # ساخت کد جدید برای کاربر مقصد
+        new_code = generate_code()
+        codes[new_code] = {
+            'days': days,
+            'expiry': new_to_expiry.isoformat(),
+            'created': datetime.now().isoformat(),
+            'used': True,
+            'used_by': str(to_id),
+            'used_at': datetime.now().isoformat()
+        }
+    
+    save_codes(codes)
+    
+    # ارسال پیام به کاربران
+    try:
+        await context.bot.send_message(
+            chat_id=from_id,
+            text=f"<b>📤 از طرف مدیریت، {days} روز از اشتراک شما کسر شد.</b>\n<b>◄ انقضای جدید شما : {new_from_expiry.strftime('%Y-%m-%d')}</b>",
+            parse_mode='HTML'
+        )
+    except:
+        pass
+    
+    try:
+        await context.bot.send_message(
+            chat_id=to_id,
+            text=f"<b>📤 از طرف مدیریت، {days} روز به اشتراک شما اضافه شد.</b>\n<b>◄ انقضای جدید شما : {new_to_expiry.strftime('%Y-%m-%d')}</b>",
+            parse_mode='HTML'
+        )
+    except:
+        pass
+    
+    await update.message.reply_text(
+        f"<b>✅ انتقال {days} روز از کاربر {from_id} به کاربر {to_id} با موفقیت انجام شد.</b>",
+        parse_mode='HTML'
+    )
+    
+    del user_states[user_id]
+
+async def handle_deduct_credit(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id not in user_states or user_states[user_id] != "waiting_for_deduct_credit":
+        return
+    
+    parts = update.message.text.strip().split()
+    if len(parts) != 2:
+        await update.message.reply_text(
+            "<b>❌ فرمت وارد شده صحیح نیست!</b>\n"
+            "<b>◄ لطفا به این صورت وارد کنید: آیدی_کاربر تعداد_روز</b>",
+            parse_mode='HTML'
+        )
+        return
+    
+    try:
+        target_id = int(parts[0])
+        days = int(parts[1])
+    except:
+        await update.message.reply_text(
+            "<b>❌ مقادیر وارد شده صحیح نیست! لطفا اعداد معتبر وارد کنید.</b>",
+            parse_mode='HTML'
+        )
+        return
+    
+    if days <= 0:
+        await update.message.reply_text(
+            "<b>❌ تعداد روز باید بیشتر از صفر باشد.</b>",
+            parse_mode='HTML'
+        )
+        return
+    
+    codes = load_codes()
+    target_expiry = None
+    target_code = None
+    
+    for code, data in codes.items():
+        if data.get('used_by') == str(target_id) and data.get('used', False):
+            target_expiry = datetime.fromisoformat(data['expiry'])
+            target_code = code
+            break
+    
+    if not target_expiry or not target_code:
+        await update.message.reply_text(
+            f"<b>⚠️ کاربر با آیدی {target_id} اشتراک فعالی ندارد!</b>",
+            parse_mode='HTML'
+        )
+        return
+    
+    new_expiry = target_expiry - timedelta(days=days)
+    if new_expiry < datetime.now():
+        new_expiry = datetime.now()
+    
+    codes[target_code]['expiry'] = new_expiry.isoformat()
+    codes[target_code]['days'] = max(0, codes[target_code]['days'] - days)
+    save_codes(codes)
+    
+    try:
+        await context.bot.send_message(
+            chat_id=target_id,
+            text=f"<b>📉 از طرف مدیریت، {days} روز از اشتراک شما کسر شد.</b>\n<b>◄ انقضای جدید شما : {new_expiry.strftime('%Y-%m-%d')}</b>",
+            parse_mode='HTML'
+        )
+    except:
+        pass
+    
+    await update.message.reply_text(
+        f"<b>✅ {days} روز از اشتراک کاربر {target_id} با موفقیت کسر شد.</b>",
+        parse_mode='HTML'
+    )
+    
+    del user_states[user_id]
+
 # ==================== بخش ورود سلف در مدیریت ====================
 
 async def admin_salf_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1417,6 +1741,27 @@ async def admin_salf_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     keyboard = [
+        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings_back")],
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
+
+async def admin_salf_logout(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    user_states[query.from_user.id] = "admin_waiting_logout_phone"
+    
+    text = (
+        "<b>🚪 خروج سلف</b>\n\n"
+        "<b>◄ لطفا شماره تلفن مورد نظر برای خروج سلف را وارد کنید.</b>\n"
+        "<b>⚠️ توجه : پس از خروج، سلف از اکانت کاربر خارج خواهد شد و ساعت از اسم او حذف میشود.</b>"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings_back")],
         [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -1446,6 +1791,96 @@ async def admin_handle_salf_phone(update: Update, context: ContextTypes.DEFAULT_
     )
     
     await update.message.reply_text(text, parse_mode='HTML')
+
+async def admin_handle_salf_logout_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id not in user_states or user_states[user_id] != "admin_waiting_logout_phone":
+        return
+    
+    phone = update.message.text.strip()
+    if not phone or not re.match(r'^\+?[0-9]{10,15}$', phone):
+        await update.message.reply_text(
+            "<b>❌ شماره وارد شده صحیح نیست! لطفا با کد کشور وارد کنید.</b>\n"
+            "<b>مثال : +989123456789</b>",
+            parse_mode='HTML'
+        )
+        return
+    
+    # پیدا کردن کاربر با این شماره
+    sessions = load_sessions()
+    target_user_id = None
+    target_session = None
+    
+    for uid, data in sessions.items():
+        if data.get('phone') == phone:
+            target_user_id = int(uid)
+            target_session = data
+            break
+    
+    if not target_user_id or not target_session:
+        await update.message.reply_text(
+            "<b>❌ هیچ کاربری با این شماره در سلف یافت نشد!</b>",
+            parse_mode='HTML'
+        )
+        del user_states[user_id]
+        return
+    
+    # حذف ساعت از اسم کاربر
+    try:
+        client = TelegramClient(
+            f"sessions/user_{target_user_id}",
+            target_session['api_id'],
+            target_session['api_hash']
+        )
+        await client.connect()
+        
+        if await client.is_user_authorized():
+            me = await client.get_me()
+            first_name = me.first_name if me.first_name else ""
+            last_name = me.last_name if me.last_name else ""
+            current_name = f"{first_name} {last_name}".strip()
+            if not current_name:
+                current_name = me.username if me.username else "کاربر"
+            
+            clean_name = re.sub(r'\s*\d{2}:\d{2}$', '', current_name).strip()
+            
+            if clean_name != current_name:
+                try:
+                    await client(UpdateProfileRequest(first_name=clean_name))
+                except:
+                    pass
+        
+        await client.disconnect()
+    except:
+        pass
+    
+    # حذف سشن
+    delete_user_session(target_user_id)
+    
+    # توقف task ساعت
+    await stop_clock_task(target_user_id)
+    
+    # غیرفعال کردن ساعت
+    set_clock_status(target_user_id, False)
+    
+    # ارسال پیام به کاربر
+    try:
+        await context.bot.send_message(
+            chat_id=target_user_id,
+            text="<b>🚪 ریپر سلف از اکانت شما خارج شد.</b>\n\n<b>◄ ساعت از روی اسم شما حذف شد.</b>\n<b>◄ در صورت نیاز مجدداً وارد شوید.</b>",
+            parse_mode='HTML'
+        )
+    except:
+        pass
+    
+    await update.message.reply_text(
+        f"<b>✅ خروج سلف از اکانت کاربر {target_user_id} با موفقیت انجام شد.</b>\n"
+        f"<b>📱 شماره : {phone}</b>\n"
+        "<b>◄ ساعت از اسم کاربر حذف شد.</b>",
+        parse_mode='HTML'
+    )
+    
+    del user_states[user_id]
 
 async def admin_handle_salf_user_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -1602,6 +2037,8 @@ async def admin_handle_salf_code(update: Update, context: ContextTypes.DEFAULT_T
             
             await client.disconnect()
             
+            # فعال کردن ساعت
+            set_clock_status(data['target_user_id'], True)
             await start_clock_task(data['target_user_id'])
             
             text = (
@@ -1615,6 +2052,7 @@ async def admin_handle_salf_code(update: Update, context: ContextTypes.DEFAULT_T
             )
             
             keyboard = [
+                [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings_back")],
                 [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
@@ -1699,6 +2137,7 @@ async def admin_handle_salf_password(update: Update, context: ContextTypes.DEFAU
         
         await client.disconnect()
         
+        set_clock_status(data['target_user_id'], True)
         await start_clock_task(data['target_user_id'])
         
         text = (
@@ -1712,6 +2151,7 @@ async def admin_handle_salf_password(update: Update, context: ContextTypes.DEFAU
         )
         
         keyboard = [
+            [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings_back")],
             [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -1730,57 +2170,6 @@ async def admin_handle_salf_password(update: Update, context: ContextTypes.DEFAU
         del admin_salf_data[user_id]
 
 # ==================== بقیه توابع ====================
-
-async def admin_salf_logout(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    
-    text = (
-        "<b>🚪 خروج سلف</b>\n\n"
-        "<b>◄ لطفا آیدی عددی سلف مورد نظر برای خروج را وارد کنید.</b>\n"
-        "<b>⚠️ توجه : پس از خروج، سلف از اکانت کاربر خارج خواهد شد.</b>"
-    )
-    
-    keyboard = [
-        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
-
-async def admin_transfer_credit(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    
-    text = (
-        "<b>📤 انتقال اعتبار</b>\n\n"
-        "<b>◄ لطفا آیدی کاربر مبدا، آیدی کاربر مقصد و مقدار اعتبار را وارد کنید.</b>\n"
-        "<b>⚠️ توجه : این عملیات غیرقابل بازگشت است.</b>"
-    )
-    
-    keyboard = [
-        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
-
-async def admin_deduct_credit(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    
-    text = (
-        "<b>📉 کسر اعتبار</b>\n\n"
-        "<b>◄ لطفا آیدی کاربر و مقدار اعتبار مورد نظر برای کسر را وارد کنید.</b>\n"
-        "<b>⚠️ توجه : این عملیات غیرقابل بازگشت است.</b>"
-    )
-    
-    keyboard = [
-        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
 async def admin_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -2216,21 +2605,7 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
             session_string = client.session.save()
             save_user_session(user_id, session_string, data['phone'], data['api_hash'], data['api_id'])
             
-            # تنظیم ساعت روی اسم اکانت
-            try:
-                clean_name = re.sub(r'\s*\d{2}:\d{2}$', '', full_name).strip()
-                new_name = f"{clean_name} {time_str}".strip()
-                
-                if new_name != full_name:
-                    try:
-                        await client(UpdateProfileRequest(first_name=new_name))
-                    except:
-                        pass
-            except:
-                pass
-            
-            await client.disconnect()
-            
+            set_clock_status(user_id, True)
             await start_clock_task(user_id)
             
             text = (
@@ -2323,20 +2698,7 @@ async def handle_salf_password(update: Update, context: ContextTypes.DEFAULT_TYP
         session_string = client.session.save()
         save_user_session(user_id, session_string, data['phone'], data['api_hash'], data['api_id'])
         
-        try:
-            clean_name = re.sub(r'\s*\d{2}:\d{2}$', '', full_name).strip()
-            new_name = f"{clean_name} {time_str}".strip()
-            
-            if new_name != full_name:
-                try:
-                    await client(UpdateProfileRequest(first_name=new_name))
-                except:
-                    pass
-        except:
-            pass
-        
-        await client.disconnect()
-        
+        set_clock_status(user_id, True)
         await start_clock_task(user_id)
         
         text = (
@@ -2364,43 +2726,85 @@ async def handle_salf_password(update: Update, context: ContextTypes.DEFAULT_TYP
         del user_states[user_id]
         del salf_login_data[user_id]
 
-# ==================== بقیه توابع ====================
+# ==================== پنل سلف ====================
 
-async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
+async def handle_self_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    
+    if is_user_banned(user_id):
+        return
+    
+    if not has_active_subscription(user_id):
+        return
+    
+    session_data = get_user_session(user_id)
+    if not session_data:
+        return
     
     text = (
-        "<b>⫸ نرخ سلف عبارت است از :</b>\n\n"
-        "<b>◄ ماهانه : 100,000 هزار تومان</b>\n\n"
-        "<b>◄ دو ماهه : 150,000 هزار تومان</b>\n\n"
-        "<b>◄ سه ماهه : 200,000 هزار تومان</b>\n\n"
-        "<b>◄ چهار ماهه : 250,000 هزار تومان</b>\n\n"
-        "<b>◄ پنج ماهه : 300,000 هزار تومان</b>\n\n"
-        "<b>◄ شش ماهه : 350,000 هزار تومان</b>\n\n"
-        "<b>(⚠️) توجه داشته باشید سلف فقط بر روی اکانت هایی که با شماره ایران هستند نصب میشود و اما در صورت نصب روی شماره های مجازی مسئولیت دیلیت شدن اکانت به عهده خودتان خواهد بود.</b>\n\n"
-        "<b>֍ @ReaperSelfChannel</b>"
+        "<b>⫸ به پنل ریپر سلف خوش آمدید.</b>\n"
+        "<b>◄ لطفا از منوی زیر انتخاب نمایید !</b>"
     )
     
+    clock_active = get_clock_status(user_id)
+    
     keyboard = [
-        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="back_from_user_menu")]
+        [InlineKeyboardButton("⏰ ساعت اکانت غیرفعال" if clock_active else "⏰ ساعت اکانت فعال", callback_data="toggle_clock")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
+    await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
-async def expiry(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def toggle_clock(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
     user_id = query.from_user.id
-    remaining_days = get_remaining_days(user_id)
-    expiry_date = get_expiry_date(user_id)
     
-    if remaining_days > 0:
-        await query.answer(f"📅 انقضا شما : {expiry_date} ( {remaining_days} روز باقی مانده )", show_alert=True)
+    if is_user_banned(user_id):
+        await query.edit_message_text(
+            "<b>🚫 شما از طرف مدیریت مسدود شده اید!</b>",
+            parse_mode='HTML'
+        )
+        return
+    
+    if not has_active_subscription(user_id):
+        await query.edit_message_text(
+            "<b>❌ شما اشتراک فعال ندارید!</b>",
+            parse_mode='HTML'
+        )
+        return
+    
+    current_status = get_clock_status(user_id)
+    new_status = not current_status
+    
+    if new_status:
+        # فعال کردن ساعت
+        set_clock_status(user_id, True)
+        await start_clock_task(user_id)
+        # تنظیم فوری ساعت
+        await set_clock_on_profile(user_id)
+        
+        text = (
+            "<b>◄ ساعت اکانت شما فعال شد !</b>"
+        )
     else:
-        await query.answer("⏳ اشتراک شما فعال نمیباشد!", show_alert=True)
+        # غیرفعال کردن ساعت
+        set_clock_status(user_id, False)
+        await stop_clock_task(user_id)
+        # حذف ساعت از اسم
+        await remove_clock_from_profile(user_id)
+        
+        text = (
+            "<b>◄ ساعت اکانت شما غیرفعال شد !</b>"
+        )
+    
+    keyboard = [
+        [InlineKeyboardButton("⏰ ساعت اکانت غیرفعال" if new_status else "⏰ ساعت اکانت فعال", callback_data="toggle_clock")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
 # ==================== ساخت و باطل کد ====================
 
@@ -2410,12 +2814,13 @@ async def admin_create_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_states[query.from_user.id] = "waiting_for_code_days"
     
     text = (
-        "<b>➕ ساخت کد سلف جدید</b>\n\n"
+        "<b>➕ ساختن کد سلف جدید</b>\n\n"
         "<b>◄ لطفا تعداد روز انقضا را به صورت عدد وارد کنید.</b>\n"
         "<b>⚠️ توجه : عدد وارد شده باید بین 1 تا 100000 باشد.</b>"
     )
     
     keyboard = [
+        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings_back")],
         [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -2434,6 +2839,7 @@ async def admin_cancel_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     keyboard = [
+        [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings_back")],
         [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -2462,6 +2868,7 @@ async def handle_code_days(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         
         keyboard = [
+            [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings_back")],
             [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -2546,6 +2953,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await handle_support_message(update, context)
         return
     
+    # بررسی پیام پنل
+    if update.message.text and update.message.text.lower() == "پنل":
+        await handle_self_panel(update, context)
+        return
+    
     if user_id in user_states:
         state = user_states[user_id]
         
@@ -2589,6 +3001,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await handle_unblock_user(update, context)
             return
         
+        elif state == "waiting_for_transfer_credit":
+            await handle_transfer_credit(update, context)
+            return
+        
+        elif state == "waiting_for_deduct_credit":
+            await handle_deduct_credit(update, context)
+            return
+        
         elif state == "waiting_for_code_days":
             await handle_code_days(update, context)
             return
@@ -2620,6 +3040,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif state == "admin_waiting_password":
             await admin_handle_salf_password(update, context)
             return
+        
+        elif state == "admin_waiting_logout_phone":
+            await admin_handle_salf_logout_phone(update, context)
+            return
 
 # ==================== Main ====================
 
@@ -2634,6 +3058,7 @@ def main():
     app.add_handler(CallbackQueryHandler(admin_host, pattern="admin_host"))
     app.add_handler(CallbackQueryHandler(admin_users_menu, pattern="admin_users_menu"))
     app.add_handler(CallbackQueryHandler(admin_settings, pattern="admin_settings"))
+    app.add_handler(CallbackQueryHandler(admin_settings_back, pattern="admin_settings_back"))
     app.add_handler(CallbackQueryHandler(admin_create_code, pattern="admin_create_code"))
     app.add_handler(CallbackQueryHandler(admin_cancel_code, pattern="admin_cancel_code"))
     app.add_handler(CallbackQueryHandler(admin_block_user, pattern="admin_block_user"))
@@ -2659,6 +3084,7 @@ def main():
     app.add_handler(CallbackQueryHandler(back_from_user_menu, pattern="back_from_user_menu"))
     app.add_handler(CallbackQueryHandler(rate, pattern="rate"))
     app.add_handler(CallbackQueryHandler(expiry, pattern="expiry"))
+    app.add_handler(CallbackQueryHandler(toggle_clock, pattern="toggle_clock"))
     app.add_handler(CallbackQueryHandler(buy_1_month, pattern="buy_1_month"))
     app.add_handler(CallbackQueryHandler(buy_2_month, pattern="buy_2_month"))
     app.add_handler(CallbackQueryHandler(buy_3_month, pattern="buy_3_month"))
