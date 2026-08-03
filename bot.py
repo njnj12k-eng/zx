@@ -3245,8 +3245,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         if state == "waiting_for_verify_photo":
             await handle_verify_photo(update, context)
-            return
-        
+            return        
         elif state == "waiting_for_card_number":
             await handle_verify_card_number(update, context)
             return
@@ -3478,10 +3477,25 @@ async def main_async():
     
     app.add_handler(MessageHandler(filters.PHOTO | filters.TEXT & ~filters.COMMAND | filters.Document.ALL | filters.VIDEO, handle_message))
     
-    await app.run_polling()
+    # Use run_polling with the existing event loop
+    await app.initialize()
+    await app.start()
+    await app.updater.start_polling()
+    
+    # Keep the bot running
+    while True:
+        await asyncio.sleep(3600)
 
 def main():
-    asyncio.run(main_async())
+    try:
+        asyncio.run(main_async())
+    except RuntimeError as e:
+        if "already running" in str(e):
+            # If event loop is already running, use it
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(main_async())
+        else:
+            raise
 
 if __name__ == "__main__":
     main()
