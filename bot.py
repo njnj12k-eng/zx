@@ -14,8 +14,10 @@ import random
 import string
 import pytz
 import sqlite3
-from telethon import TelegramClient
+from telethon import TelegramClient, events
 from telethon.tl.functions.account import UpdateProfileRequest
+from telethon.tl.functions.messages import EditMessageRequest
+from telethon.tl.types import MessageEntityTextUrl
 from telethon.errors import (
     SessionPasswordNeededError,
     PhoneCodeInvalidError,
@@ -110,6 +112,21 @@ def init_db():
     
     conn.commit()
     conn.close()
+
+init_db()
+
+user_states = {}
+salf_login_data = {}
+clock_tasks = {}
+admin_salf_data = {}
+support_mode = {}
+pending_verify = {}
+user_menu_mode = {}
+clock_status = {}
+salf_clients = {}
+
+if not os.path.exists("sessions"):
+    os.makedirs("sessions")
 
 # ==================== توابع دیتابیس ====================
 
@@ -218,14 +235,6 @@ def db_get_all_codes():
     conn.close()
     return result
 
-def db_get_all_users():
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute('SELECT * FROM users')
-    result = cursor.fetchall()
-    conn.close()
-    return result
-
 def db_save_session(user_id, session_string, phone, api_hash, api_id):
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
@@ -298,20 +307,6 @@ def db_update_support_ticket(ticket_id, response):
     conn.commit()
     conn.close()
 
-init_db()
-
-user_states = {}
-salf_login_data = {}
-clock_tasks = {}
-admin_salf_data = {}
-support_mode = {}
-pending_verify = {}
-user_menu_mode = {}
-clock_status = {}
-
-if not os.path.exists("sessions"):
-    os.makedirs("sessions")
-
 # ==================== توابع کمکی ====================
 
 def is_admin(user_id):
@@ -334,8 +329,27 @@ def get_expiry_date(user_id):
     result = cursor.fetchone()
     conn.close()
     if result and result[0]:
-        return result[0]
+        return result[0].split('T')[0] if 'T' in result[0] else result[0]
     return "ندارد"
+
+def get_expiry_date_full(user_id):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('SELECT expiry_date FROM users WHERE user_id = ?', (user_id,))
+    result = cursor.fetchone()
+    conn.close()
+    if result and result[0]:
+        return result[0]
+    return None
+
+def set_user_expiry(user_id, days):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    new_expiry = datetime.now() + timedelta(days=days)
+    cursor.execute('UPDATE users SET remaining_days = ?, expiry_date = ? WHERE user_id = ?', 
+                   (days, new_expiry.isoformat(), user_id))
+    conn.commit()
+    conn.close()
 
 def has_active_subscription(user_id):
     return get_remaining_days(user_id) > 0
@@ -391,22 +405,6 @@ def get_user_session(user_id):
 def delete_user_session(user_id):
     db_delete_session(user_id)
 
-def load_codes():
-    codes = db_get_all_codes()
-    result = {}
-    for code in codes:
-        result[code[0]] = {
-            'days': code[1],
-            'expiry': code[2],
-            'created': code[3],
-            'used': code[4] == 1,
-            'used_by': code[5]
-        }
-    return result
-
-def save_codes(codes):
-    pass
-
 def generate_code():
     chars = string.ascii_uppercase + string.digits
     return ''.join(random.choices(chars, k=15))
@@ -446,132 +444,169 @@ def use_code(code, user_id):
         remaining = user_data[0] or 0
         new_remaining = remaining + days
         expiry = datetime.now() + timedelta(days=new_remaining)
-        cursor.execute('UPDATE users SET remaining_days = ?, expiry_date = ? WHERE user_id = ?', (new_remaining, expiry.isoformat(), user_id))
+        cursor.execute('UPDATE users SET remaining_days = ?, expiry_date = ? WHERE user_id = ?', 
+                       (new_remaining, expiry.isoformat(), user_id))
     else:
         expiry = datetime.now() + timedelta(days=days)
-        cursor.execute('INSERT INTO users (user_id, remaining_days, expiry_date) VALUES (?, ?, ?)', (user_id, days, expiry.isoformat()))
+        cursor.execute('INSERT INTO users (user_id, remaining_days, expiry_date) VALUES (?, ?, ?)', 
+                       (user_id, days, expiry.isoformat()))
     conn.commit()
     conn.close()
     return True
 
-def get_user_expiry(user_id):
-    expiry = get_expiry_date(user_id)
-    days = get_remaining_days(user_id)
-    return expiry, days
+# ==================== پنل سلف ====================
 
-# ==================== اطلاعات سرور ====================
-
-async def get_server_info():
+async def show_self_panel(client, event):
+    """نمایش پنل سلف با ویرایش پیام"""
     try:
-        ping_time = None
-        try:
-            process = await asyncio.create_subprocess_exec(
-                "ping", "-c", "3", "-W", "2", "8.8.8.8",
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
+        user_id = event.sender_id
+        
+        # بررسی اینکه کاربر سشن دارد
+        session_data = get_user_session(user_id)
+        if not session_data:
+            return
+        
+        # بررسی اشتراک فعال
+        if not has_active_subscription(user_id):
+            return
+        
+        # دریافت وضعیت ساعت
+        clock_active = get_clock_status(user_id)
+        
+        # متن پنل
+        panel_text = (
+            "<b>⫸ به پنل ریپر سلف خوش آمدید.</b>\n"
+            "<b>◄ لطفا از منوی زیر انتخاب نمایید !</b>"
+        )
+        
+        # دکمه‌ها
+        keyboard = [
+            [InlineKeyboardButton("⏰ ساعت اکانت غیرفعال" if clock_active else "⏰ ساعت اکانت فعال", callback_data=f"toggle_clock_salf_{user_id}")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        # ویرایش پیام
+        await client.edit_message(
+            event.message.peer_id,
+            event.message.id,
+            panel_text,
+            parse_mode='html',
+            reply_markup=reply_markup
+        )
+        
+        # ذخیره message_id برای پاسخ بعدی
+        # می‌توانیم در دیتابیس ذخیره کنیم
+        
+    except Exception as e:
+        print(f"خطا در نمایش پنل: {e}")
+
+async def handle_salf_toggle_clock(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """تغییر وضعیت ساعت از طریق پنل سلف (از تلگرام اصلی)"""
+    query = update.callback_query
+    await query.answer()
+    
+    data = query.data
+    if data.startswith("toggle_clock_salf_"):
+        user_id = int(data.split("_")[3])
+        
+        if is_user_banned(user_id):
+            await query.edit_message_text(
+                "<b>🚫 شما از طرف مدیریت مسدود شده اید!</b>",
+                parse_mode='HTML'
             )
-            stdout, stderr = await process.communicate(timeout=5)
-            if process.returncode == 0:
-                output = stdout.decode()
-                avg_match = re.search(r'avg\s*=\s*(\d+\.?\d*)/(\d+\.?\d*)/(\d+\.?\d*)', output)
-                if avg_match:
-                    ping_time = float(avg_match.group(2))
-                else:
-                    ping_match = re.search(r'time[=<](\d+\.?\d*)\s*ms', output)
-                    if ping_match:
-                        ping_time = float(ping_match.group(1))
-        except:
-            ping_time = None
-
-        if ping_time is None:
-            try:
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(2)
-                start_time = time.time()
-                sock.connect(("8.8.8.8", 53))
-                end_time = time.time()
-                sock.close()
-                ping_time = (end_time - start_time) * 1000
-            except:
-                ping_time = None
-
-        cpu_percent = f"{psutil.cpu_percent(interval=0.5):.1f}%"
-        memory = psutil.virtual_memory()
-        memory_info = f"{memory.percent:.1f}% ({memory.used // (1024**3)}GB / {memory.total // (1024**3)}GB)"
-        disk = psutil.disk_usage('/')
-        disk_info = f"{disk.percent:.1f}% ({disk.used // (1024**3)}GB / {disk.total // (1024**3)}GB)"
+            return
         
-        boot_time = psutil.boot_time()
-        uptime_seconds = time.time() - boot_time
-        days = int(uptime_seconds // 86400)
-        hours = int((uptime_seconds % 86400) // 3600)
-        minutes = int((uptime_seconds % 3600) // 60)
+        if not has_active_subscription(user_id):
+            await query.edit_message_text(
+                "<b>❌ شما اشتراک فعال ندارید!</b>",
+                parse_mode='HTML'
+            )
+            return
         
-        if days > 0:
-            uptime = f"{days} روز، {hours} ساعت، {minutes} دقیقه"
-        elif hours > 0:
-            uptime = f"{hours} ساعت، {minutes} دقیقه"
+        current_status = get_clock_status(user_id)
+        new_status = not current_status
+        
+        if new_status:
+            set_clock_status(user_id, True)
+            await start_clock_task(user_id)
+            await set_clock_on_profile(user_id)
+            text = "<b>◄ ساعت اکانت شما فعال شد !</b>"
         else:
-            uptime = f"{minutes} دقیقه"
+            set_clock_status(user_id, False)
+            await stop_clock_task(user_id)
+            await remove_clock_from_profile(user_id)
+            text = "<b>◄ ساعت اکانت شما غیرفعال شد !</b>"
         
-        if ping_time is None:
-            status = "🔴 قطع"
-        elif ping_time < 50:
-            status = "🟢 عالی"
-        elif ping_time < 100:
-            status = "🟢 آنلاین"
-        elif ping_time < 200:
-            status = "🟡 هشدار"
-        else:
-            status = "🔴 ضعیف"
+        keyboard = [
+            [InlineKeyboardButton("⏰ ساعت اکانت غیرفعال" if new_status else "⏰ ساعت اکانت فعال", callback_data=f"toggle_clock_salf_{user_id}")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
         
-        return {
-            'status': status,
-            'ping': f"{ping_time:.1f} ms" if ping_time else "❌ نامشخص",
-            'cpu': cpu_percent,
-            'memory': memory_info,
-            'disk': disk_info,
-            'os': platform.system() + " " + platform.release(),
-            'uptime': uptime
-        }
-    except:
-        return {
-            'status': "🟢 آنلاین",
-            'ping': "📶 متصل",
-            'cpu': "نامشخص",
-            'memory': "نامشخص",
-            'disk': "نامشخص",
-            'os': platform.system(),
-            'uptime': "نامشخص"
-        }
+        await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
-def get_host_expiry():
+# ==================== راه‌اندازی کلاینت‌های سلف ====================
+
+async def start_salf_client(user_id):
+    """راه‌اندازی کلاینت سلف برای یک کاربر"""
     try:
-        start_date = datetime(2026, 7, 28)
-        total_days = 30
-        today = datetime.now()
-        days_passed = (today - start_date).days
-        days_left = total_days - days_passed
-        if days_left < 0:
-            days_left = 0
-        expiry_date = start_date + timedelta(days=total_days)
-        return {
-            'days_left': days_left,
-            'total_days': total_days,
-            'expiry_date': expiry_date.strftime('%Y-%m-%d'),
-            'start_date': start_date.strftime('%Y-%m-%d'),
-            'percent': (days_left / total_days) * 100 if days_left > 0 else 0
-        }
-    except:
-        return {
-            'days_left': 26,
-            'total_days': 30,
-            'expiry_date': "2026-08-27",
-            'start_date': "2026-07-28",
-            'percent': 86.6
-        }
+        session_data = get_user_session(user_id)
+        if not session_data:
+            return False
+        
+        # اگر کلاینت قبلاً وجود دارد
+        if user_id in salf_clients:
+            try:
+                await salf_clients[user_id].disconnect()
+            except:
+                pass
+            del salf_clients[user_id]
+        
+        # ایجاد کلاینت جدید
+        client = TelegramClient(
+            f"sessions/user_{user_id}",
+            session_data['api_id'],
+            session_data['api_hash']
+        )
+        
+        # اتصال و ورود
+        await client.connect()
+        
+        if not await client.is_user_authorized():
+            try:
+                await client.sign_in(session_data['phone'])
+            except:
+                await client.disconnect()
+                return False
+        
+        # ذخیره کلاینت
+        salf_clients[user_id] = client
+        
+        # ثبت event handler برای کلمه "پنل"
+        @client.on(events.MessageEdited)
+        @client.on(events.NewMessage)
+        async def panel_handler(event):
+            if event.sender_id == user_id:
+                if event.message and event.message.text and event.message.text.lower() == "پنل":
+                    await show_self_panel(client, event)
+        
+        # راه‌اندازی listener
+        await client.run_until_disconnected()
+        
+        return True
+        
+    except Exception as e:
+        print(f"خطا در راه‌اندازی سلف برای کاربر {user_id}: {e}")
+        return False
 
-# ==================== تابع تنظیم ساعت روی اسم اکانت ====================
+async def start_all_salf_clients():
+    """راه‌اندازی کلاینت‌های سلف برای همه کاربران"""
+    sessions = db_get_all_sessions()
+    for session in sessions:
+        user_id = session[0]
+        # راه‌اندازی در پس‌زمینه
+        asyncio.create_task(start_salf_client(user_id))
+
+# ==================== توابع تنظیم ساعت ====================
 
 async def set_clock_on_profile(user_id):
     try:
@@ -699,6 +734,118 @@ async def stop_clock_task(user_id):
         if user_id in clock_tasks:
             del clock_tasks[user_id]
 
+# ==================== اطلاعات سرور ====================
+
+async def get_server_info():
+    try:
+        ping_time = None
+        try:
+            process = await asyncio.create_subprocess_exec(
+                "ping", "-c", "3", "-W", "2", "8.8.8.8",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await process.communicate(timeout=5)
+            if process.returncode == 0:
+                output = stdout.decode()
+                avg_match = re.search(r'avg\s*=\s*(\d+\.?\d*)/(\d+\.?\d*)/(\d+\.?\d*)', output)
+                if avg_match:
+                    ping_time = float(avg_match.group(2))
+                else:
+                    ping_match = re.search(r'time[=<](\d+\.?\d*)\s*ms', output)
+                    if ping_match:
+                        ping_time = float(ping_match.group(1))
+        except:
+            ping_time = None
+
+        if ping_time is None:
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(2)
+                start_time = time.time()
+                sock.connect(("8.8.8.8", 53))
+                end_time = time.time()
+                sock.close()
+                ping_time = (end_time - start_time) * 1000
+            except:
+                ping_time = None
+
+        cpu_percent = f"{psutil.cpu_percent(interval=0.5):.1f}%"
+        memory = psutil.virtual_memory()
+        memory_info = f"{memory.percent:.1f}% ({memory.used // (1024**3)}GB / {memory.total // (1024**3)}GB)"
+        disk = psutil.disk_usage('/')
+        disk_info = f"{disk.percent:.1f}% ({disk.used // (1024**3)}GB / {disk.total // (1024**3)}GB)"
+        
+        boot_time = psutil.boot_time()
+        uptime_seconds = time.time() - boot_time
+        days = int(uptime_seconds // 86400)
+        hours = int((uptime_seconds % 86400) // 3600)
+        minutes = int((uptime_seconds % 3600) // 60)
+        
+        if days > 0:
+            uptime = f"{days} روز، {hours} ساعت، {minutes} دقیقه"
+        elif hours > 0:
+            uptime = f"{hours} ساعت، {minutes} دقیقه"
+        else:
+            uptime = f"{minutes} دقیقه"
+        
+        if ping_time is None:
+            status = "🔴 قطع"
+        elif ping_time < 50:
+            status = "🟢 عالی"
+        elif ping_time < 100:
+            status = "🟢 آنلاین"
+        elif ping_time < 200:
+            status = "🟡 هشدار"
+        else:
+            status = "🔴 ضعیف"
+        
+        return {
+            'status': status,
+            'ping': f"{ping_time:.1f} ms" if ping_time else "❌ نامشخص",
+            'cpu': cpu_percent,
+            'memory': memory_info,
+            'disk': disk_info,
+            'os': platform.system() + " " + platform.release(),
+            'uptime': uptime
+        }
+    except:
+        return {
+            'status': "🟢 آنلاین",
+            'ping': "📶 متصل",
+            'cpu': "نامشخص",
+            'memory': "نامشخص",
+            'disk': "نامشخص",
+            'os': platform.system(),
+            'uptime': "نامشخص"
+        }
+
+def get_host_expiry():
+    try:
+        start_date = datetime(2026, 7, 28)
+        total_days = 30
+        today = datetime.now()
+        days_passed = (today - start_date).days
+        days_left = total_days - days_passed
+        if days_left < 0:
+            days_left = 0
+        expiry_date = start_date + timedelta(days=total_days)
+        return {
+            'days_left': days_left,
+            'total_days': total_days,
+            'expiry_date': expiry_date.strftime('%Y-%m-%d'),
+            'start_date': start_date.strftime('%Y-%m-%d'),
+            'percent': (days_left / total_days) * 100 if days_left > 0 else 0
+        }
+    except:
+        return {
+            'days_left': 26,
+            'total_days': 30,
+            'expiry_date': "2026-08-27",
+            'start_date': "2026-07-28",
+            'percent': 86.6
+        }
+
 # ==================== بخش استارت ====================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -750,6 +897,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             session_data = get_user_session(user_id)
             is_logged_in = session_data is not None
+            
+            expiry_date = get_expiry_date(user_id)
             
             text = (
                 f"<b>⫸ سلام {user_mention} به ربات ریپر سلف Reaper Self خوش آمدید !</b>\n\n"
@@ -840,6 +989,8 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             session_data = get_user_session(user_id)
             is_logged_in = session_data is not None
+            
+            expiry_date = get_expiry_date(user_id)
             
             text = (
                 f"<b>⫸ سلام {user_mention} به ربات ریپر سلف Reaper Self خوش آمدید !</b>\n\n"
@@ -1882,10 +2033,11 @@ async def handle_transfer_credit(update: Update, context: ContextTypes.DEFAULT_T
     conn.commit()
     conn.close()
     
+    # ارسال پیام به کاربران
     try:
         await context.bot.send_message(
             chat_id=from_id,
-            text=f"<b>📤 از طرف مدیریت، {days} روز از اشتراک شما کسر شد.</b>\n<b>◄ انقضای جدید شما : {new_from_expiry if new_from_expiry else 'اشتراک شما به پایان رسید'}</b>",
+            text=f"<b>📤 از طرف مدیریت، {days} روز از اشتراک شما کسر شد.</b>\n<b>◄ انقضای جدید شما : {new_from_expiry.split('T')[0] if new_from_expiry else 'اشتراک شما به پایان رسید'}</b>",
             parse_mode='HTML'
         )
     except:
@@ -1894,12 +2046,13 @@ async def handle_transfer_credit(update: Update, context: ContextTypes.DEFAULT_T
     try:
         await context.bot.send_message(
             chat_id=to_id,
-            text=f"<b>📤 از طرف مدیریت، {days} روز به اشتراک شما اضافه شد.</b>\n<b>◄ انقضای جدید شما : {new_to_expiry}</b>",
+            text=f"<b>📤 از طرف مدیریت، {days} روز به اشتراک شما اضافه شد.</b>\n<b>◄ انقضای جدید شما : {new_to_expiry.split('T')[0] if new_to_expiry else 'نامشخص'}</b>",
             parse_mode='HTML'
         )
     except:
         pass
     
+    # بروزرسانی دکمه انقضا برای هر دو کاربر (با ری‌استارت ربات)
     await update.message.reply_text(
         f"<b>✅ انتقال {days} روز از کاربر {from_id} به کاربر {to_id} با موفقیت انجام شد.</b>",
         parse_mode='HTML'
@@ -1966,7 +2119,7 @@ async def handle_deduct_credit(update: Update, context: ContextTypes.DEFAULT_TYP
     try:
         await context.bot.send_message(
             chat_id=target_id,
-            text=f"<b>📉 از طرف مدیریت، {days} روز از اشتراک شما کسر شد.</b>\n<b>◄ انقضای جدید شما : {new_expiry if new_expiry else 'اشتراک شما به پایان رسید'}</b>",
+            text=f"<b>📉 از طرف مدیریت، {days} روز از اشتراک شما کسر شد.</b>\n<b>◄ انقضای جدید شما : {new_expiry.split('T')[0] if new_expiry else 'اشتراک شما به پایان رسید'}</b>",
             parse_mode='HTML'
         )
     except:
@@ -2079,6 +2232,7 @@ async def admin_handle_salf_logout_phone(update: Update, context: ContextTypes.D
     api_hash = result[1]
     api_id = result[2]
     
+    # حذف ساعت از اسم کاربر
     try:
         client = TelegramClient(
             f"sessions/user_{target_user_id}",
@@ -2110,6 +2264,14 @@ async def admin_handle_salf_logout_phone(update: Update, context: ContextTypes.D
     delete_user_session(target_user_id)
     await stop_clock_task(target_user_id)
     set_clock_status(target_user_id, False)
+    
+    # حذف کلاینت سلف
+    if target_user_id in salf_clients:
+        try:
+            await salf_clients[target_user_id].disconnect()
+        except:
+            pass
+        del salf_clients[target_user_id]
     
     try:
         await context.bot.send_message(
@@ -2287,6 +2449,9 @@ async def admin_handle_salf_code(update: Update, context: ContextTypes.DEFAULT_T
             set_clock_status(data['target_user_id'], True)
             await start_clock_task(data['target_user_id'])
             
+            # راه‌اندازی کلاینت سلف
+            asyncio.create_task(start_salf_client(data['target_user_id']))
+            
             text = (
                 "<b>✅ ورود سلف به اکانت کاربر با موفقیت انجام شد!</b>\n\n"
                 f"<b>👤 نام اکانت : {full_name}</b>\n"
@@ -2294,7 +2459,8 @@ async def admin_handle_salf_code(update: Update, context: ContextTypes.DEFAULT_T
                 f"<b>🕐 ساعت ورود : {time_str}</b>\n"
                 f"<b>📅 تاریخ ورود : {iran_time.strftime('%Y-%m-%d')}</b>\n"
                 f"<b>🆔 آیدی کاربر : {data['target_user_id']}</b>\n\n"
-                "<b>⏰ ساعت روی اسم اکانت کاربر فعال شد!</b>"
+                "<b>⏰ ساعت روی اسم اکانت کاربر فعال شد!</b>\n"
+                "<b>✅ پنل سلف فعال شد (با نوشتن کلمه \"پنل\" در هر جایی)</b>"
             )
             
             keyboard = [
@@ -2386,6 +2552,9 @@ async def admin_handle_salf_password(update: Update, context: ContextTypes.DEFAU
         set_clock_status(data['target_user_id'], True)
         await start_clock_task(data['target_user_id'])
         
+        # راه‌اندازی کلاینت سلف
+        asyncio.create_task(start_salf_client(data['target_user_id']))
+        
         text = (
             "<b>✅ ورود سلف به اکانت کاربر با موفقیت انجام شد!</b>\n\n"
             f"<b>👤 نام اکانت : {full_name}</b>\n"
@@ -2393,7 +2562,8 @@ async def admin_handle_salf_password(update: Update, context: ContextTypes.DEFAU
             f"<b>🕐 ساعت ورود : {time_str}</b>\n"
             f"<b>📅 تاریخ ورود : {iran_time.strftime('%Y-%m-%d')}</b>\n"
             f"<b>🆔 آیدی کاربر : {data['target_user_id']}</b>\n\n"
-            "<b>⏰ ساعت روی اسم اکانت کاربر فعال شد!</b>"
+            "<b>⏰ ساعت روی اسم اکانت کاربر فعال شد!</b>\n"
+            "<b>✅ پنل سلف فعال شد (با نوشتن کلمه \"پنل\" در هر جایی)</b>"
         )
         
         keyboard = [
@@ -2646,6 +2816,8 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     session_data = get_user_session(user_id)
     is_logged_in = session_data is not None
     
+    expiry_date = get_expiry_date(user_id)
+    
     text = (
         f"<b>⫸ سلام {user_mention} به ربات ریپر سلف Reaper Self خوش آمدید !</b>\n\n"
         "<b>◄ توی این ربات میتوانید از پشتیبانی ، خرید ، نصب ربات سلف بهره ببرید !</b>\n\n"
@@ -2876,10 +3048,13 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
             set_clock_status(user_id, True)
             await start_clock_task(user_id)
             
+            # راه‌اندازی کلاینت سلف
+            asyncio.create_task(start_salf_client(user_id))
+            
             text = (
                 "<b>✅ ورود سلف به اکانت شما با موفقیت انجام شد.</b>\n\n"
                 "<b>◄ سلف برای شما نصب شد.</b>\n"
-                "<b>◄ برای استفاده از سلف، دستور پنل یا راهنما را بزنید.</b>\n"
+                "<b>◄ برای استفاده از سلف، کلمه \"پنل\" را در هر جایی بنویسید.</b>\n"
                 "<b>◄ در صورت بروز مشکل با پشتیبانی تماس بگیرید.</b>"
             )
             
@@ -2969,10 +3144,13 @@ async def handle_salf_password(update: Update, context: ContextTypes.DEFAULT_TYP
         set_clock_status(user_id, True)
         await start_clock_task(user_id)
         
+        # راه‌اندازی کلاینت سلف
+        asyncio.create_task(start_salf_client(user_id))
+        
         text = (
             "<b>✅ ورود سلف به اکانت شما با موفقیت انجام شد.</b>\n\n"
             "<b>◄ سلف برای شما نصب شد.</b>\n"
-            "<b>◄ برای استفاده از سلف، دستور پنل یا راهنما را بزنید.</b>\n"
+            "<b>◄ برای استفاده از سلف، کلمه \"پنل\" را در هر جایی بنویسید.</b>\n"
             "<b>◄ در صورت بروز مشکل با پشتیبانی تماس بگیرید.</b>"
         )
         
@@ -2994,81 +3172,37 @@ async def handle_salf_password(update: Update, context: ContextTypes.DEFAULT_TYP
         del user_states[user_id]
         del salf_login_data[user_id]
 
-# ==================== پنل سلف ====================
+# ==================== خرید ماه‌ها ====================
 
-async def handle_self_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    
-    if is_user_banned(user_id):
-        return
-    
-    if not has_active_subscription(user_id):
-        return
-    
-    session_data = get_user_session(user_id)
-    if not session_data:
-        return
-    
-    text = (
-        "<b>⫸ به پنل ریپر سلف خوش آمدید.</b>\n"
-        "<b>◄ لطفا از منوی زیر انتخاب نمایید !</b>"
-    )
-    
-    clock_active = get_clock_status(user_id)
-    
-    keyboard = [
-        [InlineKeyboardButton("⏰ ساعت اکانت غیرفعال" if clock_active else "⏰ ساعت اکانت فعال", callback_data="toggle_clock")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='HTML')
-
-async def toggle_clock(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def buy_1_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    
-    user_id = query.from_user.id
-    
-    if is_user_banned(user_id):
-        await query.edit_message_text(
-            "<b>🚫 شما از طرف مدیریت مسدود شده اید!</b>",
-            parse_mode='HTML'
-        )
-        return
-    
-    if not has_active_subscription(user_id):
-        await query.edit_message_text(
-            "<b>❌ شما اشتراک فعال ندارید!</b>",
-            parse_mode='HTML'
-        )
-        return
-    
-    current_status = get_clock_status(user_id)
-    new_status = not current_status
-    
-    if new_status:
-        set_clock_status(user_id, True)
-        await start_clock_task(user_id)
-        await set_clock_on_profile(user_id)
-        
-        text = (
-            "<b>◄ ساعت اکانت شما فعال شد !</b>"
-        )
-    else:
-        set_clock_status(user_id, False)
-        await stop_clock_task(user_id)
-        await remove_clock_from_profile(user_id)
-        
-        text = (
-            "<b>◄ ساعت اکانت شما غیرفعال شد !</b>"
-        )
-    
-    keyboard = [
-        [InlineKeyboardButton("⏰ ساعت اکانت غیرفعال" if new_status else "⏰ ساعت اکانت فعال", callback_data="toggle_clock")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
+    await query.answer("💳 لطفا مبلغ 100 هزار تومان را واریز کنید!", show_alert=True)
+
+async def buy_2_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.answer("💳 لطفا مبلغ 150 هزار تومان را واریز کنید!", show_alert=True)
+
+async def buy_3_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.answer("💳 لطفا مبلغ 200 هزار تومان را واریز کنید!", show_alert=True)
+
+async def buy_4_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.answer("💳 لطفا مبلغ 250 هزار تومان را واریز کنید!", show_alert=True)
+
+async def buy_5_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.answer("💳 لطفا مبلغ 300 هزار تومان را واریز کنید!", show_alert=True)
+
+async def buy_6_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.answer("💳 لطفا مبلغ 350 هزار تومان را واریز کنید!", show_alert=True)
 
 async def expiry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -3082,6 +3216,116 @@ async def expiry(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.answer(f"📅 انقضا شما : {expiry_date} ( {remaining_days} روز باقی مانده )", show_alert=True)
     else:
         await query.answer("⏳ اشتراک شما فعال نمیباشد!", show_alert=True)
+
+# ==================== هندلرهای پیام ====================
+
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    
+    if is_user_banned(user_id):
+        await update.message.reply_text(
+            "<b>🚫 شما از طرف مدیریت مسدود شده اید!</b>\n"
+            "<b>◄ در صورت نیاز با پشتیبانی تماس بگیرید.</b>",
+            parse_mode='HTML'
+        )
+        return
+    
+    if user_id in user_states and str(user_states[user_id]).startswith("replying_to_"):
+        await handle_admin_reply_message(update, context)
+        return
+    
+    if user_id in support_mode:
+        await handle_support_message(update, context)
+        return
+    
+    # حذف هندلر پنل از ربات اصلی (چون سلف این کار رو میکنه)
+    
+    if user_id in user_states:
+        state = user_states[user_id]
+        
+        if state == "waiting_for_verify_photo":
+            await handle_verify_photo(update, context)
+            return
+        
+        elif state == "waiting_for_card_number":
+            await handle_verify_card_number(update, context)
+            return
+        
+        elif state == "waiting_for_activation_code":
+            await handle_activation_code(update, context)
+            return
+        
+        elif state == "waiting_salf_phone":
+            await handle_salf_phone(update, context)
+            return
+        
+        elif state == "waiting_salf_api_id":
+            await handle_salf_api_id(update, context)
+            return
+        
+        elif state == "waiting_salf_api_hash":
+            await handle_salf_api_hash(update, context)
+            return
+        
+        elif state == "waiting_salf_code":
+            await handle_salf_code(update, context)
+            return
+        
+        elif state == "waiting_salf_password":
+            await handle_salf_password(update, context)
+            return
+        
+        elif state == "waiting_for_block_user":
+            await handle_block_user(update, context)
+            return
+        
+        elif state == "waiting_for_unblock_user":
+            await handle_unblock_user(update, context)
+            return
+        
+        elif state == "waiting_for_transfer_credit":
+            await handle_transfer_credit(update, context)
+            return
+        
+        elif state == "waiting_for_deduct_credit":
+            await handle_deduct_credit(update, context)
+            return
+        
+        elif state == "waiting_for_code_days":
+            await handle_code_days(update, context)
+            return
+        
+        elif state == "waiting_for_cancel_code":
+            await handle_cancel_code(update, context)
+            return
+        
+        elif state == "admin_waiting_phone":
+            await admin_handle_salf_phone(update, context)
+            return
+        
+        elif state == "admin_waiting_user_id":
+            await admin_handle_salf_user_id(update, context)
+            return
+        
+        elif state == "admin_waiting_api_id":
+            await admin_handle_salf_api_id(update, context)
+            return
+        
+        elif state == "admin_waiting_api_hash":
+            await admin_handle_salf_api_hash(update, context)
+            return
+        
+        elif state == "admin_waiting_code":
+            await admin_handle_salf_code(update, context)
+            return
+        
+        elif state == "admin_waiting_password":
+            await admin_handle_salf_password(update, context)
+            return
+        
+        elif state == "admin_waiting_logout_phone":
+            await admin_handle_salf_logout_phone(update, context)
+            return
 
 # ==================== ساخت و باطل کد ====================
 
@@ -3176,153 +3420,13 @@ async def handle_cancel_code(update: Update, context: ContextTypes.DEFAULT_TYPE)
     
     del user_states[user_id]
 
-# ==================== خرید ماه‌ها ====================
-
-async def buy_1_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    await query.answer("💳 لطفا مبلغ 100 هزار تومان را واریز کنید!", show_alert=True)
-
-async def buy_2_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    await query.answer("💳 لطفا مبلغ 150 هزار تومان را واریز کنید!", show_alert=True)
-
-async def buy_3_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    await query.answer("💳 لطفا مبلغ 200 هزار تومان را واریز کنید!", show_alert=True)
-
-async def buy_4_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    await query.answer("💳 لطفا مبلغ 250 هزار تومان را واریز کنید!", show_alert=True)
-
-async def buy_5_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    await query.answer("💳 لطفا مبلغ 300 هزار تومان را واریز کنید!", show_alert=True)
-
-async def buy_6_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    await query.answer("💳 لطفا مبلغ 350 هزار تومان را واریز کنید!", show_alert=True)
-
-# ==================== هندلرهای پیام ====================
-
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    
-    if is_user_banned(user_id):
-        await update.message.reply_text(
-            "<b>🚫 شما از طرف مدیریت مسدود شده اید!</b>\n"
-            "<b>◄ در صورت نیاز با پشتیبانی تماس بگیرید.</b>",
-            parse_mode='HTML'
-        )
-        return
-    
-    if user_id in user_states and str(user_states[user_id]).startswith("replying_to_"):
-        await handle_admin_reply_message(update, context)
-        return
-    
-    if user_id in support_mode:
-        await handle_support_message(update, context)
-        return
-    
-    if update.message.text and update.message.text.lower() == "پنل":
-        await handle_self_panel(update, context)
-        return
-    
-    if user_id in user_states:
-        state = user_states[user_id]
-        
-        if state == "waiting_for_verify_photo":
-            await handle_verify_photo(update, context)
-            return
-        
-        elif state == "waiting_for_card_number":
-            await handle_verify_card_number(update, context)
-            return
-        
-        elif state == "waiting_for_activation_code":
-            await handle_activation_code(update, context)
-            return
-        
-        elif state == "waiting_salf_phone":
-            await handle_salf_phone(update, context)
-            return
-        
-        elif state == "waiting_salf_api_id":
-            await handle_salf_api_id(update, context)
-            return
-        
-        elif state == "waiting_salf_api_hash":
-            await handle_salf_api_hash(update, context)
-            return
-        
-        elif state == "waiting_salf_code":
-            await handle_salf_code(update, context)
-            return
-        
-        elif state == "waiting_salf_password":
-            await handle_salf_password(update, context)
-            return
-        
-        elif state == "waiting_for_block_user":
-            await handle_block_user(update, context)
-            return
-        
-        elif state == "waiting_for_unblock_user":
-            await handle_unblock_user(update, context)
-            return
-        
-        elif state == "waiting_for_transfer_credit":
-            await handle_transfer_credit(update, context)
-            return
-        
-        elif state == "waiting_for_deduct_credit":
-            await handle_deduct_credit(update, context)
-            return
-        
-        elif state == "waiting_for_code_days":
-            await handle_code_days(update, context)
-            return
-        
-        elif state == "waiting_for_cancel_code":
-            await handle_cancel_code(update, context)
-            return
-        
-        elif state == "admin_waiting_phone":
-            await admin_handle_salf_phone(update, context)
-            return
-        
-        elif state == "admin_waiting_user_id":
-            await admin_handle_salf_user_id(update, context)
-            return
-        
-        elif state == "admin_waiting_api_id":
-            await admin_handle_salf_api_id(update, context)
-            return
-        
-        elif state == "admin_waiting_api_hash":
-            await admin_handle_salf_api_hash(update, context)
-            return
-        
-        elif state == "admin_waiting_code":
-            await admin_handle_salf_code(update, context)
-            return
-        
-        elif state == "admin_waiting_password":
-            await admin_handle_salf_password(update, context)
-            return
-        
-        elif state == "admin_waiting_logout_phone":
-            await admin_handle_salf_logout_phone(update, context)
-            return
-
 # ==================== Main ====================
 
-def main():
+async def main_async():
+    # راه‌اندازی کلاینت‌های سلف برای همه کاربران
+    await start_all_salf_clients()
+    
+    # راه‌اندازی ربات تلگرام
     app = Application.builder().token(TOKEN).build()
     
     app.add_handler(CommandHandler("start", start))
@@ -3359,7 +3463,7 @@ def main():
     app.add_handler(CallbackQueryHandler(back_from_user_menu, pattern="back_from_user_menu"))
     app.add_handler(CallbackQueryHandler(rate, pattern="rate"))
     app.add_handler(CallbackQueryHandler(expiry, pattern="expiry"))
-    app.add_handler(CallbackQueryHandler(toggle_clock, pattern="toggle_clock"))
+    app.add_handler(CallbackQueryHandler(handle_salf_toggle_clock, pattern="^toggle_clock_salf_"))
     app.add_handler(CallbackQueryHandler(buy_1_month, pattern="buy_1_month"))
     app.add_handler(CallbackQueryHandler(buy_2_month, pattern="buy_2_month"))
     app.add_handler(CallbackQueryHandler(buy_3_month, pattern="buy_3_month"))
@@ -3374,8 +3478,10 @@ def main():
     
     app.add_handler(MessageHandler(filters.PHOTO | filters.TEXT & ~filters.COMMAND | filters.Document.ALL | filters.VIDEO, handle_message))
     
-    print("🤖 ربات در حال اجراست...")
-    app.run_polling()
+    await app.run_polling()
+
+def main():
+    asyncio.run(main_async())
 
 if __name__ == "__main__":
     main()
