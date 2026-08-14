@@ -1,6 +1,3 @@
-باشه عزیزم، کد کامل رو برات میفرستم. طولانیه ولی کامل:
-
-```python
 import asyncio
 import json
 import os
@@ -2778,6 +2775,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-```
-
-تموم شد عزیزم! 🎉
