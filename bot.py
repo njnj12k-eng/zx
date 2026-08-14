@@ -26,6 +26,7 @@ from telethon.tl.types import KeyboardButtonCallback
 TOKEN = "8961040480:AAHNKEnK7LZuCp9fSJ5td2_XdGFqPtwp_dY"
 CHANNEL_USERNAME = "@ReaperSelfChannel"
 ADMIN_IDS = [7803165903, 8831703400]
+BOT_USERNAME = "@RipperSelfbot"
 
 DB_FILE = "bot_database.db"
 
@@ -772,6 +773,7 @@ async def send_self_panel(client, user_id, chat_id, message_id=None):
             except:
                 pass
         
+        # ارسال پنل با @RipperSelfbot
         sent_msg = await client.send_message(
             chat_id,
             panel_text,
@@ -797,11 +799,13 @@ async def show_self_panel(client, event):
             )
             return
         
+        # حذف پیام کاربر (پنل)
         try:
             await client.delete_messages(event.message.peer_id, [event.message.id])
         except:
             pass
         
+        # ارسال پنل جدید
         await send_self_panel(client, user_id, event.message.peer_id)
         
     except Exception as e:
@@ -925,12 +929,11 @@ async def start_salf_client(user_id):
             try:
                 await client.sign_in(session_data['phone'])
             except SessionPasswordNeededError:
-                # درخواست پسورد از کاربر از طریق ربات
                 for admin_id in ADMIN_IDS:
                     try:
                         await client.send_message(
                             admin_id,
-                            f"⚠️ اکانت کاربر {user_id} دارای سیستم تایید دو مرحله‌ای (2FA) است.\n🗝 لطفاً رمز عبور اختصاصی را وارد کنید:"
+                            "⚠️ اکانت کاربر دارای سیستم تایید دو مرحله‌ای (2FA) است.\n🗝 لطفاً رمز عبور اختصاصی را وارد کنید:"
                         )
                     except:
                         pass
@@ -1164,6 +1167,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode='HTML'
         )
         return
+    
+    # بررسی اینکه کاربر احراز هویت شده یا نه
+    is_verified = is_user_verified(user_id)
+    
     user_mention = f"@{user.username}" if user.username else user.first_name
     if user_id in user_states:
         del user_states[user_id]
@@ -1189,7 +1196,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if chat_member.status in ["member", "administrator", "creator"]:
             remaining_days = get_remaining_days(user_id)
             has_subscription = has_active_subscription(user_id)
-            is_verified = is_user_verified(user_id)
             session_data = get_user_session(user_id)
             is_logged_in = session_data is not None
             expiry_date = get_expiry_date(user_id)
@@ -1202,10 +1208,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             keyboard.append([InlineKeyboardButton("👨‍💻 پشتیبانی", callback_data="support")])
             keyboard.append([InlineKeyboardButton("🤔 سلف چیست؟", callback_data="what_is_self"), InlineKeyboardButton("📣 کانال ما", url="https://t.me/ReaperSelfChannel")])
             keyboard.append([InlineKeyboardButton(f"📅 انقضا شما: ({remaining_days} روز)", callback_data="expiry")])
+            
+            # اگر احراز هویت شده، دکمه احراز هویت رو نشون نده
             if is_verified:
                 keyboard.append([InlineKeyboardButton("✅ احراز هویت شده", callback_data="verified_already")])
             else:
                 keyboard.append([InlineKeyboardButton("✔️ احراز هویت", callback_data="verify")])
+            
             keyboard.append([InlineKeyboardButton("💳 خرید اشتراک", callback_data="buy_subscription")])
             keyboard.append([InlineKeyboardButton("💶 خرید با کد", callback_data="buy_with_code")])
             if has_subscription:
@@ -1238,6 +1247,9 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode='HTML'
         )
         return
+    
+    is_verified = is_user_verified(user_id)
+    
     user_mention = f"@{user.username}" if user.username else user.first_name
     if is_admin(user_id):
         text = (
@@ -1259,7 +1271,6 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if chat_member.status in ["member", "administrator", "creator"]:
             remaining_days = get_remaining_days(user_id)
             has_subscription = has_active_subscription(user_id)
-            is_verified = is_user_verified(user_id)
             session_data = get_user_session(user_id)
             is_logged_in = session_data is not None
             expiry_date = get_expiry_date(user_id)
@@ -1272,10 +1283,12 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
             keyboard.append([InlineKeyboardButton("👨‍💻 پشتیبانی", callback_data="support")])
             keyboard.append([InlineKeyboardButton("🤔 سلف چیست؟", callback_data="what_is_self"), InlineKeyboardButton("📣 کانال ما", url="https://t.me/ReaperSelfChannel")])
             keyboard.append([InlineKeyboardButton(f"📅 انقضا شما: ({remaining_days} روز)", callback_data="expiry")])
+            
             if is_verified:
                 keyboard.append([InlineKeyboardButton("✅ احراز هویت شده", callback_data="verified_already")])
             else:
                 keyboard.append([InlineKeyboardButton("✔️ احراز هویت", callback_data="verify")])
+            
             keyboard.append([InlineKeyboardButton("💳 خرید اشتراک", callback_data="buy_subscription")])
             keyboard.append([InlineKeyboardButton("💶 خرید با کد", callback_data="buy_with_code")])
             if has_subscription:
@@ -1429,18 +1442,17 @@ async def handle_admin_reply(update: Update, context: ContextTypes.DEFAULT_TYPE)
     query = update.callback_query
     await query.answer()
     data = query.data
+    
     if data.startswith("reply_"):
         user_id = int(data.split("_")[1])
         user_states[query.from_user.id] = f"replying_to_{user_id}"
-        text = (
+        # ویرایش پیام و نمایش پیام پاسخ
+        await query.edit_message_text(
             "<b>💬 پاسخ به کاربر</b>\n\n"
-            "<b>✍️ لطفا پاسخ خود را به صورت متن یا رسانه ارسال کنید.</b>"
+            "<b>✍️ لطفا پاسخ خود را به صورت متن یا رسانه ارسال کنید.</b>",
+            parse_mode='HTML'
         )
-        keyboard = [
-            [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_back")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
+        
     elif data.startswith("block_"):
         user_id = int(data.split("_")[1])
         if not is_user_banned(user_id):
@@ -1454,8 +1466,10 @@ async def handle_admin_reply(update: Update, context: ContextTypes.DEFAULT_TYPE)
             except:
                 pass
             await query.edit_message_text(
-                f"<b>✅ کاربر با آیدی {user_id} با موفقیت مسدود شد!</b>\n"
-                f"<b>🔒 کاربر دیگر نمیتواند از ربات استفاده کند.</b>",
+                f"<b>🚫 کاربر با آیدی {user_id} با موفقیت مسدود شد!</b>\n"
+                f"<b>🔒 کاربر دیگر نمیتواند از ربات استفاده کند.</b>\n\n"
+                f"<b>🔙 بازگشت به منوی اصلی:</b>",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]]),
                 parse_mode='HTML'
             )
         else:
@@ -2055,7 +2069,7 @@ async def reject_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except:
             pass
         await query.edit_message_text(
-            f"<b>❌ درخواست احراز هویت کاربر {username} رد شد.</b>\n"
+            f"<b>❌ درخواست احراز هویت کاربر {username} با موفقیت رد شد.</b>\n"
             f"<b>⛔ کاربر تایید نشد.</b>\n\n"
             f"<b>🔙 برای بازگشت کلیک کنید:</b>",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]]),
@@ -2958,7 +2972,7 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_states[user_id] = "waiting_salf_password"
         await update.message.reply_text(
             "<b>⚠️ اکانت شما دارای سیستم تایید دو مرحله‌ای (2FA) است.</b>\n"
-            "<b>🗝 لطفاً رمز عبور اختصاصی خود را وارد کنید:</b>",
+            "<b>🗝 لطفاً رمز عبور اختصاصی خود را وارد کنید :</b>",
             parse_mode='HTML'
         )
     except Exception as e:
