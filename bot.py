@@ -21,11 +21,12 @@ from telethon.errors import (FloodWaitError, PhoneCodeExpiredError,
                              PhoneCodeInvalidError, PhoneNumberInvalidError,
                              SessionPasswordNeededError)
 from telethon.tl.functions.account import UpdateProfileRequest
-from telethon.tl.functions.messages import DeleteMessagesRequest
+from telethon.tl.functions.messages import DeleteMessagesRequest, SendMessageRequest
 
 TOKEN = "8961040480:AAHNKEnK7LZuCp9fSJ5td2_XdGFqPtwp_dY"
 CHANNEL_USERNAME = "@ReaperSelfChannel"
 ADMIN_IDS = [7803165903, 8831703400]
+BOT_USERNAME = "@RipperSelfbot"
 
 DB_FILE = "bot_database.db"
 
@@ -492,23 +493,10 @@ def use_code(code, user_id):
     conn.close()
     return True
 
-# ==================== SELF PANEL ====================
+# ==================== SELF PANEL (ارسال توسط سشن) ====================
 
-async def show_self_panel(client, event):
+async def send_self_panel(client, user_id, chat_id, message_id=None):
     try:
-        user_id = event.sender_id
-        
-        try:
-            await client.delete_messages(event.message.peer_id, [event.message.id])
-        except:
-            pass
-        
-        session_data = get_user_session(user_id)
-        if not session_data:
-            return
-        if not has_active_subscription(user_id):
-            return
-        
         settings = db_get_self_settings(user_id)
         
         panel_text = (
@@ -550,17 +538,51 @@ async def show_self_panel(client, event):
         
         reply_markup = InlineKeyboardMarkup(keyboard)
         
+        # حذف پیام قبلی اگر وجود داشت
+        if message_id:
+            try:
+                await client.delete_messages(chat_id, [message_id])
+            except:
+                pass
+        
+        # ارسال پنل جدید
         sent_msg = await client.send_message(
-            event.message.peer_id,
+            chat_id,
             panel_text,
             parse_mode='html',
             reply_markup=reply_markup
         )
         
-        self_panel_messages[user_id] = sent_msg.id
+        return sent_msg.id
+        
+    except Exception as e:
+        return None
+
+async def show_self_panel(client, event):
+    try:
+        user_id = event.sender_id
+        
+        if not has_active_subscription(user_id):
+            await client.send_message(
+                event.message.peer_id,
+                "<b>❌ شما اشتراک فعال ندارید!</b>\n<b>💳 لطفا اشتراک خریداری کنید.</b>",
+                parse_mode='html'
+            )
+            return
+        
+        # حذف پیام کاربر
+        try:
+            await client.delete_messages(event.message.peer_id, [event.message.id])
+        except:
+            pass
+        
+        # ارسال پنل
+        await send_self_panel(client, user_id, event.message.peer_id)
         
     except Exception as e:
         pass
+
+# ==================== SELF PANEL CALLBACK (از طریق ربات) ====================
 
 async def handle_self_panel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -584,7 +606,8 @@ async def handle_self_panel_callback(update: Update, context: ContextTypes.DEFAU
             await remove_clock_from_profile(user_id)
             await query.answer("⏰ ساعت غیرفعال شد!")
         
-        await update_self_panel(update, context, user_id)
+        # ویرایش پیام پنل از طریق ربات
+        await update_self_panel_via_bot(update, context, user_id)
         
     elif data.startswith("self_autoread_"):
         user_id = int(data.split("_")[2])
@@ -592,7 +615,7 @@ async def handle_self_panel_callback(update: Update, context: ContextTypes.DEFAU
         settings['auto_read'] = not settings['auto_read']
         db_update_self_settings(user_id, settings)
         await query.answer("👁️ خودخوان " + ("فعال شد!" if settings['auto_read'] else "غیرفعال شد!"))
-        await update_self_panel(update, context, user_id)
+        await update_self_panel_via_bot(update, context, user_id)
         
     elif data.startswith("self_autoreply_"):
         user_id = int(data.split("_")[2])
@@ -600,7 +623,7 @@ async def handle_self_panel_callback(update: Update, context: ContextTypes.DEFAU
         settings['auto_reply'] = not settings['auto_reply']
         db_update_self_settings(user_id, settings)
         await query.answer("🤖 پاسخ خودکار " + ("فعال شد!" if settings['auto_reply'] else "غیرفعال شد!"))
-        await update_self_panel(update, context, user_id)
+        await update_self_panel_via_bot(update, context, user_id)
         
     elif data.startswith("self_antiinsult_"):
         user_id = int(data.split("_")[2])
@@ -608,7 +631,7 @@ async def handle_self_panel_callback(update: Update, context: ContextTypes.DEFAU
         settings['anti_insult'] = not settings['anti_insult']
         db_update_self_settings(user_id, settings)
         await query.answer("🛡️ ضد توهین " + ("فعال شد!" if settings['anti_insult'] else "غیرفعال شد!"))
-        await update_self_panel(update, context, user_id)
+        await update_self_panel_via_bot(update, context, user_id)
         
     elif data.startswith("self_animated_"):
         user_id = int(data.split("_")[2])
@@ -616,7 +639,7 @@ async def handle_self_panel_callback(update: Update, context: ContextTypes.DEFAU
         settings['animated_msg'] = not settings['animated_msg']
         db_update_self_settings(user_id, settings)
         await query.answer("🎬 پیام انیمیشنی " + ("فعال شد!" if settings['animated_msg'] else "غیرفعال شد!"))
-        await update_self_panel(update, context, user_id)
+        await update_self_panel_via_bot(update, context, user_id)
         
     elif data.startswith("self_secretary_"):
         user_id = int(data.split("_")[2])
@@ -624,9 +647,9 @@ async def handle_self_panel_callback(update: Update, context: ContextTypes.DEFAU
         settings['smart_secretary'] = not settings['smart_secretary']
         db_update_self_settings(user_id, settings)
         await query.answer("🧠 منشی هوشمند " + ("فعال شد!" if settings['smart_secretary'] else "غیرفعال شد!"))
-        await update_self_panel(update, context, user_id)
+        await update_self_panel_via_bot(update, context, user_id)
 
-async def update_self_panel(update, context, user_id):
+async def update_self_panel_via_bot(update, context, user_id):
     settings = db_get_self_settings(user_id)
     
     panel_text = (
@@ -677,80 +700,6 @@ async def update_self_panel(update, context, user_id):
     except:
         pass
 
-async def handle_self_panel_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    message_text = update.message.text
-    
-    if message_text and message_text.lower() == "پنل":
-        session_data = get_user_session(user_id)
-        if not session_data:
-            await update.message.reply_text(
-                "<b>❌ شما وارد سلف نشده اید!</b>\n"
-                "<b>🔑 لطفا ابتدا از دکمه ورود سلف استفاده کنید.</b>",
-                parse_mode='HTML'
-            )
-            return
-        
-        if not has_active_subscription(user_id):
-            await update.message.reply_text(
-                "<b>❌ شما اشتراک فعال ندارید!</b>\n"
-                "<b>💳 لطفا اشتراک خریداری کنید.</b>",
-                parse_mode='HTML'
-            )
-            return
-        
-        try:
-            await update.message.delete()
-        except:
-            pass
-        
-        settings = db_get_self_settings(user_id)
-        
-        panel_text = (
-            "<b>⚡ لطفا یکی از گزینه‌های زیر را انتخاب نمایید:</b>\n\n"
-            f"<b>⏰ ساعت:</b> {'✅' if settings['clock_enabled'] else '❌'}\n"
-            f"<b>👁️ خودخوان:</b> {'✅' if settings['auto_read'] else '❌'}\n"
-            f"<b>🤖 پاسخ خودکار:</b> {'✅' if settings['auto_reply'] else '❌'}\n"
-            f"<b>🛡️ ضد توهین:</b> {'✅' if settings['anti_insult'] else '❌'}\n"
-            f"<b>🎬 پیام انیمیشنی:</b> {'✅' if settings['animated_msg'] else '❌'}\n"
-            f"<b>🧠 منشی هوشمند:</b> {'✅' if settings['smart_secretary'] else '❌'}\n"
-        )
-        
-        keyboard = [
-            [InlineKeyboardButton(
-                "⏰ ساعت " + ("✅" if settings['clock_enabled'] else "❌"), 
-                callback_data=f"self_clock_{user_id}"
-            )],
-            [InlineKeyboardButton(
-                "👁️ خودخوان " + ("✅" if settings['auto_read'] else "❌"), 
-                callback_data=f"self_autoread_{user_id}"
-            )],
-            [InlineKeyboardButton(
-                "🤖 پاسخ خودکار " + ("✅" if settings['auto_reply'] else "❌"), 
-                callback_data=f"self_autoreply_{user_id}"
-            )],
-            [InlineKeyboardButton(
-                "🛡️ ضد توهین " + ("✅" if settings['anti_insult'] else "❌"), 
-                callback_data=f"self_antiinsult_{user_id}"
-            )],
-            [InlineKeyboardButton(
-                "🎬 پیام انیمیشنی " + ("✅" if settings['animated_msg'] else "❌"), 
-                callback_data=f"self_animated_{user_id}"
-            )],
-            [InlineKeyboardButton(
-                "🧠 منشی هوشمند " + ("✅" if settings['smart_secretary'] else "❌"), 
-                callback_data=f"self_secretary_{user_id}"
-            )],
-        ]
-        
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await update.message.reply_text(
-            panel_text,
-            reply_markup=reply_markup,
-            parse_mode='HTML'
-        )
-
 # ==================== SELF CLIENTS ====================
 
 async def start_salf_client(user_id):
@@ -782,8 +731,9 @@ async def start_salf_client(user_id):
         @client.on(events.NewMessage)
         async def panel_handler(event):
             if event.sender_id == user_id:
-                if event.message and event.message.text and event.message.text.lower() == "پنل":
-                    await show_self_panel(client, event)
+                if event.message and event.message.text:
+                    if event.message.text.lower() == "پنل":
+                        await show_self_panel(client, event)
         
         await client.run_until_disconnected()
         return True
@@ -2958,9 +2908,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
+    # کلمه "پنل" توسط سشن مدیریت میشه، نه ربات
     if update.message.text and update.message.text.lower() == "پنل":
-        await handle_self_panel_message(update, context)
-        return
+        # اینجا کاری نمیکنیم چون سشن خودش هندل میکنه
+        pass
     
     if user_id in user_states and str(user_states[user_id]).startswith("replying_to_"):
         await handle_admin_reply_message(update, context)
