@@ -21,6 +21,7 @@ from telethon.errors import (FloodWaitError, PhoneCodeExpiredError,
                              PhoneCodeInvalidError, PhoneNumberInvalidError,
                              SessionPasswordNeededError)
 from telethon.tl.functions.account import UpdateProfileRequest
+from telethon.tl.functions.messages import DeleteMessagesRequest
 
 TOKEN = "8961040480:AAHNKEnK7LZuCp9fSJ5td2_XdGFqPtwp_dY"
 CHANNEL_USERNAME = "@ReaperSelfChannel"
@@ -33,6 +34,7 @@ DB_FILE = "bot_database.db"
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
+    
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
@@ -45,9 +47,11 @@ def init_db():
             is_verified INTEGER DEFAULT 0,
             remaining_days INTEGER DEFAULT 0,
             expiry_date TEXT,
-            clock_active INTEGER DEFAULT 1
+            clock_active INTEGER DEFAULT 1,
+            self_settings TEXT DEFAULT '{}'
         )
     ''')
+    
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS codes (
             code TEXT PRIMARY KEY,
@@ -58,6 +62,7 @@ def init_db():
             used_by TEXT
         )
     ''')
+    
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS sessions (
             user_id INTEGER PRIMARY KEY,
@@ -68,6 +73,7 @@ def init_db():
             created_date TEXT
         )
     ''')
+    
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS verify_requests (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -76,9 +82,12 @@ def init_db():
             card_number TEXT,
             photo_id TEXT,
             status TEXT DEFAULT 'pending',
-            request_date TEXT
+            request_date TEXT,
+            admin_response TEXT,
+            response_date TEXT
         )
     ''')
+    
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS banned_users (
             user_id INTEGER PRIMARY KEY,
@@ -86,6 +95,7 @@ def init_db():
             reason TEXT
         )
     ''')
+    
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS support_tickets (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -98,6 +108,20 @@ def init_db():
             response_date TEXT
         )
     ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS self_settings (
+            user_id INTEGER PRIMARY KEY,
+            clock_enabled INTEGER DEFAULT 0,
+            auto_read INTEGER DEFAULT 0,
+            auto_reply INTEGER DEFAULT 0,
+            anti_insult INTEGER DEFAULT 0,
+            animated_msg INTEGER DEFAULT 0,
+            smart_secretary INTEGER DEFAULT 0,
+            settings_json TEXT DEFAULT '{}'
+        )
+    ''')
+    
     conn.commit()
     conn.close()
 
@@ -112,6 +136,7 @@ pending_verify = {}
 user_menu_mode = {}
 clock_status = {}
 salf_clients = {}
+self_panel_messages = {}
 
 if not os.path.exists("sessions"):
     os.makedirs("sessions")
@@ -249,10 +274,21 @@ def db_add_verify_request(user_id, username, card_number, photo_id):
     conn.close()
     return cursor.lastrowid
 
-def db_update_verify_request(request_id, status):
+def db_update_verify_request(request_id, status, admin_response=None):
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    cursor.execute('UPDATE verify_requests SET status = ? WHERE id = ?', (status, request_id))
+    if admin_response:
+        cursor.execute('''
+            UPDATE verify_requests 
+            SET status = ?, admin_response = ?, response_date = ? 
+            WHERE id = ?
+        ''', (status, admin_response, datetime.now().isoformat(), request_id))
+    else:
+        cursor.execute('''
+            UPDATE verify_requests 
+            SET status = ?, response_date = ? 
+            WHERE id = ?
+        ''', (status, datetime.now().isoformat(), request_id))
     conn.commit()
     conn.close()
 
@@ -266,6 +302,67 @@ def db_add_support_ticket(user_id, username, message):
     conn.commit()
     conn.close()
     return cursor.lastrowid
+
+def db_update_support_ticket(ticket_id, status, admin_response=None):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    if admin_response:
+        cursor.execute('''
+            UPDATE support_tickets 
+            SET status = ?, admin_response = ?, response_date = ? 
+            WHERE id = ?
+        ''', (status, admin_response, datetime.now().isoformat(), ticket_id))
+    else:
+        cursor.execute('''
+            UPDATE support_tickets 
+            SET status = ?, response_date = ? 
+            WHERE id = ?
+        ''', (status, datetime.now().isoformat(), ticket_id))
+    conn.commit()
+    conn.close()
+
+def db_get_self_settings(user_id):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM self_settings WHERE user_id = ?', (user_id,))
+    result = cursor.fetchone()
+    conn.close()
+    if result:
+        return {
+            'clock_enabled': result[1] == 1,
+            'auto_read': result[2] == 1,
+            'auto_reply': result[3] == 1,
+            'anti_insult': result[4] == 1,
+            'animated_msg': result[5] == 1,
+            'smart_secretary': result[6] == 1
+        }
+    return {
+        'clock_enabled': False,
+        'auto_read': False,
+        'auto_reply': False,
+        'anti_insult': False,
+        'animated_msg': False,
+        'smart_secretary': False
+    }
+
+def db_update_self_settings(user_id, settings):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT OR REPLACE INTO self_settings 
+        (user_id, clock_enabled, auto_read, auto_reply, anti_insult, animated_msg, smart_secretary)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', (
+        user_id,
+        1 if settings.get('clock_enabled', False) else 0,
+        1 if settings.get('auto_read', False) else 0,
+        1 if settings.get('auto_reply', False) else 0,
+        1 if settings.get('anti_insult', False) else 0,
+        1 if settings.get('animated_msg', False) else 0,
+        1 if settings.get('smart_secretary', False) else 0
+    ))
+    conn.commit()
+    conn.close()
 
 # ==================== HELPER FUNCTIONS ====================
 
@@ -400,57 +497,259 @@ def use_code(code, user_id):
 async def show_self_panel(client, event):
     try:
         user_id = event.sender_id
+        
+        try:
+            await client.delete_messages(event.message.peer_id, [event.message.id])
+        except:
+            pass
+        
         session_data = get_user_session(user_id)
         if not session_data:
             return
         if not has_active_subscription(user_id):
             return
-        clock_active = get_clock_status(user_id)
+        
+        settings = db_get_self_settings(user_id)
+        
         panel_text = (
-            "<b>⚡ به پنل ریپر سلف خوش آمدید.</b>\n"
-            "<b>🔄 لطفا از منوی زیر انتخاب نمایید!</b>"
+            "<b>⚡ لطفا یکی از گزینه‌های زیر را انتخاب نمایید:</b>\n\n"
+            f"<b>⏰ ساعت:</b> {'✅' if settings['clock_enabled'] else '❌'}\n"
+            f"<b>👁️ خودخوان:</b> {'✅' if settings['auto_read'] else '❌'}\n"
+            f"<b>🤖 پاسخ خودکار:</b> {'✅' if settings['auto_reply'] else '❌'}\n"
+            f"<b>🛡️ ضد توهین:</b> {'✅' if settings['anti_insult'] else '❌'}\n"
+            f"<b>🎬 پیام انیمیشنی:</b> {'✅' if settings['animated_msg'] else '❌'}\n"
+            f"<b>🧠 منشی هوشمند:</b> {'✅' if settings['smart_secretary'] else '❌'}\n"
         )
+        
         keyboard = [
-            [InlineKeyboardButton("⏰ ساعت اکانت غیرفعال" if clock_active else "⏰ ساعت اکانت فعال", callback_data=f"toggle_clock_salf_{user_id}")]
+            [InlineKeyboardButton(
+                "⏰ ساعت " + ("✅" if settings['clock_enabled'] else "❌"), 
+                callback_data=f"self_clock_{user_id}"
+            )],
+            [InlineKeyboardButton(
+                "👁️ خودخوان " + ("✅" if settings['auto_read'] else "❌"), 
+                callback_data=f"self_autoread_{user_id}"
+            )],
+            [InlineKeyboardButton(
+                "🤖 پاسخ خودکار " + ("✅" if settings['auto_reply'] else "❌"), 
+                callback_data=f"self_autoreply_{user_id}"
+            )],
+            [InlineKeyboardButton(
+                "🛡️ ضد توهین " + ("✅" if settings['anti_insult'] else "❌"), 
+                callback_data=f"self_antiinsult_{user_id}"
+            )],
+            [InlineKeyboardButton(
+                "🎬 پیام انیمیشنی " + ("✅" if settings['animated_msg'] else "❌"), 
+                callback_data=f"self_animated_{user_id}"
+            )],
+            [InlineKeyboardButton(
+                "🧠 منشی هوشمند " + ("✅" if settings['smart_secretary'] else "❌"), 
+                callback_data=f"self_secretary_{user_id}"
+            )],
         ]
+        
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await client.edit_message(
+        
+        sent_msg = await client.send_message(
             event.message.peer_id,
-            event.message.id,
             panel_text,
             parse_mode='html',
             reply_markup=reply_markup
         )
+        
+        self_panel_messages[user_id] = sent_msg.id
+        
     except Exception as e:
         pass
 
-async def handle_salf_toggle_clock(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_self_panel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+    
     data = query.data
-    if data.startswith("toggle_clock_salf_"):
-        user_id = int(data.split("_")[3])
-        if is_user_banned(user_id):
-            await query.edit_message_text("<b>🚫 شما از طرف مدیریت مسدود شده اید!</b>", parse_mode='HTML')
-            return
-        if not has_active_subscription(user_id):
-            await query.edit_message_text("<b>❌ شما اشتراک فعال ندارید!</b>", parse_mode='HTML')
-            return
-        current_status = get_clock_status(user_id)
-        new_status = not current_status
-        if new_status:
+    user_id = query.from_user.id
+    
+    if data.startswith("self_clock_"):
+        user_id = int(data.split("_")[2])
+        settings = db_get_self_settings(user_id)
+        settings['clock_enabled'] = not settings['clock_enabled']
+        db_update_self_settings(user_id, settings)
+        
+        if settings['clock_enabled']:
             set_clock_status(user_id, True)
             await set_clock_on_profile(user_id)
-            text = "<b>✅ ساعت اکانت شما فعال شد!</b>"
+            await query.answer("⏰ ساعت فعال شد!")
         else:
             set_clock_status(user_id, False)
             await remove_clock_from_profile(user_id)
-            text = "<b>✅ ساعت اکانت شما غیرفعال شد!</b>"
+            await query.answer("⏰ ساعت غیرفعال شد!")
+        
+        await update_self_panel(update, context, user_id)
+        
+    elif data.startswith("self_autoread_"):
+        user_id = int(data.split("_")[2])
+        settings = db_get_self_settings(user_id)
+        settings['auto_read'] = not settings['auto_read']
+        db_update_self_settings(user_id, settings)
+        await query.answer("👁️ خودخوان " + ("فعال شد!" if settings['auto_read'] else "غیرفعال شد!"))
+        await update_self_panel(update, context, user_id)
+        
+    elif data.startswith("self_autoreply_"):
+        user_id = int(data.split("_")[2])
+        settings = db_get_self_settings(user_id)
+        settings['auto_reply'] = not settings['auto_reply']
+        db_update_self_settings(user_id, settings)
+        await query.answer("🤖 پاسخ خودکار " + ("فعال شد!" if settings['auto_reply'] else "غیرفعال شد!"))
+        await update_self_panel(update, context, user_id)
+        
+    elif data.startswith("self_antiinsult_"):
+        user_id = int(data.split("_")[2])
+        settings = db_get_self_settings(user_id)
+        settings['anti_insult'] = not settings['anti_insult']
+        db_update_self_settings(user_id, settings)
+        await query.answer("🛡️ ضد توهین " + ("فعال شد!" if settings['anti_insult'] else "غیرفعال شد!"))
+        await update_self_panel(update, context, user_id)
+        
+    elif data.startswith("self_animated_"):
+        user_id = int(data.split("_")[2])
+        settings = db_get_self_settings(user_id)
+        settings['animated_msg'] = not settings['animated_msg']
+        db_update_self_settings(user_id, settings)
+        await query.answer("🎬 پیام انیمیشنی " + ("فعال شد!" if settings['animated_msg'] else "غیرفعال شد!"))
+        await update_self_panel(update, context, user_id)
+        
+    elif data.startswith("self_secretary_"):
+        user_id = int(data.split("_")[2])
+        settings = db_get_self_settings(user_id)
+        settings['smart_secretary'] = not settings['smart_secretary']
+        db_update_self_settings(user_id, settings)
+        await query.answer("🧠 منشی هوشمند " + ("فعال شد!" if settings['smart_secretary'] else "غیرفعال شد!"))
+        await update_self_panel(update, context, user_id)
+
+async def update_self_panel(update, context, user_id):
+    settings = db_get_self_settings(user_id)
+    
+    panel_text = (
+        "<b>⚡ لطفا یکی از گزینه‌های زیر را انتخاب نمایید:</b>\n\n"
+        f"<b>⏰ ساعت:</b> {'✅' if settings['clock_enabled'] else '❌'}\n"
+        f"<b>👁️ خودخوان:</b> {'✅' if settings['auto_read'] else '❌'}\n"
+        f"<b>🤖 پاسخ خودکار:</b> {'✅' if settings['auto_reply'] else '❌'}\n"
+        f"<b>🛡️ ضد توهین:</b> {'✅' if settings['anti_insult'] else '❌'}\n"
+        f"<b>🎬 پیام انیمیشنی:</b> {'✅' if settings['animated_msg'] else '❌'}\n"
+        f"<b>🧠 منشی هوشمند:</b> {'✅' if settings['smart_secretary'] else '❌'}\n"
+    )
+    
+    keyboard = [
+        [InlineKeyboardButton(
+            "⏰ ساعت " + ("✅" if settings['clock_enabled'] else "❌"), 
+            callback_data=f"self_clock_{user_id}"
+        )],
+        [InlineKeyboardButton(
+            "👁️ خودخوان " + ("✅" if settings['auto_read'] else "❌"), 
+            callback_data=f"self_autoread_{user_id}"
+        )],
+        [InlineKeyboardButton(
+            "🤖 پاسخ خودکار " + ("✅" if settings['auto_reply'] else "❌"), 
+            callback_data=f"self_autoreply_{user_id}"
+        )],
+        [InlineKeyboardButton(
+            "🛡️ ضد توهین " + ("✅" if settings['anti_insult'] else "❌"), 
+            callback_data=f"self_antiinsult_{user_id}"
+        )],
+        [InlineKeyboardButton(
+            "🎬 پیام انیمیشنی " + ("✅" if settings['animated_msg'] else "❌"), 
+            callback_data=f"self_animated_{user_id}"
+        )],
+        [InlineKeyboardButton(
+            "🧠 منشی هوشمند " + ("✅" if settings['smart_secretary'] else "❌"), 
+            callback_data=f"self_secretary_{user_id}"
+        )],
+    ]
+    
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    try:
+        await query.edit_message_text(
+            panel_text,
+            reply_markup=reply_markup,
+            parse_mode='HTML'
+        )
+    except:
+        pass
+
+async def handle_self_panel_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    message_text = update.message.text
+    
+    if message_text and message_text.lower() == "پنل":
+        session_data = get_user_session(user_id)
+        if not session_data:
+            await update.message.reply_text(
+                "<b>❌ شما وارد سلف نشده اید!</b>\n"
+                "<b>🔑 لطفا ابتدا از دکمه ورود سلف استفاده کنید.</b>",
+                parse_mode='HTML'
+            )
+            return
+        
+        if not has_active_subscription(user_id):
+            await update.message.reply_text(
+                "<b>❌ شما اشتراک فعال ندارید!</b>\n"
+                "<b>💳 لطفا اشتراک خریداری کنید.</b>",
+                parse_mode='HTML'
+            )
+            return
+        
+        try:
+            await update.message.delete()
+        except:
+            pass
+        
+        settings = db_get_self_settings(user_id)
+        
+        panel_text = (
+            "<b>⚡ لطفا یکی از گزینه‌های زیر را انتخاب نمایید:</b>\n\n"
+            f"<b>⏰ ساعت:</b> {'✅' if settings['clock_enabled'] else '❌'}\n"
+            f"<b>👁️ خودخوان:</b> {'✅' if settings['auto_read'] else '❌'}\n"
+            f"<b>🤖 پاسخ خودکار:</b> {'✅' if settings['auto_reply'] else '❌'}\n"
+            f"<b>🛡️ ضد توهین:</b> {'✅' if settings['anti_insult'] else '❌'}\n"
+            f"<b>🎬 پیام انیمیشنی:</b> {'✅' if settings['animated_msg'] else '❌'}\n"
+            f"<b>🧠 منشی هوشمند:</b> {'✅' if settings['smart_secretary'] else '❌'}\n"
+        )
+        
         keyboard = [
-            [InlineKeyboardButton("⏰ ساعت اکانت غیرفعال" if new_status else "⏰ ساعت اکانت فعال", callback_data=f"toggle_clock_salf_{user_id}")]
+            [InlineKeyboardButton(
+                "⏰ ساعت " + ("✅" if settings['clock_enabled'] else "❌"), 
+                callback_data=f"self_clock_{user_id}"
+            )],
+            [InlineKeyboardButton(
+                "👁️ خودخوان " + ("✅" if settings['auto_read'] else "❌"), 
+                callback_data=f"self_autoread_{user_id}"
+            )],
+            [InlineKeyboardButton(
+                "🤖 پاسخ خودکار " + ("✅" if settings['auto_reply'] else "❌"), 
+                callback_data=f"self_autoreply_{user_id}"
+            )],
+            [InlineKeyboardButton(
+                "🛡️ ضد توهین " + ("✅" if settings['anti_insult'] else "❌"), 
+                callback_data=f"self_antiinsult_{user_id}"
+            )],
+            [InlineKeyboardButton(
+                "🎬 پیام انیمیشنی " + ("✅" if settings['animated_msg'] else "❌"), 
+                callback_data=f"self_animated_{user_id}"
+            )],
+            [InlineKeyboardButton(
+                "🧠 منشی هوشمند " + ("✅" if settings['smart_secretary'] else "❌"), 
+                callback_data=f"self_secretary_{user_id}"
+            )],
         ]
+        
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
+        
+        await update.message.reply_text(
+            panel_text,
+            reply_markup=reply_markup,
+            parse_mode='HTML'
+        )
 
 # ==================== SELF CLIENTS ====================
 
@@ -478,12 +777,14 @@ async def start_salf_client(user_id):
                 await client.disconnect()
                 return False
         salf_clients[user_id] = client
+        
         @client.on(events.MessageEdited)
         @client.on(events.NewMessage)
         async def panel_handler(event):
             if event.sender_id == user_id:
                 if event.message and event.message.text and event.message.text.lower() == "پنل":
                     await show_self_panel(client, event)
+        
         await client.run_until_disconnected()
         return True
     except Exception as e:
@@ -1180,7 +1481,6 @@ async def show_user_menu(update, context, query):
     
     keyboard.append([InlineKeyboardButton("💎 نرخ", callback_data="rate")])
     
-    # فقط برای ادمین‌ها دکمه پنل مدیریت نمایش داده میشه
     if is_admin(user_id):
         keyboard.append([InlineKeyboardButton("🎈 پنل مدیریت", callback_data="admin_back")])
     
@@ -1531,14 +1831,15 @@ async def accept_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
     request_id = int(query.data.split("_")[2])
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    cursor.execute('SELECT user_id FROM verify_requests WHERE id = ?', (request_id,))
+    cursor.execute('SELECT user_id, username FROM verify_requests WHERE id = ?', (request_id,))
     result = cursor.fetchone()
     conn.close()
     if result:
         user_id = result[0]
+        username = result[1]
         if not is_user_verified(user_id):
             verify_user(user_id)
-            db_update_verify_request(request_id, 'accepted')
+            db_update_verify_request(request_id, 'accepted', 'تایید شد')
             try:
                 await context.bot.send_message(
                     chat_id=user_id,
@@ -1548,8 +1849,10 @@ async def accept_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except:
                 pass
             await query.edit_message_text(
-                f"<b>✅ درخواست احراز هویت شماره {request_id} با موفقیت پذیرفته شد.</b>\n"
-                f"<b>🎉 کاربر احراز هویت شد.</b>",
+                f"<b>✅ درخواست احراز هویت کاربر {username} با موفقیت پذیرفته شد.</b>\n"
+                f"<b>🎉 کاربر احراز هویت شد.</b>\n\n"
+                f"<b>🔙 برای بازگشت کلیک کنید:</b>",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]]),
                 parse_mode='HTML'
             )
         else:
@@ -1566,12 +1869,13 @@ async def reject_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
     request_id = int(query.data.split("_")[2])
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    cursor.execute('SELECT user_id FROM verify_requests WHERE id = ?', (request_id,))
+    cursor.execute('SELECT user_id, username FROM verify_requests WHERE id = ?', (request_id,))
     result = cursor.fetchone()
     conn.close()
     if result:
         user_id = result[0]
-        db_update_verify_request(request_id, 'rejected')
+        username = result[1]
+        db_update_verify_request(request_id, 'rejected', 'رد شد')
         try:
             await context.bot.send_message(
                 chat_id=user_id,
@@ -1581,8 +1885,10 @@ async def reject_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except:
             pass
         await query.edit_message_text(
-            f"<b>❌ درخواست احراز هویت شماره {request_id} رد شد.</b>\n"
-            f"<b>⛔ کاربر تایید نشد.</b>",
+            f"<b>❌ درخواست احراز هویت کاربر {username} رد شد.</b>\n"
+            f"<b>⛔ کاربر تایید نشد.</b>\n\n"
+            f"<b>🔙 برای بازگشت کلیک کنید:</b>",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="admin_back")]]),
             parse_mode='HTML'
         )
     else:
@@ -2651,6 +2957,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode='HTML'
         )
         return
+    
+    # هندلر پنل سلف
+    if update.message.text and update.message.text.lower() == "پنل":
+        await handle_self_panel_message(update, context)
+        return
+    
     if user_id in user_states and str(user_states[user_id]).startswith("replying_to_"):
         await handle_admin_reply_message(update, context)
         return
@@ -2761,6 +3073,7 @@ def main():
     app.add_handler(CallbackQueryHandler(rate, pattern="rate"))
     app.add_handler(CallbackQueryHandler(expiry, pattern="expiry"))
     app.add_handler(CallbackQueryHandler(handle_salf_toggle_clock, pattern="^toggle_clock_salf_"))
+    app.add_handler(CallbackQueryHandler(handle_self_panel_callback, pattern="^self_"))
     app.add_handler(CallbackQueryHandler(buy_1_month, pattern="buy_1_month"))
     app.add_handler(CallbackQueryHandler(buy_2_month, pattern="buy_2_month"))
     app.add_handler(CallbackQueryHandler(buy_3_month, pattern="buy_3_month"))
