@@ -21,12 +21,11 @@ from telethon.errors import (FloodWaitError, PhoneCodeExpiredError,
                              PhoneCodeInvalidError, PhoneNumberInvalidError,
                              SessionPasswordNeededError)
 from telethon.tl.functions.account import UpdateProfileRequest
-from telethon.tl.functions.messages import DeleteMessagesRequest, SendMessageRequest
+from telethon.tl.types import KeyboardButtonCallback
 
 TOKEN = "8961040480:AAHNKEnK7LZuCp9fSJ5td2_XdGFqPtwp_dY"
 CHANNEL_USERNAME = "@ReaperSelfChannel"
 ADMIN_IDS = [7803165903, 8831703400]
-BOT_USERNAME = "@RipperSelfbot"
 
 DB_FILE = "bot_database.db"
 
@@ -48,8 +47,7 @@ def init_db():
             is_verified INTEGER DEFAULT 0,
             remaining_days INTEGER DEFAULT 0,
             expiry_date TEXT,
-            clock_active INTEGER DEFAULT 1,
-            self_settings TEXT DEFAULT '{}'
+            clock_active INTEGER DEFAULT 1
         )
     ''')
     
@@ -119,7 +117,23 @@ def init_db():
             anti_insult INTEGER DEFAULT 0,
             animated_msg INTEGER DEFAULT 0,
             smart_secretary INTEGER DEFAULT 0,
-            settings_json TEXT DEFAULT '{}'
+            bio INTEGER DEFAULT 0,
+            name_setting INTEGER DEFAULT 0,
+            analytics INTEGER DEFAULT 0,
+            about INTEGER DEFAULT 0,
+            title INTEGER DEFAULT 0,
+            anti_login INTEGER DEFAULT 0,
+            auto_setting INTEGER DEFAULT 0,
+            banner INTEGER DEFAULT 0,
+            comment INTEGER DEFAULT 0,
+            birthday INTEGER DEFAULT 0,
+            alert INTEGER DEFAULT 0,
+            classic INTEGER DEFAULT 1,
+            modern INTEGER DEFAULT 0,
+            persian INTEGER DEFAULT 1,
+            english INTEGER DEFAULT 0,
+            region INTEGER DEFAULT 1,
+            public_self INTEGER DEFAULT 0
         )
     ''')
     
@@ -137,7 +151,6 @@ pending_verify = {}
 user_menu_mode = {}
 clock_status = {}
 salf_clients = {}
-self_panel_messages = {}
 
 if not os.path.exists("sessions"):
     os.makedirs("sessions")
@@ -335,7 +348,24 @@ def db_get_self_settings(user_id):
             'auto_reply': result[3] == 1,
             'anti_insult': result[4] == 1,
             'animated_msg': result[5] == 1,
-            'smart_secretary': result[6] == 1
+            'smart_secretary': result[6] == 1,
+            'bio': result[7] == 1,
+            'name_setting': result[8] == 1,
+            'analytics': result[9] == 1,
+            'about': result[10] == 1,
+            'title': result[11] == 1,
+            'anti_login': result[12] == 1,
+            'auto_setting': result[13] == 1,
+            'banner': result[14] == 1,
+            'comment': result[15] == 1,
+            'birthday': result[16] == 1,
+            'alert': result[17] == 1,
+            'classic': result[18] == 1,
+            'modern': result[19] == 1,
+            'persian': result[20] == 1,
+            'english': result[21] == 1,
+            'region': result[22] == 1,
+            'public_self': result[23] == 1
         }
     return {
         'clock_enabled': False,
@@ -343,7 +373,24 @@ def db_get_self_settings(user_id):
         'auto_reply': False,
         'anti_insult': False,
         'animated_msg': False,
-        'smart_secretary': False
+        'smart_secretary': False,
+        'bio': False,
+        'name_setting': False,
+        'analytics': False,
+        'about': False,
+        'title': False,
+        'anti_login': False,
+        'auto_setting': False,
+        'banner': False,
+        'comment': False,
+        'birthday': False,
+        'alert': False,
+        'classic': True,
+        'modern': False,
+        'persian': True,
+        'english': False,
+        'region': True,
+        'public_self': False
     }
 
 def db_update_self_settings(user_id, settings):
@@ -351,8 +398,10 @@ def db_update_self_settings(user_id, settings):
     cursor = conn.cursor()
     cursor.execute('''
         INSERT OR REPLACE INTO self_settings 
-        (user_id, clock_enabled, auto_read, auto_reply, anti_insult, animated_msg, smart_secretary)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        (user_id, clock_enabled, auto_read, auto_reply, anti_insult, animated_msg, smart_secretary,
+         bio, name_setting, analytics, about, title, anti_login, auto_setting, banner, comment,
+         birthday, alert, classic, modern, persian, english, region, public_self)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         user_id,
         1 if settings.get('clock_enabled', False) else 0,
@@ -360,7 +409,24 @@ def db_update_self_settings(user_id, settings):
         1 if settings.get('auto_reply', False) else 0,
         1 if settings.get('anti_insult', False) else 0,
         1 if settings.get('animated_msg', False) else 0,
-        1 if settings.get('smart_secretary', False) else 0
+        1 if settings.get('smart_secretary', False) else 0,
+        1 if settings.get('bio', False) else 0,
+        1 if settings.get('name_setting', False) else 0,
+        1 if settings.get('analytics', False) else 0,
+        1 if settings.get('about', False) else 0,
+        1 if settings.get('title', False) else 0,
+        1 if settings.get('anti_login', False) else 0,
+        1 if settings.get('auto_setting', False) else 0,
+        1 if settings.get('banner', False) else 0,
+        1 if settings.get('comment', False) else 0,
+        1 if settings.get('birthday', False) else 0,
+        1 if settings.get('alert', False) else 0,
+        1 if settings.get('classic', True) else 0,
+        1 if settings.get('modern', False) else 0,
+        1 if settings.get('persian', True) else 0,
+        1 if settings.get('english', False) else 0,
+        1 if settings.get('region', True) else 0,
+        1 if settings.get('public_self', False) else 0
     ))
     conn.commit()
     conn.close()
@@ -493,69 +559,230 @@ def use_code(code, user_id):
     conn.close()
     return True
 
-# ==================== SELF PANEL (ارسال توسط سشن) ====================
+# ==================== SELF PANEL ====================
+
+def build_panel_text(settings):
+    text = "**⚡ لطفا یکی از گزینه‌های زیر را انتخاب نمایید:**\n\n"
+    
+    text += "**━━━━━━━━━━━━━━━━━━━━**\n"
+    text += f"**🖥️ کلاسیک:** {'✅' if settings.get('classic', True) else '❌'}\n"
+    text += f"**🖥️ مدرن:** {'✅' if settings.get('modern', False) else '❌'}\n"
+    text += f"**🌍 فارسی:** {'✅' if settings.get('persian', True) else '❌'}\n"
+    text += f"**🌍 انگلیسی:** {'✅' if settings.get('english', False) else '❌'}\n"
+    text += f"**🗺️ منطقه:** {'✅' if settings.get('region', True) else '❌'}\n"
+    text += f"**🌐 سلف همگانی:** {'✅' if settings.get('public_self', False) else '❌'}\n\n"
+    
+    text += "**━━━━━━━━━━━━━━━━━━━━**\n"
+    text += f"**📝 بیوگرافی:** {'✅' if settings.get('bio', False) else '❌'}\n"
+    text += f"**📛 اسم:** {'✅' if settings.get('name_setting', False) else '❌'}\n"
+    text += f"**📊 آنالیتی:** {'✅' if settings.get('analytics', False) else '❌'}\n"
+    text += f"**ℹ️ درباره:** {'✅' if settings.get('about', False) else '❌'}\n"
+    text += f"**📌 عنوان:** {'✅' if settings.get('title', False) else '❌'}\n"
+    text += f"**🔒 آنتی لاگین:** {'✅' if settings.get('anti_login', False) else '❌'}\n\n"
+    
+    text += "**━━━━━━━━━━━━━━━━━━━━**\n"
+    text += f"**⏰ ساعت:** {'✅' if settings.get('clock_enabled', False) else '❌'}\n"
+    text += f"**👁️ خودخوان:** {'✅' if settings.get('auto_read', False) else '❌'}\n"
+    text += f"**🤖 پاسخ خودکار:** {'✅' if settings.get('auto_reply', False) else '❌'}\n"
+    text += f"**🛡️ ضد توهین:** {'✅' if settings.get('anti_insult', False) else '❌'}\n"
+    text += f"**🎬 پیام انیمیشنی:** {'✅' if settings.get('animated_msg', False) else '❌'}\n"
+    text += f"**🧠 منشی هوشمند:** {'✅' if settings.get('smart_secretary', False) else '❌'}\n"
+    text += f"**🤖 خودکار:** {'✅' if settings.get('auto_setting', False) else '❌'}\n"
+    text += f"**🖼️ بنر:** {'✅' if settings.get('banner', False) else '❌'}\n"
+    text += f"**💬 کامنت:** {'✅' if settings.get('comment', False) else '❌'}\n"
+    text += f"**🎂 تولد:** {'✅' if settings.get('birthday', False) else '❌'}\n"
+    text += f"**🔔 هشدار:** {'✅' if settings.get('alert', False) else '❌'}\n"
+    
+    return text
+
+def build_panel_buttons(settings, user_id):
+    buttons = []
+    
+    row = [
+        KeyboardButtonCallback(
+            text=f"🖥️ کلاسیک {'✅' if settings.get('classic', True) else '❌'}",
+            data=f"self_toggle_classic_{user_id}".encode()
+        ),
+        KeyboardButtonCallback(
+            text=f"🖥️ مدرن {'✅' if settings.get('modern', False) else '❌'}",
+            data=f"self_toggle_modern_{user_id}".encode()
+        )
+    ]
+    buttons.append(row)
+    
+    row = [
+        KeyboardButtonCallback(
+            text=f"🌍 فارسی {'✅' if settings.get('persian', True) else '❌'}",
+            data=f"self_toggle_persian_{user_id}".encode()
+        ),
+        KeyboardButtonCallback(
+            text=f"🌍 انگلیسی {'✅' if settings.get('english', False) else '❌'}",
+            data=f"self_toggle_english_{user_id}".encode()
+        )
+    ]
+    buttons.append(row)
+    
+    row = [
+        KeyboardButtonCallback(
+            text=f"🗺️ منطقه {'✅' if settings.get('region', True) else '❌'}",
+            data=f"self_toggle_region_{user_id}".encode()
+        ),
+        KeyboardButtonCallback(
+            text=f"🌐 سلف همگانی {'✅' if settings.get('public_self', False) else '❌'}",
+            data=f"self_toggle_public_self_{user_id}".encode()
+        )
+    ]
+    buttons.append(row)
+    
+    row = [
+        KeyboardButtonCallback(
+            text=f"📝 بیوگرافی {'✅' if settings.get('bio', False) else '❌'}",
+            data=f"self_toggle_bio_{user_id}".encode()
+        ),
+        KeyboardButtonCallback(
+            text=f"📛 اسم {'✅' if settings.get('name_setting', False) else '❌'}",
+            data=f"self_toggle_name_{user_id}".encode()
+        )
+    ]
+    buttons.append(row)
+    
+    row = [
+        KeyboardButtonCallback(
+            text=f"📊 آنالیتی {'✅' if settings.get('analytics', False) else '❌'}",
+            data=f"self_toggle_analytics_{user_id}".encode()
+        ),
+        KeyboardButtonCallback(
+            text=f"ℹ️ درباره {'✅' if settings.get('about', False) else '❌'}",
+            data=f"self_toggle_about_{user_id}".encode()
+        )
+    ]
+    buttons.append(row)
+    
+    row = [
+        KeyboardButtonCallback(
+            text=f"📌 عنوان {'✅' if settings.get('title', False) else '❌'}",
+            data=f"self_toggle_title_{user_id}".encode()
+        ),
+        KeyboardButtonCallback(
+            text=f"🔒 آنتی لاگین {'✅' if settings.get('anti_login', False) else '❌'}",
+            data=f"self_toggle_anti_login_{user_id}".encode()
+        )
+    ]
+    buttons.append(row)
+    
+    row = [
+        KeyboardButtonCallback(
+            text=f"⏰ ساعت {'✅' if settings.get('clock_enabled', False) else '❌'}",
+            data=f"self_toggle_clock_{user_id}".encode()
+        ),
+        KeyboardButtonCallback(
+            text=f"👁️ خودخوان {'✅' if settings.get('auto_read', False) else '❌'}",
+            data=f"self_toggle_auto_read_{user_id}".encode()
+        )
+    ]
+    buttons.append(row)
+    
+    row = [
+        KeyboardButtonCallback(
+            text=f"🤖 پاسخ خودکار {'✅' if settings.get('auto_reply', False) else '❌'}",
+            data=f"self_toggle_auto_reply_{user_id}".encode()
+        ),
+        KeyboardButtonCallback(
+            text=f"🛡️ ضد توهین {'✅' if settings.get('anti_insult', False) else '❌'}",
+            data=f"self_toggle_anti_insult_{user_id}".encode()
+        )
+    ]
+    buttons.append(row)
+    
+    row = [
+        KeyboardButtonCallback(
+            text=f"🎬 پیام انیمیشنی {'✅' if settings.get('animated_msg', False) else '❌'}",
+            data=f"self_toggle_animated_msg_{user_id}".encode()
+        ),
+        KeyboardButtonCallback(
+            text=f"🧠 منشی هوشمند {'✅' if settings.get('smart_secretary', False) else '❌'}",
+            data=f"self_toggle_smart_secretary_{user_id}".encode()
+        )
+    ]
+    buttons.append(row)
+    
+    row = [
+        KeyboardButtonCallback(
+            text=f"🤖 خودکار {'✅' if settings.get('auto_setting', False) else '❌'}",
+            data=f"self_toggle_auto_{user_id}".encode()
+        ),
+        KeyboardButtonCallback(
+            text=f"🖼️ بنر {'✅' if settings.get('banner', False) else '❌'}",
+            data=f"self_toggle_banner_{user_id}".encode()
+        )
+    ]
+    buttons.append(row)
+    
+    row = [
+        KeyboardButtonCallback(
+            text=f"💬 کامنت {'✅' if settings.get('comment', False) else '❌'}",
+            data=f"self_toggle_comment_{user_id}".encode()
+        ),
+        KeyboardButtonCallback(
+            text=f"🎂 تولد {'✅' if settings.get('birthday', False) else '❌'}",
+            data=f"self_toggle_birthday_{user_id}".encode()
+        )
+    ]
+    buttons.append(row)
+    
+    row = [
+        KeyboardButtonCallback(
+            text=f"🔔 هشدار {'✅' if settings.get('alert', False) else '❌'}",
+            data=f"self_toggle_alert_{user_id}".encode()
+        )
+    ]
+    buttons.append(row)
+    
+    row = [
+        KeyboardButtonCallback(
+            text="🔄 بروزرسانی",
+            data=f"self_refresh_{user_id}".encode()
+        ),
+        KeyboardButtonCallback(
+            text="❌ بستن پنل",
+            data=f"self_close_{user_id}".encode()
+        )
+    ]
+    buttons.append(row)
+    
+    return buttons
 
 async def send_self_panel(client, user_id, chat_id, message_id=None):
     try:
         settings = db_get_self_settings(user_id)
         
-        panel_text = (
-            "<b>⚡ لطفا یکی از گزینه‌های زیر را انتخاب نمایید:</b>\n\n"
-            f"<b>⏰ ساعت:</b> {'✅' if settings['clock_enabled'] else '❌'}\n"
-            f"<b>👁️ خودخوان:</b> {'✅' if settings['auto_read'] else '❌'}\n"
-            f"<b>🤖 پاسخ خودکار:</b> {'✅' if settings['auto_reply'] else '❌'}\n"
-            f"<b>🛡️ ضد توهین:</b> {'✅' if settings['anti_insult'] else '❌'}\n"
-            f"<b>🎬 پیام انیمیشنی:</b> {'✅' if settings['animated_msg'] else '❌'}\n"
-            f"<b>🧠 منشی هوشمند:</b> {'✅' if settings['smart_secretary'] else '❌'}\n"
-        )
+        panel_text = build_panel_text(settings)
+        buttons = build_panel_buttons(settings, user_id)
         
-        keyboard = [
-            [InlineKeyboardButton(
-                "⏰ ساعت " + ("✅" if settings['clock_enabled'] else "❌"), 
-                callback_data=f"self_clock_{user_id}"
-            )],
-            [InlineKeyboardButton(
-                "👁️ خودخوان " + ("✅" if settings['auto_read'] else "❌"), 
-                callback_data=f"self_autoread_{user_id}"
-            )],
-            [InlineKeyboardButton(
-                "🤖 پاسخ خودکار " + ("✅" if settings['auto_reply'] else "❌"), 
-                callback_data=f"self_autoreply_{user_id}"
-            )],
-            [InlineKeyboardButton(
-                "🛡️ ضد توهین " + ("✅" if settings['anti_insult'] else "❌"), 
-                callback_data=f"self_antiinsult_{user_id}"
-            )],
-            [InlineKeyboardButton(
-                "🎬 پیام انیمیشنی " + ("✅" if settings['animated_msg'] else "❌"), 
-                callback_data=f"self_animated_{user_id}"
-            )],
-            [InlineKeyboardButton(
-                "🧠 منشی هوشمند " + ("✅" if settings['smart_secretary'] else "❌"), 
-                callback_data=f"self_secretary_{user_id}"
-            )],
-        ]
-        
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        # حذف پیام قبلی اگر وجود داشت
         if message_id:
             try:
-                await client.delete_messages(chat_id, [message_id])
+                await client.edit_message(
+                    chat_id,
+                    message_id,
+                    panel_text,
+                    buttons=buttons,
+                    parse_mode='markdown'
+                )
+                return message_id
             except:
                 pass
         
-        # ارسال پنل جدید
         sent_msg = await client.send_message(
             chat_id,
             panel_text,
-            parse_mode='html',
-            reply_markup=reply_markup
+            buttons=buttons,
+            parse_mode='markdown'
         )
         
         return sent_msg.id
         
     except Exception as e:
+        print(f"خطا در ارسال پنل: {e}")
         return None
 
 async def show_self_panel(client, event):
@@ -565,140 +792,112 @@ async def show_self_panel(client, event):
         if not has_active_subscription(user_id):
             await client.send_message(
                 event.message.peer_id,
-                "<b>❌ شما اشتراک فعال ندارید!</b>\n<b>💳 لطفا اشتراک خریداری کنید.</b>",
-                parse_mode='html'
+                "**❌ شما اشتراک فعال ندارید!**\n**💳 لطفا اشتراک خریداری کنید.**",
+                parse_mode='markdown'
             )
             return
         
-        # حذف پیام کاربر
         try:
             await client.delete_messages(event.message.peer_id, [event.message.id])
         except:
             pass
         
-        # ارسال پنل
         await send_self_panel(client, user_id, event.message.peer_id)
         
     except Exception as e:
-        pass
+        print(f"خطا در نمایش پنل: {e}")
 
-# ==================== SELF PANEL CALLBACK (از طریق ربات) ====================
-
-async def handle_self_panel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    
-    data = query.data
-    user_id = query.from_user.id
-    
-    if data.startswith("self_clock_"):
-        user_id = int(data.split("_")[2])
-        settings = db_get_self_settings(user_id)
-        settings['clock_enabled'] = not settings['clock_enabled']
-        db_update_self_settings(user_id, settings)
-        
-        if settings['clock_enabled']:
-            set_clock_status(user_id, True)
-            await set_clock_on_profile(user_id)
-            await query.answer("⏰ ساعت فعال شد!")
-        else:
-            set_clock_status(user_id, False)
-            await remove_clock_from_profile(user_id)
-            await query.answer("⏰ ساعت غیرفعال شد!")
-        
-        # ویرایش پیام پنل از طریق ربات
-        await update_self_panel_via_bot(update, context, user_id)
-        
-    elif data.startswith("self_autoread_"):
-        user_id = int(data.split("_")[2])
-        settings = db_get_self_settings(user_id)
-        settings['auto_read'] = not settings['auto_read']
-        db_update_self_settings(user_id, settings)
-        await query.answer("👁️ خودخوان " + ("فعال شد!" if settings['auto_read'] else "غیرفعال شد!"))
-        await update_self_panel_via_bot(update, context, user_id)
-        
-    elif data.startswith("self_autoreply_"):
-        user_id = int(data.split("_")[2])
-        settings = db_get_self_settings(user_id)
-        settings['auto_reply'] = not settings['auto_reply']
-        db_update_self_settings(user_id, settings)
-        await query.answer("🤖 پاسخ خودکار " + ("فعال شد!" if settings['auto_reply'] else "غیرفعال شد!"))
-        await update_self_panel_via_bot(update, context, user_id)
-        
-    elif data.startswith("self_antiinsult_"):
-        user_id = int(data.split("_")[2])
-        settings = db_get_self_settings(user_id)
-        settings['anti_insult'] = not settings['anti_insult']
-        db_update_self_settings(user_id, settings)
-        await query.answer("🛡️ ضد توهین " + ("فعال شد!" if settings['anti_insult'] else "غیرفعال شد!"))
-        await update_self_panel_via_bot(update, context, user_id)
-        
-    elif data.startswith("self_animated_"):
-        user_id = int(data.split("_")[2])
-        settings = db_get_self_settings(user_id)
-        settings['animated_msg'] = not settings['animated_msg']
-        db_update_self_settings(user_id, settings)
-        await query.answer("🎬 پیام انیمیشنی " + ("فعال شد!" if settings['animated_msg'] else "غیرفعال شد!"))
-        await update_self_panel_via_bot(update, context, user_id)
-        
-    elif data.startswith("self_secretary_"):
-        user_id = int(data.split("_")[2])
-        settings = db_get_self_settings(user_id)
-        settings['smart_secretary'] = not settings['smart_secretary']
-        db_update_self_settings(user_id, settings)
-        await query.answer("🧠 منشی هوشمند " + ("فعال شد!" if settings['smart_secretary'] else "غیرفعال شد!"))
-        await update_self_panel_via_bot(update, context, user_id)
-
-async def update_self_panel_via_bot(update, context, user_id):
-    settings = db_get_self_settings(user_id)
-    
-    panel_text = (
-        "<b>⚡ لطفا یکی از گزینه‌های زیر را انتخاب نمایید:</b>\n\n"
-        f"<b>⏰ ساعت:</b> {'✅' if settings['clock_enabled'] else '❌'}\n"
-        f"<b>👁️ خودخوان:</b> {'✅' if settings['auto_read'] else '❌'}\n"
-        f"<b>🤖 پاسخ خودکار:</b> {'✅' if settings['auto_reply'] else '❌'}\n"
-        f"<b>🛡️ ضد توهین:</b> {'✅' if settings['anti_insult'] else '❌'}\n"
-        f"<b>🎬 پیام انیمیشنی:</b> {'✅' if settings['animated_msg'] else '❌'}\n"
-        f"<b>🧠 منشی هوشمند:</b> {'✅' if settings['smart_secretary'] else '❌'}\n"
-    )
-    
-    keyboard = [
-        [InlineKeyboardButton(
-            "⏰ ساعت " + ("✅" if settings['clock_enabled'] else "❌"), 
-            callback_data=f"self_clock_{user_id}"
-        )],
-        [InlineKeyboardButton(
-            "👁️ خودخوان " + ("✅" if settings['auto_read'] else "❌"), 
-            callback_data=f"self_autoread_{user_id}"
-        )],
-        [InlineKeyboardButton(
-            "🤖 پاسخ خودکار " + ("✅" if settings['auto_reply'] else "❌"), 
-            callback_data=f"self_autoreply_{user_id}"
-        )],
-        [InlineKeyboardButton(
-            "🛡️ ضد توهین " + ("✅" if settings['anti_insult'] else "❌"), 
-            callback_data=f"self_antiinsult_{user_id}"
-        )],
-        [InlineKeyboardButton(
-            "🎬 پیام انیمیشنی " + ("✅" if settings['animated_msg'] else "❌"), 
-            callback_data=f"self_animated_{user_id}"
-        )],
-        [InlineKeyboardButton(
-            "🧠 منشی هوشمند " + ("✅" if settings['smart_secretary'] else "❌"), 
-            callback_data=f"self_secretary_{user_id}"
-        )],
-    ]
-    
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
+async def handle_self_callback(event, client):
     try:
-        await query.edit_message_text(
-            panel_text,
-            reply_markup=reply_markup,
-            parse_mode='HTML'
-        )
-    except:
-        pass
+        data = event.data.decode('utf-8')
+        parts = data.split('_')
+        
+        if len(parts) < 3:
+            return
+        
+        action = parts[1]
+        user_id = int(parts[2])
+        
+        settings = db_get_self_settings(user_id)
+        
+        toggle_map = {
+            'clock': 'clock_enabled',
+            'auto_read': 'auto_read',
+            'auto_reply': 'auto_reply',
+            'anti_insult': 'anti_insult',
+            'animated_msg': 'animated_msg',
+            'smart_secretary': 'smart_secretary',
+            'bio': 'bio',
+            'name': 'name_setting',
+            'analytics': 'analytics',
+            'about': 'about',
+            'title': 'title',
+            'anti_login': 'anti_login',
+            'auto': 'auto_setting',
+            'banner': 'banner',
+            'comment': 'comment',
+            'birthday': 'birthday',
+            'alert': 'alert',
+            'classic': 'classic',
+            'modern': 'modern',
+            'persian': 'persian',
+            'english': 'english',
+            'region': 'region',
+            'public_self': 'public_self'
+        }
+        
+        if action in toggle_map:
+            key = toggle_map[action]
+            settings[key] = not settings.get(key, False)
+            
+            if key == 'classic' and settings['classic']:
+                settings['modern'] = False
+            elif key == 'modern' and settings['modern']:
+                settings['classic'] = False
+            
+            if key == 'persian' and settings['persian']:
+                settings['english'] = False
+            elif key == 'english' and settings['english']:
+                settings['persian'] = False
+            
+            db_update_self_settings(user_id, settings)
+            
+            if key == 'clock_enabled':
+                set_clock_status(user_id, settings['clock_enabled'])
+                if settings['clock_enabled']:
+                    await set_clock_on_profile(user_id)
+                else:
+                    await remove_clock_from_profile(user_id)
+            
+            chat_id = event.chat_id
+            message_id = event.message_id
+            
+            await send_self_panel(client, user_id, chat_id, message_id)
+            
+            await event.answer("✅ تغییرات اعمال شد!")
+            return
+        
+        if action == 'refresh':
+            chat_id = event.chat_id
+            message_id = event.message_id
+            await send_self_panel(client, user_id, chat_id, message_id)
+            await event.answer("🔄 پنل بروزرسانی شد!")
+            return
+        
+        if action == 'close':
+            try:
+                await client.delete_messages(event.chat_id, [event.message_id])
+            except:
+                pass
+            await event.answer("❌ پنل بسته شد!")
+            return
+        
+    except Exception as e:
+        print(f"خطا در هندلر کالبک سلف: {e}")
+        try:
+            await event.answer("❌ خطا!")
+        except:
+            pass
 
 # ==================== SELF CLIENTS ====================
 
@@ -707,24 +906,28 @@ async def start_salf_client(user_id):
         session_data = get_user_session(user_id)
         if not session_data:
             return False
+        
         if user_id in salf_clients:
             try:
                 await salf_clients[user_id].disconnect()
             except:
                 pass
             del salf_clients[user_id]
+        
         client = TelegramClient(
             f"sessions/user_{user_id}",
             session_data['api_id'],
             session_data['api_hash']
         )
         await client.connect()
+        
         if not await client.is_user_authorized():
             try:
                 await client.sign_in(session_data['phone'])
             except:
                 await client.disconnect()
                 return False
+        
         salf_clients[user_id] = client
         
         @client.on(events.MessageEdited)
@@ -732,12 +935,18 @@ async def start_salf_client(user_id):
         async def panel_handler(event):
             if event.sender_id == user_id:
                 if event.message and event.message.text:
-                    if event.message.text.lower() == "پنل":
+                    if event.message.text.strip() == "پنل":
                         await show_self_panel(client, event)
+        
+        @client.on(events.CallbackQuery)
+        async def callback_handler(event):
+            await handle_self_callback(event, client)
         
         await client.run_until_disconnected()
         return True
+        
     except Exception as e:
+        print(f"خطا در شروع سلف کاربر {user_id}: {e}")
         return False
 
 async def start_all_salf_clients():
@@ -2908,11 +3117,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
-    # کلمه "پنل" توسط سشن مدیریت میشه، نه ربات
-    if update.message.text and update.message.text.lower() == "پنل":
-        # اینجا کاری نمیکنیم چون سشن خودش هندل میکنه
-        pass
-    
     if user_id in user_states and str(user_states[user_id]).startswith("replying_to_"):
         await handle_admin_reply_message(update, context)
         return
@@ -3022,7 +3226,6 @@ def main():
     app.add_handler(CallbackQueryHandler(back_from_user_menu, pattern="back_from_user_menu"))
     app.add_handler(CallbackQueryHandler(rate, pattern="rate"))
     app.add_handler(CallbackQueryHandler(expiry, pattern="expiry"))
-    app.add_handler(CallbackQueryHandler(handle_self_panel_callback, pattern="^self_"))
     app.add_handler(CallbackQueryHandler(buy_1_month, pattern="buy_1_month"))
     app.add_handler(CallbackQueryHandler(buy_2_month, pattern="buy_2_month"))
     app.add_handler(CallbackQueryHandler(buy_3_month, pattern="buy_3_month"))
