@@ -1,3 +1,6 @@
+باشه عزیزم، کد کامل رو برات میفرستم. طولانیه ولی کامل:
+
+```python
 import asyncio
 import json
 import os
@@ -408,7 +411,7 @@ async def show_self_panel(client, event):
         clock_active = get_clock_status(user_id)
         panel_text = (
             "<b>⚡ به پنل ریپر سلف خوش آمدید.</b>\n"
-            "<b>📌 لطفا از منوی زیر انتخاب نمایید!</b>"
+            "<b>🔄 لطفا از منوی زیر انتخاب نمایید!</b>"
         )
         keyboard = [
             [InlineKeyboardButton("⏰ ساعت اکانت غیرفعال" if clock_active else "⏰ ساعت اکانت فعال", callback_data=f"toggle_clock_salf_{user_id}")]
@@ -689,7 +692,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db_add_user(user_id, user.username, user.first_name, user.last_name)
     if is_user_banned(user_id):
         await update.message.reply_text(
-            "<b>🚫 شما از طرف مدیریت مسدود شده اید!</b>\n<b>📌 در صورت نیاز با پشتیبانی تماس بگیرید.</b>",
+            "<b>🚫 شما از طرف مدیریت مسدود شده اید!</b>\n<b>💠 در صورت نیاز با پشتیبانی تماس بگیرید.</b>",
             parse_mode='HTML'
         )
         return
@@ -701,8 +704,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_admin(user_id):
         text = (
             f"<b>⚡ درود {user_mention} به پنل ریپر سلف خوش آمدید.</b>\n\n"
-            "<b>📌 در این پنل میتوانید ربات را کنترل و مدیریت کنید.</b>\n\n"
-            "<b>📌 لطفا از منوی زیر انتخاب نمایید.</b>"
+            "<b>🛠️ در این پنل میتوانید ربات را کنترل و مدیریت کنید.</b>\n\n"
+            "<b>🔄 لطفا از منوی زیر انتخاب نمایید.</b>"
         )
         keyboard = [
             [InlineKeyboardButton("⚙️ تنظیمات", callback_data="admin_settings")],
@@ -724,8 +727,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             expiry_date = get_expiry_date(user_id)
             text = (
                 f"<b>⚡ سلام {user_mention} به ربات ریپر سلف خوش آمدید!</b>\n\n"
-                "<b>📌 در این ربات میتوانید از پشتیبانی، خرید، نصب ربات سلف بهره ببرید!</b>\n\n"
-                "<b>📌 اگر سوالی دارید از بخش پشتیبانی استفاده کنید.</b>"
+                "<b>🎯 در این ربات میتوانید از پشتیبانی، خرید، نصب ربات سلف بهره ببرید!</b>\n\n"
+                "<b>💠 اگر سوالی دارید از بخش پشتیبانی استفاده کنید.</b>"
             )
             keyboard = []
             keyboard.append([InlineKeyboardButton("👨‍💻 پشتیبانی", callback_data="support")])
@@ -746,8 +749,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except:
         pass
     text = (
-        "<b>📌 برای دسترسی به خدمات ما، ابتدا باید در کانال زیر عضو شوید.</b>\n"
-        "<b>📌 پس از عضویت، روی دکمه «عضو شدم» کلیک کنید.</b>"
+        "<b>🔗 برای دسترسی به خدمات ما، ابتدا باید در کانال زیر عضو شوید.</b>\n"
+        "<b>✅ پس از عضویت، روی دکمه «عضو شدم» کلیک کنید.</b>"
     )
     keyboard = [
         [InlineKeyboardButton("🔗 ریپر سلف", url="https://t.me/ReaperSelfChannel")],
@@ -763,7 +766,7 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = query.from_user
     if is_user_banned(user_id):
         await query.edit_message_text(
-            "<b>🚫 شما از طرف مدیریت مسدود شده اید!</b>\n<b>📌 در صورت نیاز با پشتیبانی تماس بگیرید.</b>",
+            "<b>🚫 شما از طرف مدیریت مسدود شده اید!</b>\n<b>💠 در صورت نیاز با پشتیبانی تماس بگیرید.</b>",
             parse_mode='HTML'
         )
         return
@@ -771,8 +774,8 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_admin(user_id):
         text = (
             f"<b>⚡ درود {user_mention} به پنل ریپر سلف خوش آمدید.</b>\n\n"
-            "<b>📌 در این پنل میتوانید ربات را کنترل و مدیریت کنید.</b>\n\n"
-            "<b>📌 لطفا از منوی زیر انتخاب نمایید.</b>"
+            "<b>🛠️ در این پنل میتوانید ربات را کنترل و مدیریت کنید.</b>\n\n"
+            "<b>🔄 لطفا از منوی زیر انتخاب نمایید.</b>"
         )
         keyboard = [
             [InlineKeyboardButton("⚙️ تنظیمات", callback_data="admin_settings")],
@@ -794,8 +797,8 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
             expiry_date = get_expiry_date(user_id)
             text = (
                 f"<b>⚡ سلام {user_mention} به ربات ریپر سلف خوش آمدید!</b>\n\n"
-                "<b>📌 در این ربات میتوانید از پشتیبانی، خرید، نصب ربات سلف بهره ببرید!</b>\n\n"
-                "<b>📌 اگر سوالی دارید از بخش پشتیبانی استفاده کنید.</b>"
+                "<b>🎯 در این ربات میتوانید از پشتیبانی، خرید، نصب ربات سلف بهره ببرید!</b>\n\n"
+                "<b>💠 اگر سوالی دارید از بخش پشتیبانی استفاده کنید.</b>"
             )
             keyboard = []
             keyboard.append([InlineKeyboardButton("👨‍💻 پشتیبانی", callback_data="support")])
@@ -814,8 +817,8 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
         else:
             text = (
-                "<b>📌 شما هنوز عضو کانال زیر نشده اید!</b>\n"
-                "<b>📌 ابتدا برای استفاده از ربات در کانال زیر عضو شوید!</b>"
+                "<b>🔗 شما هنوز عضو کانال زیر نشده اید!</b>\n"
+                "<b>✅ ابتدا برای استفاده از ربات در کانال زیر عضو شوید!</b>"
             )
             keyboard = [
                 [InlineKeyboardButton("🔗 ریپر سلف", url="https://t.me/ReaperSelfChannel")],
@@ -835,19 +838,19 @@ async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if is_user_banned(user_id):
         await query.edit_message_text(
-            "<b>🚫 شما از طرف مدیریت مسدود شده اید!</b>\n<b>📌 در صورت نیاز با پشتیبانی تماس بگیرید.</b>",
+            "<b>🚫 شما از طرف مدیریت مسدود شده اید!</b>\n<b>💠 در صورت نیاز با پشتیبانی تماس بگیرید.</b>",
             parse_mode='HTML'
         )
         return
     support_mode[user_id] = True
     text = (
         "<b>⚡ شما با موفقیت به بخش پشتیبانی متصل شدید.</b>\n\n"
-        "<b>📌 از ارسال پیام‌های اسپم و تکراری خودداری کنید.</b>\n"
-        "<b>📌 استفاده از دستورات سلف در این بخش ممنوع بوده و باعث مسدود شدن شما خواهد شد.</b>\n\n"
-        "<b>📌 اکنون میتوانید پیام یا سوال خود را برای تیم پشتیبانی ارسال کنید.</b>"
+        "<b>⚠️ از ارسال پیام‌های اسپم و تکراری خودداری کنید.</b>\n"
+        "<b>🚫 استفاده از دستورات سلف در این بخش ممنوع بوده و باعث مسدود شدن شما خواهد شد.</b>\n\n"
+        "<b>✍️ اکنون میتوانید پیام یا سوال خود را برای تیم پشتیبانی ارسال کنید.</b>"
     )
     keyboard = [
-        [InlineKeyboardButton("💥 لغو اتصال", callback_data="disconnect_support")],
+        [InlineKeyboardButton("❌ لغو اتصال", callback_data="disconnect_support")],
         [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -861,7 +864,7 @@ async def disconnect_support(update: Update, context: ContextTypes.DEFAULT_TYPE)
         del support_mode[user_id]
     text = (
         "<b>⚡ اتصال شما با تیم پشتیبانی با موفقیت قطع شد.</b>\n"
-        "<b>📌 با استفاده از دکمه زیر میتوانید به منوی اصلی بازگردید.</b>"
+        "<b>🔙 با استفاده از دکمه زیر میتوانید به منوی اصلی بازگردید.</b>"
     )
     keyboard = [
         [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
@@ -938,10 +941,17 @@ async def handle_support_message(update: Update, context: ContextTypes.DEFAULT_T
                 )
         except:
             pass
+    
+    keyboard = [
+        [InlineKeyboardButton("❌ لغو اتصال", callback_data="disconnect_support")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
     await update.message.reply_text(
         "<b>✅ پیام شما با موفقیت به تیم پشتیبانی ارسال شد.</b>\n"
-        "<b>📌 لطفا صبور باشید و منتظر پاسخ بمانید.</b>\n"
-        "<b>📌 از ارسال پیام‌های تکراری و اسپم خودداری فرمایید.</b>",
+        "<b>⏳ لطفا صبور باشید و منتظر پاسخ بمانید.</b>\n"
+        "<b>⚠️ از ارسال پیام‌های تکراری و اسپم خودداری فرمایید.</b>",
+        reply_markup=reply_markup,
         parse_mode='HTML'
     )
 
@@ -956,7 +966,7 @@ async def handle_admin_reply(update: Update, context: ContextTypes.DEFAULT_TYPE)
         user_states[query.from_user.id] = f"replying_to_{user_id}"
         text = (
             "<b>💬 پاسخ به کاربر</b>\n\n"
-            "<b>📌 لطفا پاسخ خود را به صورت متن یا رسانه ارسال کنید.</b>"
+            "<b>✍️ لطفا پاسخ خود را به صورت متن یا رسانه ارسال کنید.</b>"
         )
         keyboard = [
             [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_back")]
@@ -970,13 +980,14 @@ async def handle_admin_reply(update: Update, context: ContextTypes.DEFAULT_TYPE)
             try:
                 await context.bot.send_message(
                     chat_id=user_id,
-                    text="<b>🚫 شما از طرف مدیریت مسدود شده اید!</b>\n<b>📌 در صورت نیاز با پشتیبانی تماس بگیرید.</b>",
+                    text="<b>🚫 شما از طرف مدیریت مسدود شده اید!</b>\n<b>💠 در صورت نیاز با پشتیبانی تماس بگیرید.</b>",
                     parse_mode='HTML'
                 )
             except:
                 pass
             await query.edit_message_text(
-                f"<b>✅ کاربر با آیدی {user_id} با موفقیت مسدود شد!</b>",
+                f"<b>✅ کاربر با آیدی {user_id} با موفقیت مسدود شد!</b>\n"
+                f"<b>🔒 کاربر دیگر نمیتواند از ربات استفاده کند.</b>",
                 parse_mode='HTML'
             )
         else:
@@ -1027,8 +1038,10 @@ async def handle_admin_reply_message(update: Update, context: ContextTypes.DEFAU
         else:
             await update.message.reply_text("<b>❌ نوع پیام پشتیبانی نمیشود!</b>", parse_mode='HTML')
             return
+        
         await update.message.reply_text(
-            f"<b>✅ پاسخ شما با موفقیت برای کاربر {target_user_id} ارسال شد.</b>",
+            f"<b>✅ پاسخ شما با موفقیت برای کاربر {target_user_id} ارسال شد.</b>\n"
+            f"<b>💬 پیام شما به کاربر رسید.</b>",
             parse_mode='HTML'
         )
     except Exception as e:
@@ -1142,22 +1155,35 @@ async def admin_host(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def show_user_menu(update, context, query):
     user_id = query.from_user.id
     user_mention = f"@{query.from_user.username}" if query.from_user.username else query.from_user.first_name
+    remaining_days = get_remaining_days(user_id)
+    has_subscription = has_active_subscription(user_id)
+    is_verified = is_user_verified(user_id)
+    
     text = (
         f"<b>⚡ سلام {user_mention} به ربات ریپر سلف خوش آمدید!</b>\n\n"
-        "<b>📌 در این ربات میتوانید از پشتیبانی، خرید، نصب ربات سلف بهره ببرید!</b>\n\n"
-        "<b>📌 اگر سوالی دارید از بخش پشتیبانی استفاده کنید.</b>"
+        "<b>🎯 در این ربات میتوانید از پشتیبانی، خرید، نصب ربات سلف بهره ببرید!</b>\n\n"
+        "<b>💠 اگر سوالی دارید از بخش پشتیبانی استفاده کنید.</b>"
     )
-    keyboard = [
-        [InlineKeyboardButton("👨‍💻 پشتیبانی", callback_data="support")],
-        [InlineKeyboardButton("🤔 سلف چیست؟", callback_data="what_is_self"), InlineKeyboardButton("📣 کانال ما", url="https://t.me/ReaperSelfChannel")],
-        [InlineKeyboardButton("📅 انقضا شما: (0 روز)", callback_data="expiry")],
-        [InlineKeyboardButton("✔️ احراز هویت", callback_data="verify")],
-        [InlineKeyboardButton("💳 خرید اشتراک", callback_data="buy_subscription")],
-        [InlineKeyboardButton("💶 خرید با کد", callback_data="buy_with_code")],
-        [InlineKeyboardButton("🔑 ورود سلف", callback_data="salf_login")],
-        [InlineKeyboardButton("💎 نرخ", callback_data="rate")],
-        [InlineKeyboardButton("🎈 پنل مدیریت", callback_data="admin_back")]
-    ]
+    
+    keyboard = []
+    keyboard.append([InlineKeyboardButton("👨‍💻 پشتیبانی", callback_data="support")])
+    keyboard.append([InlineKeyboardButton("🤔 سلف چیست؟", callback_data="what_is_self"), InlineKeyboardButton("📣 کانال ما", url="https://t.me/ReaperSelfChannel")])
+    keyboard.append([InlineKeyboardButton(f"📅 انقضا شما: ({remaining_days} روز)", callback_data="expiry")])
+    
+    if is_verified:
+        keyboard.append([InlineKeyboardButton("✅ احراز هویت شده", callback_data="verified_already")])
+    else:
+        keyboard.append([InlineKeyboardButton("✔️ احراز هویت", callback_data="verify")])
+    
+    keyboard.append([InlineKeyboardButton("💳 خرید اشتراک", callback_data="buy_subscription")])
+    keyboard.append([InlineKeyboardButton("💶 خرید با کد", callback_data="buy_with_code")])
+    
+    if has_subscription:
+        keyboard.append([InlineKeyboardButton("🔑 ورود سلف", callback_data="salf_login")])
+    
+    keyboard.append([InlineKeyboardButton("💎 نرخ", callback_data="rate")])
+    keyboard.append([InlineKeyboardButton("🎈 پنل مدیریت", callback_data="admin_back")])
+    
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
@@ -1174,8 +1200,8 @@ async def admin_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_mention = f"@{query.from_user.username}" if query.from_user.username else query.from_user.first_name
     text = (
         f"<b>⚡ درود {user_mention} به بخش تنظیمات پنل مدیریت خوش آمدید.</b>\n\n"
-        "<b>📌 در این بخش میتوانید تمامی تنظیمات و مدیریت ربات را انجام دهید.</b>\n\n"
-        "<b>📌 لطفا از منوی زیر یکی از گزینه‌های مورد نظر خود را انتخاب نمایید.</b>"
+        "<b>🛠️ در این بخش میتوانید تمامی تنظیمات و مدیریت ربات را انجام دهید.</b>\n\n"
+        "<b>🔄 لطفا از منوی زیر یکی از گزینه‌های مورد نظر خود را انتخاب نمایید.</b>"
     )
     keyboard = [
         [InlineKeyboardButton("➕ ساختن کد سلف", callback_data="admin_create_code"), InlineKeyboardButton("❌ باطل کردن کد سلف", callback_data="admin_cancel_code")],
@@ -1194,8 +1220,8 @@ async def admin_settings_back(update: Update, context: ContextTypes.DEFAULT_TYPE
     user_mention = f"@{query.from_user.username}" if query.from_user.username else query.from_user.first_name
     text = (
         f"<b>⚡ درود {user_mention} به بخش تنظیمات پنل مدیریت خوش آمدید.</b>\n\n"
-        "<b>📌 در این بخش میتوانید تمامی تنظیمات و مدیریت ربات را انجام دهید.</b>\n\n"
-        "<b>📌 لطفا از منوی زیر یکی از گزینه‌های مورد نظر خود را انتخاب نمایید.</b>"
+        "<b>🛠️ در این بخش میتوانید تمامی تنظیمات و مدیریت ربات را انجام دهید.</b>\n\n"
+        "<b>🔄 لطفا از منوی زیر یکی از گزینه‌های مورد نظر خود را انتخاب نمایید.</b>"
     )
     keyboard = [
         [InlineKeyboardButton("➕ ساختن کد سلف", callback_data="admin_create_code"), InlineKeyboardButton("❌ باطل کردن کد سلف", callback_data="admin_cancel_code")],
@@ -1220,11 +1246,10 @@ async def admin_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     user_mention = f"@{query.from_user.username}" if query.from_user.username else query.from_user.first_name
     
-    # همیشه به پنل مدیریت برگرد (صفحه اصلی ادمین)
     text = (
         f"<b>⚡ درود {user_mention} به پنل ریپر سلف خوش آمدید.</b>\n\n"
-        "<b>📌 در این پنل میتوانید ربات را کنترل و مدیریت کنید.</b>\n\n"
-        "<b>📌 لطفا از منوی زیر انتخاب نمایید.</b>"
+        "<b>🛠️ در این پنل میتوانید ربات را کنترل و مدیریت کنید.</b>\n\n"
+        "<b>🔄 لطفا از منوی زیر انتخاب نمایید.</b>"
     )
     keyboard = [
         [InlineKeyboardButton("⚙️ تنظیمات", callback_data="admin_settings")],
@@ -1242,12 +1267,12 @@ async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     text = (
         "<b>⚡ نرخ سلف عبارت است از:</b>\n\n"
-        "<b>📌 ماهانه: 100,000 هزار تومان</b>\n\n"
-        "<b>📌 دو ماهه: 150,000 هزار تومان</b>\n\n"
-        "<b>📌 سه ماهه: 200,000 هزار تومان</b>\n\n"
-        "<b>📌 چهار ماهه: 250,000 هزار تومان</b>\n\n"
-        "<b>📌 پنج ماهه: 300,000 هزار تومان</b>\n\n"
-        "<b>📌 شش ماهه: 350,000 هزار تومان</b>\n\n"
+        "<b>💰 ماهانه: 100,000 هزار تومان</b>\n\n"
+        "<b>💰 دو ماهه: 150,000 هزار تومان</b>\n\n"
+        "<b>💰 سه ماهه: 200,000 هزار تومان</b>\n\n"
+        "<b>💰 چهار ماهه: 250,000 هزار تومان</b>\n\n"
+        "<b>💰 پنج ماهه: 300,000 هزار تومان</b>\n\n"
+        "<b>💰 شش ماهه: 350,000 هزار تومان</b>\n\n"
         "<b>⚠️ سلف فقط بر روی اکانت‌هایی که با شماره ایران هستند نصب میشود.</b>\n\n"
         "<b>📍 @ReaperSelfChannel</b>"
     )
@@ -1261,19 +1286,19 @@ async def what_is_self(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     text = (
-        "<b>سلف به رباتی گفته میشود که روی اکانت شما نصب میشود و امکانات خاصی را در اختیار شما میگذارد.</b>\n\n"
-        "<b>از جمله امکانات:</b>\n"
-        "<b>• گذاشتن ساعت با فونت‌های مختلف روی بیو و اسم</b>\n"
-        "<b>• قابلیت تنظیم حالت خوانده شدن خودکار پیام‌ها</b>\n"
-        "<b>• تنظیم حالت پاسخ خودکار</b>\n"
-        "<b>• جواب دادن به شخصی که به شما توهین میکند</b>\n"
-        "<b>• پیام انیمیشنی</b>\n"
-        "<b>• منشی هوشمند</b>\n"
-        "<b>• دریافت پنل و تنظیمات اکانت هوشمند</b>\n"
-        "<b>• دو زبانه بودن دستورات و جواب‌ها</b>\n"
-        "<b>• تغییر نام و کاور فایل‌ها</b>\n"
-        "<b>• اعلان پیام ادیت و حذف شده در پیوی</b>\n"
-        "<b>• ذخیره پروفایل‌های جدید و اعلان حذف پروفایل مخاطبین</b>\n\n"
+        "<b>🤖 سلف به رباتی گفته میشود که روی اکانت شما نصب میشود و امکانات خاصی را در اختیار شما میگذارد.</b>\n\n"
+        "<b>✨ از جمله امکانات:</b>\n"
+        "<b>⏰ گذاشتن ساعت با فونت‌های مختلف روی بیو و اسم</b>\n"
+        "<b>👁️ قابلیت تنظیم حالت خوانده شدن خودکار پیام‌ها</b>\n"
+        "<b>🤖 تنظیم حالت پاسخ خودکار</b>\n"
+        "<b>💬 جواب دادن به شخصی که به شما توهین میکند</b>\n"
+        "<b>🎬 پیام انیمیشنی</b>\n"
+        "<b>🧠 منشی هوشمند</b>\n"
+        "<b>📱 دریافت پنل و تنظیمات اکانت هوشمند</b>\n"
+        "<b>🌍 دو زبانه بودن دستورات و جواب‌ها</b>\n"
+        "<b>📁 تغییر نام و کاور فایل‌ها</b>\n"
+        "<b>🔔 اعلان پیام ادیت و حذف شده در پیوی</b>\n"
+        "<b>👤 ذخیره پروفایل‌های جدید و اعلان حذف پروفایل مخاطبین</b>\n\n"
         "<b>📍 @ReaperSelfChannel</b>"
     )
     keyboard = [
@@ -1286,7 +1311,7 @@ async def buy_with_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     user_states[query.from_user.id] = "waiting_for_activation_code"
-    text = "<b>📌 لطفا کد انقضای خریداری شده خود را ارسال کنید.</b>"
+    text = "<b>💶 لطفا کد انقضای خریداری شده خود را ارسال کنید.</b>"
     keyboard = [
         [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="back_from_user_menu")]
     ]
@@ -1313,7 +1338,8 @@ async def handle_activation_code(update: Update, context: ContextTypes.DEFAULT_T
             f"<b>✅ کد با موفقیت فعال شد!</b>\n\n"
             f"<b>📅 {days} روز به اشتراک شما اضافه شد.</b>\n"
             f"<b>📅 تاریخ انقضا: {expiry_date}</b>\n"
-            f"<b>⏳ روزهای باقی‌مانده: {remaining_days} روز</b>"
+            f"<b>⏳ روزهای باقی‌مانده: {remaining_days} روز</b>\n\n"
+            "<b>🔑 اکنون میتوانید از دکمه ورود سلف استفاده کنید.</b>"
         )
         keyboard = [
             [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="back_from_user_menu")]
@@ -1328,8 +1354,9 @@ async def buy_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
+    
     if not is_user_verified(user_id):
-        text = "<b>📌 برای خرید اشتراک سلف، ابتدا باید احراز هویت کنید.</b>"
+        text = "<b>⚠️ برای خرید اشتراک سلف، ابتدا باید احراز هویت کنید.</b>"
         keyboard = [
             [InlineKeyboardButton("✔️ احراز هویت", callback_data="verify")],
             [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="back_from_user_menu")]
@@ -1337,14 +1364,15 @@ async def buy_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
         return
-    text = "<b>📌 لطفا از گزینه‌های زیر انتخاب نمایید که میخواهید ریپر سلف را برای چند ماه خریداری کنید.</b>"
+    
+    text = "<b>💰 لطفا از گزینه‌های زیر انتخاب نمایید که میخواهید ریپر سلف را برای چند ماه خریداری کنید.</b>"
     keyboard = [
-        [InlineKeyboardButton("(1) ماه معادل 100 هزار (تومان)", callback_data="buy_1_month")],
-        [InlineKeyboardButton("(2) ماه معادل 150 هزار (تومان)", callback_data="buy_2_month")],
-        [InlineKeyboardButton("(3) ماه معادل 200 هزار (تومان)", callback_data="buy_3_month")],
-        [InlineKeyboardButton("(4) ماه معادل 250 هزار (تومان)", callback_data="buy_4_month")],
-        [InlineKeyboardButton("(5) ماه معادل 300 هزار (تومان)", callback_data="buy_5_month")],
-        [InlineKeyboardButton("(6) ماه معادل 350 هزار (تومان)", callback_data="buy_6_month")],
+        [InlineKeyboardButton("📆 (1) ماه معادل 100 هزار (تومان)", callback_data="buy_1_month")],
+        [InlineKeyboardButton("📆 (2) ماه معادل 150 هزار (تومان)", callback_data="buy_2_month")],
+        [InlineKeyboardButton("📆 (3) ماه معادل 200 هزار (تومان)", callback_data="buy_3_month")],
+        [InlineKeyboardButton("📆 (4) ماه معادل 250 هزار (تومان)", callback_data="buy_4_month")],
+        [InlineKeyboardButton("📆 (5) ماه معادل 300 هزار (تومان)", callback_data="buy_5_month")],
+        [InlineKeyboardButton("📆 (6) ماه معادل 350 هزار (تومان)", callback_data="buy_6_month")],
         [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="back_from_user_menu")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -1354,12 +1382,14 @@ async def verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
+    
     if is_user_verified(user_id):
         await query.answer("✅ شما قبلاً احراز هویت شده اید!", show_alert=True)
         return
+    
     text = (
-        "<b>📌 به منوی احراز هویت خوش آمدید.</b>\n\n"
-        "<b>📌 لطفا یکی از گزینه‌های زیر را انتخاب نمایید:</b>"
+        "<b>🔐 به منوی احراز هویت خوش آمدید.</b>\n\n"
+        "<b>🔄 لطفا یکی از گزینه‌های زیر را انتخاب نمایید:</b>"
     )
     keyboard = [
         [InlineKeyboardButton("❌ حذف کارت", callback_data="delete_card")],
@@ -1384,13 +1414,13 @@ async def new_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     user_states[query.from_user.id] = "waiting_for_verify_photo"
     text = (
-        "<b>به بخش احراز هویت خوش آمدید.</b>\n\n"
-        "<b>نکات مهم:</b>\n"
-        "<b>1) شماره کارت و نام صاحب کارت باید کاملا مشخص و خوانا باشد.</b>\n"
-        "<b>2) لطفا تاریخ اعتبار و Cvv2 کارت خود را بپوشانید.</b>\n"
-        "<b>3) فقط با کارتی که احراز هویت میکنید میتوانید خرید انجام دهید.</b>\n"
-        "<b>4) در صورتی که توانایی ارسال عکس از کارت را ندارید، تنها راه حل ارسال عکس از کارت ملی یا شناسنامه صاحب کارت است.</b>\n\n"
-        "<b>📌 لطفا عکس از کارتی که میخواهید با آن خرید انجام دهید ارسال کنید.</b>"
+        "<b>🔐 به بخش احراز هویت خوش آمدید.</b>\n\n"
+        "<b>⚠️ نکات مهم:</b>\n"
+        "<b>1️⃣ شماره کارت و نام صاحب کارت باید کاملا مشخص و خوانا باشد.</b>\n"
+        "<b>2️⃣ لطفا تاریخ اعتبار و Cvv2 کارت خود را بپوشانید.</b>\n"
+        "<b>3️⃣ فقط با کارتی که احراز هویت میکنید میتوانید خرید انجام دهید.</b>\n"
+        "<b>4️⃣ در صورتی که توانایی ارسال عکس از کارت را ندارید، تنها راه حل ارسال عکس از کارت ملی یا شناسنامه صاحب کارت است.</b>\n\n"
+        "<b>📸 لطفا عکس از کارتی که میخواهید با آن خرید انجام دهید ارسال کنید.</b>"
     )
     keyboard = [
         [InlineKeyboardButton("🔙 بازگشت", callback_data="back_to_verify")]
@@ -1412,7 +1442,7 @@ async def handle_verify_photo(update: Update, context: ContextTypes.DEFAULT_TYPE
     
     await update.message.reply_text(
         "<b>✅ عکس شما با موفقیت دریافت شد.</b>\n"
-        "<b>📌 لطفا شماره کارت خود را به صورت اعداد انگلیسی وارد کنید.</b>",
+        "<b>🔢 لطفا شماره کارت خود را به صورت اعداد انگلیسی وارد کنید.</b>",
         parse_mode='HTML'
     )
 
@@ -1427,7 +1457,7 @@ async def handle_verify_card_number(update: Update, context: ContextTypes.DEFAUL
     if len(card_number) != 16:
         await update.message.reply_text(
             "<b>❌ شماره کارت باید 16 رقم باشد.</b>\n"
-            "<b>📌 لطفا شماره کارت خود را بدون فاصله و کاراکتر اضافی وارد کنید.</b>",
+            "<b>🔢 لطفا شماره کارت خود را بدون فاصله و کاراکتر اضافی وارد کنید.</b>",
             parse_mode='HTML'
         )
         return
@@ -1485,8 +1515,8 @@ async def handle_verify_card_number(update: Update, context: ContextTypes.DEFAUL
     
     await update.message.reply_text(
         "<b>✅ درخواست احراز هویت شما با موفقیت به تیم پشتیبانی ارسال شد.</b>\n"
-        "<b>📌 لطفا صبور باشید و منتظر تایید از سوی تیم پشتیبانی بمانید.</b>\n"
-        "<b>📌 از ارسال درخواست‌های تکراری خودداری فرمایید.</b>",
+        "<b>⏳ لطفا صبور باشید و منتظر تایید از سوی تیم پشتیبانی بمانید.</b>\n"
+        "<b>⚠️ از ارسال درخواست‌های تکراری خودداری فرمایید.</b>",
         parse_mode='HTML'
     )
     
@@ -1512,13 +1542,14 @@ async def accept_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
             try:
                 await context.bot.send_message(
                     chat_id=user_id,
-                    text="<b>✅ درخواست احراز هویت شما با موفقیت توسط مدیریت پذیرفته شد.</b>\n\n<b>📌 تبریک! شما اکنون احراز هویت شده اید.</b>",
+                    text="<b>✅ درخواست احراز هویت شما با موفقیت توسط مدیریت پذیرفته شد.</b>\n\n<b>🎉 تبریک! شما اکنون احراز هویت شده اید.</b>",
                     parse_mode='HTML'
                 )
             except:
                 pass
             await query.edit_message_text(
-                f"<b>✅ درخواست احراز هویت شماره {request_id} با موفقیت پذیرفته شد.</b>",
+                f"<b>✅ درخواست احراز هویت شماره {request_id} با موفقیت پذیرفته شد.</b>\n"
+                f"<b>🎉 کاربر احراز هویت شد.</b>",
                 parse_mode='HTML'
             )
         else:
@@ -1544,13 +1575,14 @@ async def reject_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             await context.bot.send_message(
                 chat_id=user_id,
-                text="<b>❌ درخواست احراز هویت شما توسط مدیریت پذیرفته نشد.</b>\n\n<b>📌 لطفا دوباره تلاش کنید و اطلاعات صحیح را ارسال نمایید.</b>",
+                text="<b>❌ درخواست احراز هویت شما توسط مدیریت پذیرفته نشد.</b>\n\n<b>🔄 لطفا دوباره تلاش کنید و اطلاعات صحیح را ارسال نمایید.</b>",
                 parse_mode='HTML'
             )
         except:
             pass
         await query.edit_message_text(
-            f"<b>❌ درخواست احراز هویت شماره {request_id} رد شد.</b>",
+            f"<b>❌ درخواست احراز هویت شماره {request_id} رد شد.</b>\n"
+            f"<b>⛔ کاربر تایید نشد.</b>",
             parse_mode='HTML'
         )
     else:
@@ -1579,7 +1611,7 @@ async def admin_block_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_states[query.from_user.id] = "waiting_for_block_user"
     text = (
         "<b>🚫 مسدود کردن کاربر</b>\n\n"
-        "<b>📌 لطفا آیدی عددی کاربر مورد نظر برای مسدود سازی را وارد کنید.</b>\n"
+        "<b>🔢 لطفا آیدی عددی کاربر مورد نظر برای مسدود سازی را وارد کنید.</b>\n"
         "<b>⚠️ پس از مسدود شدن، کاربر قادر به استفاده از ربات نخواهد بود.</b>"
     )
     keyboard = [
@@ -1594,7 +1626,7 @@ async def admin_unblock_user(update: Update, context: ContextTypes.DEFAULT_TYPE)
     user_states[query.from_user.id] = "waiting_for_unblock_user"
     text = (
         "<b>✅ آزاد کردن کاربر</b>\n\n"
-        "<b>📌 لطفا آیدی عددی کاربر مورد نظر برای آزاد سازی از مسدودیت را وارد کنید.</b>\n"
+        "<b>🔢 لطفا آیدی عددی کاربر مورد نظر برای آزاد سازی از مسدودیت را وارد کنید.</b>\n"
         "<b>⚠️ پس از آزاد سازی، کاربر دوباره میتواند از ربات استفاده کند.</b>"
     )
     keyboard = [
@@ -1621,14 +1653,14 @@ async def handle_block_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             await context.bot.send_message(
                 chat_id=target_id_int,
-                text="<b>🚫 شما از طرف مدیریت مسدود شده اید!</b>\n<b>📌 در صورت نیاز با پشتیبانی تماس بگیرید.</b>",
+                text="<b>🚫 شما از طرف مدیریت مسدود شده اید!</b>\n<b>💠 در صورت نیاز با پشتیبانی تماس بگیرید.</b>",
                 parse_mode='HTML'
             )
         except:
             pass
         await update.message.reply_text(
             f"<b>✅ کاربر با آیدی {target_id_int} با موفقیت مسدود شد.</b>\n"
-            "<b>📌 پیام مسدودیت برای کاربر ارسال شد.</b>",
+            "<b>🔒 کاربر دیگر نمیتواند از ربات استفاده کند.</b>",
             parse_mode='HTML'
         )
     else:
@@ -1653,14 +1685,14 @@ async def handle_unblock_user(update: Update, context: ContextTypes.DEFAULT_TYPE
         try:
             await context.bot.send_message(
                 chat_id=target_id_int,
-                text="<b>✅ تبریک! شما از طرف مدیریت از مسدودیت آزاد شدید.</b>\n<b>📌 ضمن پوزش از شما، خوشحالیم که دوباره به جمع ما برگشتید.</b>",
+                text="<b>✅ تبریک! شما از طرف مدیریت از مسدودیت آزاد شدید.</b>\n<b>💠 ضمن پوزش از شما، خوشحالیم که دوباره به جمع ما برگشتید.</b>",
                 parse_mode='HTML'
             )
         except:
             pass
         await update.message.reply_text(
             f"<b>✅ کاربر با آیدی {target_id_int} با موفقیت از مسدودیت آزاد شد.</b>\n"
-            "<b>📌 پیام آزادی برای کاربر ارسال شد.</b>",
+            "<b>🔓 کاربر دوباره میتواند از ربات استفاده کند.</b>",
             parse_mode='HTML'
         )
     else:
@@ -1678,7 +1710,7 @@ async def admin_create_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_states[query.from_user.id] = "waiting_for_code_days"
     text = (
         "<b>➕ ساختن کد سلف جدید</b>\n\n"
-        "<b>📌 لطفا تعداد روز انقضا را به صورت عدد وارد کنید.</b>\n"
+        "<b>🔢 لطفا تعداد روز انقضا را به صورت عدد وارد کنید.</b>\n"
         "<b>⚠️ عدد وارد شده باید بین 1 تا 100000 باشد.</b>"
     )
     keyboard = [
@@ -1693,7 +1725,7 @@ async def admin_cancel_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_states[query.from_user.id] = "waiting_for_cancel_code"
     text = (
         "<b>❌ باطل کردن کد سلف</b>\n\n"
-        "<b>📌 لطفا کد سلف مورد نظر برای باطل شدن را وارد کنید.</b>\n"
+        "<b>🔢 لطفا کد سلف مورد نظر برای باطل شدن را وارد کنید.</b>\n"
         "<b>⚠️ کدهایی که قبلاً استفاده شده اند قابل باطل کردن نیستند.</b>"
     )
     keyboard = [
@@ -1752,9 +1784,9 @@ async def admin_transfer_credit(update: Update, context: ContextTypes.DEFAULT_TY
     user_states[query.from_user.id] = "waiting_for_transfer_credit"
     text = (
         "<b>📤 انتقال انقضا</b>\n\n"
-        "<b>📌 لطفا آیدی عددی کاربر مبدا، آیدی عددی کاربر مقصد و مقدار روز را وارد کنید.</b>\n"
+        "<b>🔢 لطفا آیدی عددی کاربر مبدا، آیدی عددی کاربر مقصد و مقدار روز را وارد کنید.</b>\n"
         "<b>⚠️ این عملیات غیرقابل بازگشت است.</b>\n"
-        "<b>📌 مثال: 123456789 987654321 30</b>"
+        "<b>📝 مثال: 123456789 987654321 30</b>"
     )
     keyboard = [
         [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings_back")]
@@ -1768,9 +1800,9 @@ async def admin_deduct_credit(update: Update, context: ContextTypes.DEFAULT_TYPE
     user_states[query.from_user.id] = "waiting_for_deduct_credit"
     text = (
         "<b>📉 کسر انقضا</b>\n\n"
-        "<b>📌 لطفا آیدی عددی کاربر و مقدار روز مورد نظر برای کسر را وارد کنید.</b>\n"
+        "<b>🔢 لطفا آیدی عددی کاربر و مقدار روز مورد نظر برای کسر را وارد کنید.</b>\n"
         "<b>⚠️ این عملیات غیرقابل بازگشت است.</b>\n"
-        "<b>📌 مثال: 123456789 10</b>"
+        "<b>📝 مثال: 123456789 10</b>"
     )
     keyboard = [
         [InlineKeyboardButton("🔙 بازگشت", callback_data="admin_settings_back")]
@@ -1786,7 +1818,7 @@ async def handle_transfer_credit(update: Update, context: ContextTypes.DEFAULT_T
     if len(parts) != 3:
         await update.message.reply_text(
             "<b>❌ فرمت وارد شده صحیح نیست!</b>\n"
-            "<b>📌 لطفا به این صورت وارد کنید: آیدی_مبدا آیدی_مقصد تعداد_روز</b>",
+            "<b>📝 لطفا به این صورت وارد کنید: آیدی_مبدا آیدی_مقصد تعداد_روز</b>",
             parse_mode='HTML'
         )
         return
@@ -1835,7 +1867,7 @@ async def handle_transfer_credit(update: Update, context: ContextTypes.DEFAULT_T
     try:
         await context.bot.send_message(
             chat_id=from_id,
-            text=f"<b>📤 از طرف مدیریت، {days} روز از اشتراک شما کسر شد.</b>\n<b>📌 انقضای جدید: {new_from_expiry.split('T')[0] if new_from_expiry else 'اشتراک شما به پایان رسید'}</b>",
+            text=f"<b>📤 از طرف مدیریت، {days} روز از اشتراک شما کسر شد.</b>\n<b>📅 انقضای جدید: {new_from_expiry.split('T')[0] if new_from_expiry else 'اشتراک شما به پایان رسید'}</b>",
             parse_mode='HTML'
         )
     except:
@@ -1843,7 +1875,7 @@ async def handle_transfer_credit(update: Update, context: ContextTypes.DEFAULT_T
     try:
         await context.bot.send_message(
             chat_id=to_id,
-            text=f"<b>📤 از طرف مدیریت، {days} روز به اشتراک شما اضافه شد.</b>\n<b>📌 انقضای جدید: {new_to_expiry.split('T')[0]}</b>",
+            text=f"<b>📤 از طرف مدیریت، {days} روز به اشتراک شما اضافه شد.</b>\n<b>📅 انقضای جدید: {new_to_expiry.split('T')[0]}</b>",
             parse_mode='HTML'
         )
     except:
@@ -1862,7 +1894,7 @@ async def handle_deduct_credit(update: Update, context: ContextTypes.DEFAULT_TYP
     if len(parts) != 2:
         await update.message.reply_text(
             "<b>❌ فرمت وارد شده صحیح نیست!</b>\n"
-            "<b>📌 لطفا به این صورت وارد کنید: آیدی_کاربر تعداد_روز</b>",
+            "<b>📝 لطفا به این صورت وارد کنید: آیدی_کاربر تعداد_روز</b>",
             parse_mode='HTML'
         )
         return
@@ -1898,7 +1930,7 @@ async def handle_deduct_credit(update: Update, context: ContextTypes.DEFAULT_TYP
     try:
         await context.bot.send_message(
             chat_id=target_id,
-            text=f"<b>📉 از طرف مدیریت، {days} روز از اشتراک شما کسر شد.</b>\n<b>📌 انقضای جدید: {new_expiry.split('T')[0] if new_expiry else 'اشتراک شما به پایان رسید'}</b>",
+            text=f"<b>📉 از طرف مدیریت، {days} روز از اشتراک شما کسر شد.</b>\n<b>📅 انقضای جدید: {new_expiry.split('T')[0] if new_expiry else 'اشتراک شما به پایان رسید'}</b>",
             parse_mode='HTML'
         )
     except:
@@ -1918,8 +1950,8 @@ async def admin_salf_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_states[query.from_user.id] = "admin_waiting_phone"
     text = (
         "<b>🔑 ورود سلف (مدیریت)</b>\n\n"
-        "<b>📌 لطفا شماره موبایل کاربر را با کد کشور وارد کنید.</b>\n"
-        "<b>مثال: +989123456789</b>\n\n"
+        "<b>📱 لطفا شماره موبایل کاربر را با کد کشور وارد کنید.</b>\n"
+        "<b>📝 مثال: +989123456789</b>\n\n"
         "<b>⚠️ این بخش مخصوص ورود سلف به اکانت کاربران دیگر توسط مدیریت است.</b>"
     )
     keyboard = [
@@ -1934,7 +1966,7 @@ async def admin_salf_logout(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_states[query.from_user.id] = "admin_waiting_logout_phone"
     text = (
         "<b>🚪 خروج سلف</b>\n\n"
-        "<b>📌 لطفا شماره تلفن مورد نظر برای خروج سلف را وارد کنید.</b>\n"
+        "<b>📱 لطفا شماره تلفن مورد نظر برای خروج سلف را وارد کنید.</b>\n"
         "<b>⚠️ پس از خروج، سلف از اکانت کاربر خارج خواهد شد و ساعت از اسم او حذف میشود.</b>"
     )
     keyboard = [
@@ -1951,13 +1983,13 @@ async def admin_handle_salf_phone(update: Update, context: ContextTypes.DEFAULT_
     if not phone or not re.match(r'^\+?[0-9]{10,15}$', phone):
         await update.message.reply_text(
             "<b>❌ شماره وارد شده صحیح نیست! لطفا با کد کشور وارد کنید.</b>\n"
-            "<b>مثال: +989123456789</b>",
+            "<b>📝 مثال: +989123456789</b>",
             parse_mode='HTML'
         )
         return
     admin_salf_data[user_id]['phone'] = phone
     user_states[user_id] = "admin_waiting_user_id"
-    text = "<b>🔑 مرحله 2 از 5</b>\n\n<b>📌 لطفا آیدی عددی کاربر مورد نظر را وارد کنید.</b>"
+    text = "<b>🔑 مرحله 2 از 5</b>\n\n<b>🔢 لطفا آیدی عددی کاربر مورد نظر را وارد کنید.</b>"
     await update.message.reply_text(text, parse_mode='HTML')
 
 async def admin_handle_salf_logout_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1968,7 +2000,7 @@ async def admin_handle_salf_logout_phone(update: Update, context: ContextTypes.D
     if not phone or not re.match(r'^\+?[0-9]{10,15}$', phone):
         await update.message.reply_text(
             "<b>❌ شماره وارد شده صحیح نیست! لطفا با کد کشور وارد کنید.</b>\n"
-            "<b>مثال: +989123456789</b>",
+            "<b>📝 مثال: +989123456789</b>",
             parse_mode='HTML'
         )
         return
@@ -2018,7 +2050,7 @@ async def admin_handle_salf_logout_phone(update: Update, context: ContextTypes.D
     try:
         await context.bot.send_message(
             chat_id=target_user_id,
-            text="<b>🚪 ریپر سلف از اکانت شما خارج شد.</b>\n\n<b>📌 ساعت از روی اسم شما حذف شد.</b>\n<b>📌 در صورت نیاز مجدداً وارد شوید.</b>",
+            text="<b>🚪 ریپر سلف از اکانت شما خارج شد.</b>\n\n<b>⏰ ساعت از روی اسم شما حذف شد.</b>\n<b>🔑 در صورت نیاز مجدداً وارد شوید.</b>",
             parse_mode='HTML'
         )
     except:
@@ -2026,7 +2058,7 @@ async def admin_handle_salf_logout_phone(update: Update, context: ContextTypes.D
     await update.message.reply_text(
         f"<b>✅ خروج سلف از اکانت کاربر {target_user_id} با موفقیت انجام شد.</b>\n"
         f"<b>📱 شماره: {phone}</b>\n"
-        "<b>📌 ساعت از اسم کاربر حذف شد.</b>",
+        "<b>⏰ ساعت از اسم کاربر حذف شد.</b>",
         parse_mode='HTML'
     )
     del user_states[user_id]
@@ -2045,7 +2077,7 @@ async def admin_handle_salf_user_id(update: Update, context: ContextTypes.DEFAUL
     user_states[user_id] = "admin_waiting_api_id"
     text = (
         "<b>🔑 مرحله 3 از 5</b>\n\n"
-        "<b>📌 لطفا آیپی عددی (API ID) را وارد کنید.</b>\n"
+        "<b>🔢 لطفا آیپی عددی (API ID) را وارد کنید.</b>\n"
         "<b>⚠️ API ID باید عددی بین 1 تا 2147483647 باشد.</b>"
     )
     await update.message.reply_text(text, parse_mode='HTML')
@@ -2072,7 +2104,7 @@ async def admin_handle_salf_api_id(update: Update, context: ContextTypes.DEFAULT
         return
     admin_salf_data[user_id]['api_id'] = api_id
     user_states[user_id] = "admin_waiting_api_hash"
-    text = "<b>🔑 مرحله 4 از 5</b>\n\n<b>📌 لطفا آیپی هش (API Hash) را وارد کنید.</b>"
+    text = "<b>🔑 مرحله 4 از 5</b>\n\n<b>🔑 لطفا آیپی هش (API Hash) را وارد کنید.</b>"
     await update.message.reply_text(text, parse_mode='HTML')
 
 async def admin_handle_salf_api_hash(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2099,7 +2131,7 @@ async def admin_handle_salf_api_hash(update: Update, context: ContextTypes.DEFAU
             text = (
                 "<b>🔑 مرحله 5 از 5</b>\n\n"
                 f"<b>✅ کد تایید به شماره {data['phone']} ارسال شد.</b>\n"
-                "<b>📌 لطفا کد را به این صورت بفرستید: <code>1.2.3.4.5</code></b>"
+                "<b>📝 لطفا کد را به این صورت بفرستید: <code>1.2.3.4.5</code></b>"
             )
             await update.message.reply_text(text, parse_mode='HTML')
         else:
@@ -2175,14 +2207,14 @@ async def admin_handle_salf_code(update: Update, context: ContextTypes.DEFAULT_T
             await client.send_code_request(data['phone'])
             await update.message.reply_text(
                 "<b>✅ کد جدید به شماره شما ارسال شد.</b>\n"
-                "<b>📌 لطفا کد را به این صورت بفرستید: <code>1.2.3.4.5</code></b>",
+                "<b>📝 لطفا کد را به این صورت بفرستید: <code>1.2.3.4.5</code></b>",
                 parse_mode='HTML'
             )
             return
         except PhoneCodeInvalidError:
             await update.message.reply_text(
                 "<b>❌ کد وارد شده صحیح نیست! لطفا دوباره تلاش کنید.</b>\n"
-                "<b>📌 لطفا کد را به این صورت بفرستید: <code>1.2.3.4.5</code></b>",
+                "<b>📝 لطفا کد را به این صورت بفرستید: <code>1.2.3.4.5</code></b>",
                 parse_mode='HTML'
             )
             return
@@ -2190,7 +2222,7 @@ async def admin_handle_salf_code(update: Update, context: ContextTypes.DEFAULT_T
         user_states[user_id] = "admin_waiting_password"
         await update.message.reply_text(
             "<b>🔑 این اکانت دو مرحله‌ای فعال است.</b>\n"
-            "<b>📌 لطفا پسورد را وارد کنید:</b>",
+            "<b>🔑 لطفا پسورد را وارد کنید:</b>",
             parse_mode='HTML'
         )
     except Exception as e:
@@ -2271,9 +2303,9 @@ async def salf_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
     salf_login_data[user_id] = {}
     text = (
         "<b>🔑 ورود به سلف</b>\n\n"
-        "<b>📌 لطفا شماره موبایل خود را با کد کشور وارد کنید.</b>\n"
-        "<b>مثال: +989123456789</b>\n\n"
-        "<b>در صورتی که منصرف شده‌اید دکمه زیر را کلیک کنید.</b>"
+        "<b>📱 لطفا شماره موبایل خود را با کد کشور وارد کنید.</b>\n"
+        "<b>📝 مثال: +989123456789</b>\n\n"
+        "<b>🔙 در صورتی که منصرف شده‌اید دکمه زیر را کلیک کنید.</b>"
     )
     keyboard = [
         [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="back_from_user_menu")]
@@ -2289,7 +2321,7 @@ async def handle_salf_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not phone or not re.match(r'^\+?[0-9]{10,15}$', phone):
         await update.message.reply_text(
             "<b>❌ شماره وارد شده صحیح نیست! لطفا با کد کشور وارد کنید.</b>\n"
-            "<b>مثال: +989123456789</b>",
+            "<b>📝 مثال: +989123456789</b>",
             parse_mode='HTML'
         )
         return
@@ -2297,7 +2329,7 @@ async def handle_salf_phone(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_states[user_id] = "waiting_salf_api_id"
     await update.message.reply_text(
         "<b>🔑 مرحله 2 از 4</b>\n\n"
-        "<b>📌 لطفا آیپی عددی (API ID) خود را وارد کنید.</b>\n"
+        "<b>🔢 لطفا آیپی عددی (API ID) خود را وارد کنید.</b>\n"
         "<b>⚠️ API ID باید عددی بین 1 تا 2147483647 باشد.</b>",
         parse_mode='HTML'
     )
@@ -2316,7 +2348,7 @@ async def handle_salf_api_id(update: Update, context: ContextTypes.DEFAULT_TYPE)
             await update.message.reply_text(
                 "<b>❌ عدد وارد شده خیلی بزرگ است!</b>\n"
                 "<b>⚠️ API ID باید عددی بین 1 تا 2147483647 باشد.</b>\n"
-                "<b>📌 لطفا دوباره وارد کنید:</b>",
+                "<b>🔄 لطفا دوباره وارد کنید:</b>",
                 parse_mode='HTML'
             )
             return
@@ -2327,7 +2359,7 @@ async def handle_salf_api_id(update: Update, context: ContextTypes.DEFAULT_TYPE)
     user_states[user_id] = "waiting_salf_api_hash"
     await update.message.reply_text(
         "<b>🔑 مرحله 3 از 4</b>\n\n"
-        "<b>📌 لطفا آیپی هش (API Hash) خود را وارد کنید.</b>",
+        "<b>🔑 لطفا آیپی هش (API Hash) خود را وارد کنید.</b>",
         parse_mode='HTML'
     )
 
@@ -2355,7 +2387,7 @@ async def handle_salf_api_hash(update: Update, context: ContextTypes.DEFAULT_TYP
             await update.message.reply_text(
                 "<b>🔑 مرحله 4 از 4</b>\n\n"
                 "<b>✅ کد تایید به شماره شما ارسال شد.</b>\n"
-                "<b>📌 لطفا کد را به این صورت بفرستید: <code>1.2.3.4.5</code></b>",
+                "<b>📝 لطفا کد را به این صورت بفرستید: <code>1.2.3.4.5</code></b>",
                 parse_mode='HTML'
             )
         else:
@@ -2419,8 +2451,8 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text = (
                 "<b>✅ ورود سلف به اکانت شما با موفقیت انجام شد.</b>\n\n"
                 "<b>📌 سلف برای شما نصب شد.</b>\n"
-                "<b>📌 برای استفاده از سلف، کلمه \"پنل\" را در هر جایی بنویسید.</b>\n"
-                "<b>📌 در صورت بروز مشکل با پشتیبانی تماس بگیرید.</b>"
+                "<b>🔑 برای استفاده از سلف، کلمه \"پنل\" را در هر جایی بنویسید.</b>\n"
+                "<b>💠 در صورت بروز مشکل با پشتیبانی تماس بگیرید.</b>"
             )
             keyboard = [
                 [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="back_from_user_menu")]
@@ -2435,14 +2467,14 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await client.send_code_request(data['phone'])
             await update.message.reply_text(
                 "<b>✅ کد جدید به شماره شما ارسال شد.</b>\n"
-                "<b>📌 لطفا کد را به این صورت بفرستید: <code>1.2.3.4.5</code></b>",
+                "<b>📝 لطفا کد را به این صورت بفرستید: <code>1.2.3.4.5</code></b>",
                 parse_mode='HTML'
             )
             return
         except PhoneCodeInvalidError:
             await update.message.reply_text(
                 "<b>❌ کد وارد شده صحیح نیست! لطفا دوباره تلاش کنید.</b>\n"
-                "<b>📌 لطفا کد را به این صورت بفرستید: <code>1.2.3.4.5</code></b>",
+                "<b>📝 لطفا کد را به این صورت بفرستید: <code>1.2.3.4.5</code></b>",
                 parse_mode='HTML'
             )
             return
@@ -2450,7 +2482,7 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_states[user_id] = "waiting_salf_password"
         await update.message.reply_text(
             "<b>🔑 این اکانت دو مرحله‌ای فعال است.</b>\n"
-            "<b>📌 لطفا پسورد خود را وارد کنید:</b>",
+            "<b>🔑 لطفا پسورد خود را وارد کنید:</b>",
             parse_mode='HTML'
         )
     except Exception as e:
@@ -2491,8 +2523,8 @@ async def handle_salf_password(update: Update, context: ContextTypes.DEFAULT_TYP
         text = (
             "<b>✅ ورود سلف به اکانت شما با موفقیت انجام شد.</b>\n\n"
             "<b>📌 سلف برای شما نصب شد.</b>\n"
-            "<b>📌 برای استفاده از سلف، کلمه \"پنل\" را در هر جایی بنویسید.</b>\n"
-            "<b>📌 در صورت بروز مشکل با پشتیبانی تماس بگیرید.</b>"
+            "<b>🔑 برای استفاده از سلف، کلمه \"پنل\" را در هر جایی بنویسید.</b>\n"
+            "<b>💠 در صورت بروز مشکل با پشتیبانی تماس بگیرید.</b>"
         )
         keyboard = [
             [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="back_from_user_menu")]
@@ -2514,7 +2546,7 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
     if is_user_banned(user_id):
         await query.edit_message_text(
-            "<b>🚫 شما از طرف مدیریت مسدود شده اید!</b>\n<b>📌 در صورت نیاز با پشتیبانی تماس بگیرید.</b>",
+            "<b>🚫 شما از طرف مدیریت مسدود شده اید!</b>\n<b>💠 در صورت نیاز با پشتیبانی تماس بگیرید.</b>",
             parse_mode='HTML'
         )
         return
@@ -2529,8 +2561,8 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_admin(user_id):
         text = (
             f"<b>⚡ درود {user_mention} به پنل ریپر سلف خوش آمدید.</b>\n\n"
-            "<b>📌 در این پنل میتوانید ربات را کنترل و مدیریت کنید.</b>\n\n"
-            "<b>📌 لطفا از منوی زیر انتخاب نمایید.</b>"
+            "<b>🛠️ در این پنل میتوانید ربات را کنترل و مدیریت کنید.</b>\n\n"
+            "<b>🔄 لطفا از منوی زیر انتخاب نمایید.</b>"
         )
         keyboard = [
             [InlineKeyboardButton("⚙️ تنظیمات", callback_data="admin_settings")],
@@ -2549,8 +2581,8 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     expiry_date = get_expiry_date(user_id)
     text = (
         f"<b>⚡ سلام {user_mention} به ربات ریپر سلف خوش آمدید!</b>\n\n"
-        "<b>📌 در این ربات میتوانید از پشتیبانی، خرید، نصب ربات سلف بهره ببرید!</b>\n\n"
-        "<b>📌 اگر سوالی دارید از بخش پشتیبانی استفاده کنید.</b>"
+        "<b>🎯 در این ربات میتوانید از پشتیبانی، خرید، نصب ربات سلف بهره ببرید!</b>\n\n"
+        "<b>💠 اگر سوالی دارید از بخش پشتیبانی استفاده کنید.</b>"
     )
     keyboard = []
     keyboard.append([InlineKeyboardButton("👨‍💻 پشتیبانی", callback_data="support")])
@@ -2615,7 +2647,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if is_user_banned(user_id):
         await update.message.reply_text(
-            "<b>🚫 شما از طرف مدیریت مسدود شده اید!</b>\n<b>📌 در صورت نیاز با پشتیبانی تماس بگیرید.</b>",
+            "<b>🚫 شما از طرف مدیریت مسدود شده اید!</b>\n<b>💠 در صورت نیاز با پشتیبانی تماس بگیرید.</b>",
             parse_mode='HTML'
         )
         return
@@ -2746,3 +2778,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+```
+
+تموم شد عزیزم! 🎉
