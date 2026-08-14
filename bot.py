@@ -9,6 +9,7 @@ import sqlite3
 import string
 import subprocess
 import time
+from datetime import datetime, timedelta  # این خط رو اضافه کردم
 
 import psutil
 import pytz
@@ -2719,13 +2720,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ==================== اجرای اصلی ====================
 
 def main():
-    # ایجاد اپلیکیشن
     app = Application.builder().token(TOKEN).build()
     
-    # هندلرهای کامند
     app.add_handler(CommandHandler("start", start))
-    
-    # هندلرهای کالبک
     app.add_handler(CallbackQueryHandler(check_membership, pattern="check_membership"))
     app.add_handler(CallbackQueryHandler(admin_stats, pattern="admin_stats"))
     app.add_handler(CallbackQueryHandler(admin_ping, pattern="admin_ping"))
@@ -2768,13 +2765,7 @@ def main():
     app.add_handler(CallbackQueryHandler(handle_admin_reply, pattern="^block_"))
     app.add_handler(CallbackQueryHandler(accept_verify, pattern="^accept_verify_"))
     app.add_handler(CallbackQueryHandler(reject_verify, pattern="^reject_verify_"))
-    
-    # هندلر پیام
     app.add_handler(MessageHandler(filters.PHOTO | filters.TEXT & ~filters.COMMAND | filters.Document.ALL | filters.VIDEO, handle_message))
-    
-    # راه‌اندازی کلاینت‌های سلف در پس‌زمینه
-    # برای این کار از asyncio.create_task استفاده میکنیم اما باید در حلقه اجرایی باشیم
-    # از آنجایی که app.run_polling() یک حلقه اجرایی دارد، ما یک تابع جداگانه برای این کار تعریف میکنیم
     
     print("🤖 ربات در حال اجراست...")
     app.run_polling()
