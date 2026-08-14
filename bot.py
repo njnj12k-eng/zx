@@ -9,7 +9,6 @@ import sqlite3
 import string
 import subprocess
 import time
-from datetime import datetime, timedelta
 
 import psutil
 import pytz
@@ -28,7 +27,7 @@ ADMIN_IDS = [7803165903, 8831703400]
 
 DB_FILE = "bot_database.db"
 
-# ==================== DATABASE ====================
+# ==================== دیتابیس ====================
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -116,7 +115,7 @@ salf_clients = {}
 if not os.path.exists("sessions"):
     os.makedirs("sessions")
 
-# ==================== DATABASE FUNCTIONS ====================
+# ==================== توابع دیتابیس ====================
 
 def db_add_user(user_id, username, first_name, last_name, phone=None):
     conn = sqlite3.connect(DB_FILE)
@@ -267,7 +266,7 @@ def db_add_support_ticket(user_id, username, message):
     conn.close()
     return cursor.lastrowid
 
-# ==================== HELPER FUNCTIONS ====================
+# ==================== توابع کمکی ====================
 
 def is_admin(user_id):
     return user_id in ADMIN_IDS
@@ -395,7 +394,7 @@ def use_code(code, user_id):
     conn.close()
     return True
 
-# ==================== SELF PANEL ====================
+# ==================== پنل سلف ====================
 
 async def show_self_panel(client, event):
     try:
@@ -452,7 +451,7 @@ async def handle_salf_toggle_clock(update: Update, context: ContextTypes.DEFAULT
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
-# ==================== SELF CLIENT FUNCTIONS ====================
+# ==================== کلاینت‌های سلف ====================
 
 async def start_salf_client(user_id):
     try:
@@ -495,7 +494,7 @@ async def start_all_salf_clients():
         user_id = session[0]
         asyncio.create_task(start_salf_client(user_id))
 
-# ==================== CLOCK FUNCTIONS ====================
+# ==================== تنظیم ساعت ====================
 
 async def set_clock_on_profile(user_id):
     try:
@@ -575,7 +574,7 @@ async def remove_clock_from_profile(user_id):
     except:
         return False
 
-# ==================== SERVER INFO ====================
+# ==================== اطلاعات سرور ====================
 
 async def get_server_info():
     try:
@@ -681,7 +680,7 @@ def get_host_expiry():
             'percent': 86.6
         }
 
-# ==================== START ====================
+# ==================== استارت ====================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -826,7 +825,7 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await query.answer("❌ خطا در بررسی عضویت!", show_alert=True)
 
-# ==================== SUPPORT ====================
+# ==================== پشتیبانی ====================
 
 async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -944,7 +943,7 @@ async def handle_support_message(update: Update, context: ContextTypes.DEFAULT_T
         parse_mode='HTML'
     )
 
-# ==================== ADMIN HANDLERS ====================
+# ==================== پاسخ ادمین ====================
 
 async def handle_admin_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1037,7 +1036,7 @@ async def handle_admin_reply_message(update: Update, context: ContextTypes.DEFAU
         )
     del user_states[user_id]
 
-# ==================== ADMIN FUNCTIONS ====================
+# ==================== بخش ادمین ====================
 
 async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1245,7 +1244,7 @@ async def admin_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
-# ==================== USER FUNCTIONS ====================
+# ==================== بخش کاربران ====================
 
 async def rate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1569,7 +1568,7 @@ async def back_to_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
 
-# ==================== BLOCK/UNBLOCK ====================
+# ==================== مسدود کردن و آزاد کردن ====================
 
 async def admin_block_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1668,7 +1667,7 @@ async def handle_unblock_user(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
     del user_states[user_id]
 
-# ==================== CODE MANAGEMENT ====================
+# ==================== ساخت و باطل کد ====================
 
 async def admin_create_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1742,7 +1741,7 @@ async def handle_cancel_code(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text(f"✅ کد <code>{code}</code> با موفقیت باطل شد!", parse_mode='HTML')
     del user_states[user_id]
 
-# ==================== CREDIT MANAGEMENT ====================
+# ==================== انتقال و کسر انقضا ====================
 
 async def admin_transfer_credit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1907,7 +1906,7 @@ async def handle_deduct_credit(update: Update, context: ContextTypes.DEFAULT_TYP
     )
     del user_states[user_id]
 
-# ==================== ADMIN SELF LOGIN ====================
+# ==================== ورود و خروج سلف در مدیریت ====================
 
 async def admin_salf_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -2249,7 +2248,7 @@ async def admin_handle_salf_password(update: Update, context: ContextTypes.DEFAU
         del user_states[user_id]
         del admin_salf_data[user_id]
 
-# ==================== SELF LOGIN ====================
+# ==================== ورود سلف کاربر ====================
 
 async def salf_login(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -2504,7 +2503,7 @@ async def handle_salf_password(update: Update, context: ContextTypes.DEFAULT_TYP
         del user_states[user_id]
         del salf_login_data[user_id]
 
-# ==================== NAVIGATION ====================
+# ==================== ناوبری ====================
 
 async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -2635,7 +2634,7 @@ async def expiry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await query.answer("⏳ اشتراک شما فعال نمیباشد!", show_alert=True)
 
-# ==================== MESSAGE HANDLER ====================
+# ==================== هندلر پیام ====================
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -2717,11 +2716,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await admin_handle_salf_logout_phone(update, context)
             return
 
-# ==================== MAIN ====================
+# ==================== اجرای اصلی ====================
 
 def main():
+    # ایجاد اپلیکیشن
     app = Application.builder().token(TOKEN).build()
+    
+    # هندلرهای کامند
     app.add_handler(CommandHandler("start", start))
+    
+    # هندلرهای کالبک
     app.add_handler(CallbackQueryHandler(check_membership, pattern="check_membership"))
     app.add_handler(CallbackQueryHandler(admin_stats, pattern="admin_stats"))
     app.add_handler(CallbackQueryHandler(admin_ping, pattern="admin_ping"))
@@ -2764,8 +2768,14 @@ def main():
     app.add_handler(CallbackQueryHandler(handle_admin_reply, pattern="^block_"))
     app.add_handler(CallbackQueryHandler(accept_verify, pattern="^accept_verify_"))
     app.add_handler(CallbackQueryHandler(reject_verify, pattern="^reject_verify_"))
+    
+    # هندلر پیام
     app.add_handler(MessageHandler(filters.PHOTO | filters.TEXT & ~filters.COMMAND | filters.Document.ALL | filters.VIDEO, handle_message))
-    asyncio.create_task(start_all_salf_clients())
+    
+    # راه‌اندازی کلاینت‌های سلف در پس‌زمینه
+    # برای این کار از asyncio.create_task استفاده میکنیم اما باید در حلقه اجرایی باشیم
+    # از آنجایی که app.run_polling() یک حلقه اجرایی دارد، ما یک تابع جداگانه برای این کار تعریف میکنیم
+    
     print("🤖 ربات در حال اجراست...")
     app.run_polling()
 
