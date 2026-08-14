@@ -833,11 +833,6 @@ async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     user_id = query.from_user.id
     
-    # بررسی اینکه کاربر از کجا اومده (منوی کاربران یا پنل مدیریت)
-    if user_id in user_menu_mode and user_menu_mode[user_id]:
-        # اگه از منوی کاربران اومده، این رو ذخیره میکنیم
-        user_states[user_id] = "from_user_menu"
-    
     if is_user_banned(user_id):
         await query.edit_message_text(
             "<b>🚫 شما از طرف مدیریت مسدود شده اید!</b>\n<b>📌 در صورت نیاز با پشتیبانی تماس بگیرید.</b>",
@@ -853,7 +848,7 @@ async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     keyboard = [
         [InlineKeyboardButton("💥 لغو اتصال", callback_data="disconnect_support")],
-        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="back_from_support")]
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
@@ -864,33 +859,15 @@ async def disconnect_support(update: Update, context: ContextTypes.DEFAULT_TYPE)
     user_id = query.from_user.id
     if user_id in support_mode:
         del support_mode[user_id]
-    if user_id in user_states:
-        del user_states[user_id]
     text = (
         "<b>⚡ اتصال شما با تیم پشتیبانی با موفقیت قطع شد.</b>\n"
         "<b>📌 با استفاده از دکمه زیر میتوانید به منوی اصلی بازگردید.</b>"
     )
     keyboard = [
-        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="back_from_support")]
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
-
-async def back_from_support(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    user_id = query.from_user.id
-    
-    if user_id in support_mode:
-        del support_mode[user_id]
-    
-    # بررسی اینکه کاربر از منوی کاربران اومده یا پنل مدیریت
-    if user_id in user_states and user_states[user_id] == "from_user_menu":
-        # برگشت به منوی کاربران
-        await show_user_menu(update, context, query)
-    else:
-        # برگشت به منوی اصلی
-        await main_menu(update, context)
 
 async def handle_support_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -1243,12 +1220,7 @@ async def admin_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     user_mention = f"@{query.from_user.username}" if query.from_user.username else query.from_user.first_name
     
-    # اگر کاربر از منوی کاربران اومده بود، به منوی کاربران برگرد
-    if user_id in user_menu_mode and user_menu_mode[user_id]:
-        await show_user_menu(update, context, query)
-        return
-    
-    # در غیر این صورت به پنل مدیریت برگرد
+    # همیشه به پنل مدیریت برگرد (صفحه اصلی ادمین)
     text = (
         f"<b>⚡ درود {user_mention} به پنل ریپر سلف خوش آمدید.</b>\n\n"
         "<b>📌 در این پنل میتوانید ربات را کنترل و مدیریت کنید.</b>\n\n"
@@ -1385,13 +1357,6 @@ async def verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_user_verified(user_id):
         await query.answer("✅ شما قبلاً احراز هویت شده اید!", show_alert=True)
         return
-    
-    # ذخیره میکنیم که کاربر از کجا اومده
-    if user_id in user_menu_mode and user_menu_mode[user_id]:
-        user_states[user_id] = "from_user_menu_verify"
-    else:
-        user_states[user_id] = "from_main_menu_verify"
-    
     text = (
         "<b>📌 به منوی احراز هویت خوش آمدید.</b>\n\n"
         "<b>📌 لطفا یکی از گزینه‌های زیر را انتخاب نمایید:</b>"
@@ -1399,7 +1364,7 @@ async def verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("❌ حذف کارت", callback_data="delete_card")],
         [InlineKeyboardButton("➕ کارت جدید", callback_data="new_card")],
-        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="back_from_verify")]
+        [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="back_from_user_menu")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
@@ -1441,7 +1406,6 @@ async def handle_verify_photo(update: Update, context: ContextTypes.DEFAULT_TYPE
         await update.message.reply_text("<b>❌ لطفا فقط عکس ارسال کنید!</b>", parse_mode='HTML')
         return
     
-    # ذخیره عکس
     photo = update.message.photo[-1]
     pending_verify[user_id] = {'photo_id': photo.file_id}
     user_states[user_id] = "waiting_for_card_number"
@@ -1472,10 +1436,8 @@ async def handle_verify_card_number(update: Update, context: ContextTypes.DEFAUL
     user_mention = f"@{user.username}" if user.username else user.first_name
     user_id_str = str(user_id)
     
-    # دریافت عکس
     photo_id = pending_verify.get(user_id, {}).get('photo_id')
     
-    # ثبت درخواست در دیتابیس
     request_id = db_add_verify_request(user_id, user_mention, card_number, photo_id)
     
     iran_tz = pytz.timezone('Asia/Tehran')
@@ -1483,7 +1445,6 @@ async def handle_verify_card_number(update: Update, context: ContextTypes.DEFAUL
     time_str = iran_time.strftime('%H:%M')
     date_str = iran_time.strftime('%Y-%m-%d')
     
-    # ارسال به ادمین‌ها
     for admin_id in ADMIN_IDS:
         try:
             admin_text = (
@@ -1529,7 +1490,6 @@ async def handle_verify_card_number(update: Update, context: ContextTypes.DEFAUL
         parse_mode='HTML'
     )
     
-    # پاک کردن وضعیت
     if user_id in pending_verify:
         del pending_verify[user_id]
     if user_id in user_states:
@@ -1603,21 +1563,13 @@ async def back_to_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
         del user_states[query.from_user.id]
     await verify(update, context)
 
-async def back_from_verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def back_from_user_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
-    
     if user_id in user_states:
         del user_states[user_id]
-    if user_id in pending_verify:
-        del pending_verify[user_id]
-    
-    # بررسی اینکه کاربر از منوی کاربران اومده یا نه
-    if user_id in user_menu_mode and user_menu_mode[user_id]:
-        await show_user_menu(update, context, query)
-    else:
-        await main_menu(update, context)
+    await show_user_menu(update, context, query)
 
 # ==================== BLOCK/UNBLOCK ====================
 
@@ -2574,11 +2526,6 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id in salf_login_data:
         del salf_login_data[user_id]
     
-    # اگر کاربر از منوی کاربران اومده بود، منوی کاربران رو نشون بده
-    if user_id in user_menu_mode and user_menu_mode[user_id]:
-        await show_user_menu(update, context, query)
-        return
-    
     if is_admin(user_id):
         text = (
             f"<b>⚡ درود {user_mention} به پنل ریپر سلف خوش آمدید.</b>\n\n"
@@ -2620,15 +2567,6 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard.append([InlineKeyboardButton("💎 نرخ", callback_data="rate")])
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
-
-async def back_from_user_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    user_id = query.from_user.id
-    if user_id in user_states:
-        del user_states[user_id]
-    # برگشت به منوی کاربران
-    await show_user_menu(update, context, query)
 
 async def buy_1_month(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -2777,14 +2715,12 @@ def main():
     app.add_handler(CallbackQueryHandler(admin_back, pattern="admin_back"))
     app.add_handler(CallbackQueryHandler(support, pattern="support"))
     app.add_handler(CallbackQueryHandler(disconnect_support, pattern="disconnect_support"))
-    app.add_handler(CallbackQueryHandler(back_from_support, pattern="back_from_support"))
     app.add_handler(CallbackQueryHandler(what_is_self, pattern="what_is_self"))
     app.add_handler(CallbackQueryHandler(verify, pattern="verify"))
     app.add_handler(CallbackQueryHandler(verified_already, pattern="verified_already"))
     app.add_handler(CallbackQueryHandler(delete_card, pattern="delete_card"))
     app.add_handler(CallbackQueryHandler(new_card, pattern="new_card"))
     app.add_handler(CallbackQueryHandler(back_to_verify, pattern="back_to_verify"))
-    app.add_handler(CallbackQueryHandler(back_from_verify, pattern="back_from_verify"))
     app.add_handler(CallbackQueryHandler(buy_subscription, pattern="buy_subscription"))
     app.add_handler(CallbackQueryHandler(buy_with_code, pattern="buy_with_code"))
     app.add_handler(CallbackQueryHandler(salf_login, pattern="salf_login"))
