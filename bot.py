@@ -1179,7 +1179,10 @@ async def show_user_menu(update, context, query):
         keyboard.append([InlineKeyboardButton("🔑 ورود سلف", callback_data="salf_login")])
     
     keyboard.append([InlineKeyboardButton("💎 نرخ", callback_data="rate")])
-    keyboard.append([InlineKeyboardButton("🎈 پنل مدیریت", callback_data="admin_back")])
+    
+    # فقط برای ادمین‌ها دکمه پنل مدیریت نمایش داده میشه
+    if is_admin(user_id):
+        keyboard.append([InlineKeyboardButton("🎈 پنل مدیریت", callback_data="admin_back")])
     
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='HTML')
