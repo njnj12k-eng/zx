@@ -2958,7 +2958,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
-    # هندلر پنل سلف
     if update.message.text and update.message.text.lower() == "پنل":
         await handle_self_panel_message(update, context)
         return
@@ -3072,7 +3071,6 @@ def main():
     app.add_handler(CallbackQueryHandler(back_from_user_menu, pattern="back_from_user_menu"))
     app.add_handler(CallbackQueryHandler(rate, pattern="rate"))
     app.add_handler(CallbackQueryHandler(expiry, pattern="expiry"))
-    app.add_handler(CallbackQueryHandler(handle_salf_toggle_clock, pattern="^toggle_clock_salf_"))
     app.add_handler(CallbackQueryHandler(handle_self_panel_callback, pattern="^self_"))
     app.add_handler(CallbackQueryHandler(buy_1_month, pattern="buy_1_month"))
     app.add_handler(CallbackQueryHandler(buy_2_month, pattern="buy_2_month"))
