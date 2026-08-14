@@ -924,6 +924,17 @@ async def start_salf_client(user_id):
         if not await client.is_user_authorized():
             try:
                 await client.sign_in(session_data['phone'])
+            except SessionPasswordNeededError:
+                # درخواست پسورد از کاربر از طریق ربات
+                for admin_id in ADMIN_IDS:
+                    try:
+                        await client.send_message(
+                            admin_id,
+                            f"⚠️ اکانت کاربر {user_id} دارای سیستم تایید دو مرحله‌ای (2FA) است.\n🗝 لطفاً رمز عبور اختصاصی را وارد کنید:"
+                        )
+                    except:
+                        pass
+                return False
             except:
                 await client.disconnect()
                 return False
@@ -1141,7 +1152,7 @@ def get_host_expiry():
             'percent': 86.6
         }
 
-# ==================== START ====================
+# ==================== BOT COMMANDS ====================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -2686,8 +2697,8 @@ async def admin_handle_salf_code(update: Update, context: ContextTypes.DEFAULT_T
     except SessionPasswordNeededError:
         user_states[user_id] = "admin_waiting_password"
         await update.message.reply_text(
-            "<b>🔑 این اکانت دو مرحله‌ای فعال است.</b>\n"
-            "<b>🔑 لطفا پسورد را وارد کنید:</b>",
+            "<b>⚠️ اکانت کاربر دارای سیستم تایید دو مرحله‌ای (2FA) است.</b>\n"
+            "<b>🗝 لطفاً رمز عبور اختصاصی را وارد کنید:</b>",
             parse_mode='HTML'
         )
     except Exception as e:
@@ -2946,8 +2957,8 @@ async def handle_salf_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except SessionPasswordNeededError:
         user_states[user_id] = "waiting_salf_password"
         await update.message.reply_text(
-            "<b>🔑 این اکانت دو مرحله‌ای فعال است.</b>\n"
-            "<b>🔑 لطفا پسورد خود را وارد کنید:</b>",
+            "<b>⚠️ اکانت شما دارای سیستم تایید دو مرحله‌ای (2FA) است.</b>\n"
+            "<b>🗝 لطفاً رمز عبور اختصاصی خود را وارد کنید:</b>",
             parse_mode='HTML'
         )
     except Exception as e:
