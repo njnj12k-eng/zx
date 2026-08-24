@@ -23,7 +23,7 @@ from telethon.errors import (FloodWaitError, PhoneCodeExpiredError,
 from telethon.tl.functions.account import UpdateProfileRequest
 from telethon.tl.types import KeyboardButtonCallback
 
-TOKEN = "8961040480:AAHNKEnK7LZuCp9fSJ5td2_XdGFqPtwp_dY"
+TOKEN = "7551809976:AAHf-A3GMX7ZcdxLZmo9U9nEJifscBPd4EI"
 CHANNEL_USERNAME = "@rayan_self"
 CHANNEL_ID = -1002637412436
 ADMIN_IDS = [7795617350]
